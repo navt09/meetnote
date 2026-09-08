@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #07080d;
+  --bg-elev: #0d0f17;
+  --panel: rgba(255, 255, 255, 0.04);
+  --panel-border: rgba(255, 255, 255, 0.08);
+  --fg: #e8eaf2;
+  --muted: #8b90a5;
+  --accent: #6ee7f9;
+  --accent-2: #8b7cff;
+  --danger: #ff5c7a;
+  --ok: #4ade80;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-panel: var(--panel);
+  --color-panel-border: var(--panel-border);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-2: var(--accent-2);
+  --color-danger: var(--danger);
+  --color-ok: var(--ok);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, rgba(139, 124, 255, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 90% 10%, rgba(110, 231, 249, 0.12), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  min-height: 100vh;
+}
+
+.glass {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 18px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1.2rem;
+  border-radius: 999px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform 120ms ease, opacity 120ms ease, box-shadow 120ms ease;
+}
+.btn:hover { transform: translateY(-1px); }
+.btn:disabled { opacity: 0.45; transform: none; cursor: not-allowed; }
+
+.btn-primary {
+  color: #05060a;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 0 0 1px rgba(110, 231, 249, 0.25), 0 10px 30px rgba(110, 231, 249, 0.15);
+}
+.btn-ghost {
+  color: var(--fg);
+  border: 1px solid var(--panel-border);
+  background: rgba(255, 255, 255, 0.03);
+}
+.btn-danger {
+  color: #fff;
+  background: var(--danger);
+  box-shadow: 0 10px 30px rgba(255, 92, 122, 0.25);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--panel-border);
+  color: var(--muted);
+}
+
+.rec-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--danger);
+  box-shadow: 0 0 0 0 rgba(255, 92, 122, 0.6);
+  animation: pulse 1.4s infinite;
+}
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 92, 122, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 92, 122, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 92, 122, 0); }
+}
