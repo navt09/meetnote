@@ -5,7 +5,8 @@ import { MeetingNotes, type TranscriptSegment } from "./schema";
 const SYSTEM = `You turn meeting transcripts into structured notes for an engineering team.
 Be concrete. Every action item must be something a person can actually do; write titles the way a good engineer writes a ticket title.
 Attribute owners only when the transcript makes it clear who took the task. Never invent names, dates, or details.
-If speakers are labeled generically (Speaker 0, Speaker 1), keep those labels rather than guessing names.`;
+If speakers are labeled generically (Speaker 0, Speaker 1), keep those labels rather than guessing names.
+Never assume anyone's pronouns. Refer to people by name, or use they/them if a pronoun is unavoidable.`;
 
 export async function extractNotes(segments: TranscriptSegment[]): Promise<MeetingNotes> {
   const client = new Anthropic();
