@@ -2,6 +2,21 @@ import { describe, expect, it } from "vitest";
 import { formatTimestamp, normalizeUtterances, wordCount } from "../transcript";
 
 describe("normalizeUtterances", () => {
+  it("stops merging before one speaker label swallows the whole meeting", () => {
+    // Deepgram labels everyone Speaker 0 - which is what happens when the two
+    // voices really are one person - and every gap is short enough to merge.
+    const utts = Array.from({ length: 20 }, (_, i) => ({
+      speaker: 0,
+      transcript: `line ${i}`,
+      start: i * 3,
+      end: i * 3 + 2.5,
+    }));
+    const out = normalizeUtterances(utts);
+    expect(out.length).toBeGreaterThan(1);
+    for (const seg of out) expect(seg.end - seg.start).toBeLessThanOrEqual(20);
+  });
+
+
   it("merges quick consecutive lines from the same speaker", () => {
     const out = normalizeUtterances([
       { speaker: 1, transcript: "Also,", start: 28.27, end: 28.99 },

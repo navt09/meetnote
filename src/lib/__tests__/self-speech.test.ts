@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { compactWindows, isSelfSample, parseSelfSpeech, rmsDb, tagSelf } from "../self-speech";
+import { isSelfSample, parseSelfSpeech, rmsDb, tagSelf, windowsFromMarks } from "../self-speech";
 import type { TranscriptSegment } from "../schema";
 
 describe("isSelfSample", () => {
@@ -25,24 +25,48 @@ describe("rmsDb", () => {
   });
 });
 
-describe("compactWindows", () => {
-  const on = true, off = false;
-  it("turns runs into windows in seconds", () => {
-    // 200 ms samples: on for 5 samples = 1 s, off, on for 3 = 0.6 s
-    expect(compactWindows([on, on, on, on, on, off, off, off, on, on, on])).toEqual([
+describe("windowsFromMarks", () => {
+  /** Readings taken every `everyS` seconds, self while `self(i)` says so. */
+  const series = (n: number, everyS: number, self: (i: number) => boolean) =>
+    Array.from({ length: n }, (_, i) => ({ t: i * everyS, self: self(i) }));
+
+  it("turns runs into windows on the real clock", () => {
+    // sampled every 200ms: self for the first second, silent, then self again
+    const marks = series(11, 0.2, (i) => i < 5 || i >= 8);
+    expect(windowsFromMarks(marks)).toEqual([
       [0, 1],
       [1.6, 2.2],
     ]);
   });
+
+  it("keeps real time when the browser throttles the timer", () => {
+    // The bug this replaced: 45 readings that took 45s were reported as 9s,
+    // because a sample count was multiplied by the interval we hoped for.
+    const throttled = series(45, 1.04, () => true);
+    const [only] = windowsFromMarks(throttled);
+    expect(only[0]).toBeCloseTo(0, 3);
+    expect(only[1]).toBeGreaterThan(44); // the whole recording, not a fifth of it
+  });
+
+  it("does not stretch one reading across a long gap in sampling", () => {
+    // A 30s hole between two readings means we do not know what happened.
+    const marks = [{ t: 0, self: true }, { t: 0.2, self: true }, { t: 30, self: true }, { t: 30.2, self: true }];
+    const [first, second] = windowsFromMarks(marks);
+    expect(first[1] - first[0]).toBeCloseTo(1.7, 3); // 0.2s of readings + a capped 1.5s bridge, not 30s
+    expect(second[0]).toBeCloseTo(30, 3);
+  });
+
   it("drops blips shorter than the minimum", () => {
-    expect(compactWindows([off, on, off, off])).toEqual([]);
+    expect(windowsFromMarks([{ t: 0, self: false }, { t: 0.2, self: true }, { t: 0.4, self: false }])).toEqual([]);
   });
+
   it("bridges a short gap between two words", () => {
-    // 1 s on, one sample (200 ms) off, 1 s on -> one window
-    expect(compactWindows([on, on, on, on, on, off, on, on, on, on, on])).toEqual([[0, 2.2]]);
+    const marks = series(11, 0.2, (i) => i !== 5);
+    expect(windowsFromMarks(marks)).toEqual([[0, 2.2]]);
   });
+
   it("handles an empty series", () => {
-    expect(compactWindows([])).toEqual([]);
+    expect(windowsFromMarks([])).toEqual([]);
   });
 });
 

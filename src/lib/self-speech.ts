@@ -26,6 +26,15 @@ import type { TranscriptSegment } from "./schema";
 export type Window = [number, number];
 
 export const SAMPLE_MS = 200;
+/**
+ * How long one sample is allowed to stand for. The browser clamps timers in a
+ * background tab to about a second, and the recorder tab is backgrounded
+ * whenever someone is actually looking at their meeting, so the real gap
+ * between samples is routinely five times the nominal one. Beyond this, we
+ * admit we do not know what happened rather than stretching a 20ms reading
+ * across it.
+ */
+export const MAX_SAMPLE_SPAN_S = 1.5;
 /** Below this the mic is background noise, whatever the meeting audio is doing. */
 export const SELF_MIN_DB = -50;
 /** The mic must beat the meeting audio by this much: bleed never does, a person at the mic always does. */
@@ -47,31 +56,47 @@ export function isSelfSample(micDb: number, meetingDb: number, hasMeetingAudio: 
   return micDb - meetingDb >= SELF_MARGIN_DB;
 }
 
+/** One reading of who was talking, stamped with when it was taken. */
+export type Mark = { t: number; self: boolean };
+
 /**
- * Turns a per-sample yes/no series into merged windows. Runs shorter than
- * minMs are dropped (a cough, a chair) and gaps shorter than joinMs are
- * bridged (the pause between two words).
+ * Turns timestamped readings into merged windows.
+ *
+ * Timestamps come from the audio clock, not from counting samples: an earlier
+ * version multiplied a sample count by the nominal interval, which silently
+ * compressed the whole timeline whenever the browser throttled the timer.
+ *
+ * Each "self" reading stands for the span until the next reading, capped at
+ * MAX_SAMPLE_SPAN_S. Runs shorter than minMs are dropped (a cough, a chair)
+ * and gaps shorter than joinMs are bridged (the pause between two words).
  */
-export function compactWindows(samples: boolean[], sampleMs = SAMPLE_MS, minMs = 400, joinMs = 300): Window[] {
+export function windowsFromMarks(marks: Mark[], minMs = 400, joinMs = 300): Window[] {
   const raw: Window[] = [];
-  let start = -1;
-  for (let i = 0; i <= samples.length; i++) {
-    const on = i < samples.length && samples[i];
-    if (on && start < 0) start = i;
-    if (!on && start >= 0) {
-      raw.push([start * sampleMs, i * sampleMs]);
-      start = -1;
-    }
+  for (let i = 0; i < marks.length; i++) {
+    if (!marks[i].self) continue;
+    const start = marks[i].t;
+    const next = marks[i + 1]?.t;
+    // The last reading has nothing after it to bound it, so it stands only for
+    // its own nominal interval. The generous cap is for bridging between two
+    // readings; there is no such evidence at the tail of a recording.
+    const span = next === undefined ? SAMPLE_MS / 1000 : Math.min(next - start, MAX_SAMPLE_SPAN_S);
+    if (span <= 0) continue;
+    const prev = raw[raw.length - 1];
+    if (prev && start <= prev[1]) prev[1] = Math.max(prev[1], start + span);
+    else raw.push([start, start + span]);
   }
 
   const joined: Window[] = [];
   for (const w of raw) {
     const prev = joined[joined.length - 1];
-    if (prev && w[0] - prev[1] <= joinMs) prev[1] = w[1];
+    if (prev && w[0] - prev[1] <= joinMs / 1000) prev[1] = w[1];
     else joined.push([w[0], w[1]]);
   }
 
-  return joined.filter((w) => w[1] - w[0] >= minMs).map((w) => [w[0] / 1000, w[1] / 1000]);
+  // Compared with a tolerance: these are floating-point seconds off an audio
+  // clock, and a window of exactly minMs can measure a hair under it purely
+  // by where it sits on the timeline (30.4 - 30 is 0.39999999999999858).
+  return joined.filter((w) => (w[1] - w[0]) * 1000 >= minMs - 1e-6);
 }
 
 /**
