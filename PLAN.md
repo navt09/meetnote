@@ -82,10 +82,34 @@ Email limits: Supabase's built-in mailer sends at most 2 auth emails an hour and
 
 Done: drafting and approval. Pressing "draft ticket" on a task writes a real engineering ticket from the meeting transcript; "draft email" on a flagged person writes the follow-up. Everything lands in **Approvals**, where it can be edited, approved, dismissed or copied out. Nothing leaves From the Call without a person approving it, and the model can only draft for people the notes actually named.
 
-Still to do in Phase 3: push an approved draft straight into Linear or Jira (needs the customer's API key and a settings page), send an approved email through Gmail, post a summary to Slack, and bring-your-own-LLM.
+Done since (2026-09-09): all four connectors. Linear, Jira, Slack and Google are OAuth apps with one-click Connect buttons in Settings; approved tickets are created as real Linear or Jira issues, approved emails send through the user's Gmail, tasks can be blocked out on their calendar, and summaries post to Slack. Credentials are encrypted at rest and never returned to the browser. All four consent flows are verified working against production.
 
-**Phase 4: money and polish.**
+Also done since: the notes say what the meeting means for the person who recorded it. The recorder measures which voice is theirs from the microphone against the meeting audio, so their own lines carry their name and the notes carry a "for you" section drawn from what they actually said.
+
+Bring-your-own-LLM was removed, not deferred: it asked customers for an API key, which is exactly the kind of setup friction the OAuth work was meant to eliminate.
+
+**Not yet true of Phase 3:** no connector has ever delivered anything to a real Linear, Jira, Slack or Google account. The consent flows are proven; the send path is not.
+
+**Phase 4: money and polish.** Not started.
 Stripe plans, team workspaces, search across meetings, desktop recorder, consent notice and retention settings.
+
+### Before anyone else can sign up
+
+These are ordered by what unblocks what, not by size. The domain is the keystone: three other items are waiting on it.
+
+1. **Buy the domain** (~$11/yr). Everything below either needs it or gets redone without it.
+2. **Point it at Vercel**, then update Supabase's redirect URLs and all four OAuth callback URLs to match. Doing this before registering anything else avoids registering it twice.
+3. **Set `OWNER_EMAILS` in Vercel.** Owner is currently granted by a database row set by hand, which a fresh environment will not know about.
+4. **Publish the Google app to production.** While it sits in Testing, Google expires every refresh token after seven days, so Gmail and Calendar connections silently die weekly.
+5. **Make `hello@fromthecall.com` receive mail.** It is on the landing page and both legal pages today, and it bounces.
+6. **Usage cap and Resend, in the same change.** Custom SMTP is what actually opens signup to the world. Shipping it without a cap means strangers can spend money without limit. Either is safe alone in the other order; the combination to avoid is Resend first.
+7. **Stripe.** Both pricing buttons currently create a free account, so the shopfront quotes a price nothing can charge.
+
+### Known gaps worth naming
+
+- **No account deletion.** The privacy policy promises erasure by email within 30 days, and storage has no cascade, so honouring it today means deleting the bucket prefix by hand. A self-serve route should clear `<user_id>/` before the row.
+- **No usage cap.** Unchanged from the Phase 2 decision below.
+- **Delivery untested end to end.** See Phase 3.
 
 ## Decisions and deferred work
 
