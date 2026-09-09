@@ -50,11 +50,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 <Logo size={27} />
                 <span className={email ? "hidden lg:inline" : "inline"}>From the Call</span>
               </Link>
-              <nav className="flex min-w-0 items-center gap-3 text-sm text-muted">
+              <nav className="no-scrollbar flex min-w-0 items-center gap-3 overflow-x-auto text-sm text-muted">
                 {email ? (
                   <>
                     <NavTabs isOwner={isOwner} />
-                    <form action="/auth/signout" method="post" className="flex items-center gap-3 border-l border-panel-border pl-3">
+                    <form action="/auth/signout" method="post" className="flex shrink-0 items-center gap-3 border-l border-panel-border pl-3">
                       <span className="hidden max-w-[16ch] truncate text-xs text-faint sm:inline" title={email}>{email}</span>
                       <button className="whitespace-nowrap text-xs transition-colors hover:text-fg" type="submit">Sign out</button>
                     </form>

@@ -26,7 +26,7 @@ export default function NavTabs({ isOwner = false }: { isOwner?: boolean }) {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+            className={`whitespace-nowrap rounded-md px-2.5 py-1.5 text-sm transition-colors ${
               active ? "bg-panel-hi font-medium text-fg" : "text-muted hover:text-fg"
             }`}
           >

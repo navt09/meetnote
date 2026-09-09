@@ -67,12 +67,22 @@ html {
   color-scheme: dark;
 }
 
+html, body {
+  /* The page never scrolls sideways. Anything wider than the viewport is a bug
+     to fix in place, not a reason to let the whole page slide. */
+  overflow-x: clip;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
+
+/* A row that scrolls within itself without showing a bar: the header tabs on a phone. */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
 /* ---------- surfaces ---------- */
 
