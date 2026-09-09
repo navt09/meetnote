@@ -54,7 +54,7 @@ export async function postMessage(creds: SlackCredentials, message: SlackMessage
   if (message.linkUrl) {
     blocks.push({
       type: "section",
-      text: { type: "mrkdwn", text: `<${message.linkUrl}|${escapeMrkdwn(message.linkLabel ?? "Open in Meetnote")}>` },
+      text: { type: "mrkdwn", text: `<${message.linkUrl}|${escapeMrkdwn(message.linkLabel ?? "Open in From the Call")}>` },
     });
   }
 
@@ -89,7 +89,7 @@ export async function postMessage(creds: SlackCredentials, message: SlackMessage
 export async function verify(creds: SlackCredentials): Promise<{ ok: true } | { ok: false; error: string }> {
   try {
     await postMessage(creds, {
-      heading: "Meetnote is connected",
+      heading: "From the Call is connected",
       body: "Meeting summaries you send will appear here.",
     });
     return { ok: true };

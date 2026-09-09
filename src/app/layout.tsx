@@ -11,7 +11,7 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Meetnote",
+  title: "From the Call",
   description: "Record any meeting, get notes, tasks, and follow-ups done.",
 };
 
@@ -36,8 +36,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
               <Link href={email ? "/dashboard" : "/"} className="flex items-center gap-2 text-[0.9375rem] font-semibold tracking-tight">
-                <span className="grid h-5 w-5 place-items-center rounded bg-accent text-[0.625rem] font-bold text-[color:var(--accent-ink)]">M</span>
-                meetnote
+                <span className="grid h-5 w-5 place-items-center rounded bg-accent text-[0.625rem] font-bold text-[color:var(--accent-ink)]">F</span>
+                fromthecall
               </Link>
               <nav className="flex items-center gap-3 text-sm text-muted">
                 {email ? (

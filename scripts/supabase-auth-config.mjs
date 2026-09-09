@@ -1,4 +1,4 @@
-// Applies meetnote's Supabase Auth URL settings, so sign-in links land on the
+// Applies fromthecall's Supabase Auth URL settings, so sign-in links land on the
 // right site instead of localhost.
 //
 //   node scripts/supabase-auth-config.mjs          # show current vs wanted
@@ -20,7 +20,7 @@ const SITE_URL = "https://meetnote-navt1.vercel.app";
 const REDIRECTS = [
   `${SITE_URL}/**`,
   // Vercel gives every deployment its own hostname; allow those too.
-  "https://meetnote-*-navt1.vercel.app/**",
+  "https://fromthecall-*-navt1.vercel.app/**",
   "http://localhost:3000/**",
 ];
 

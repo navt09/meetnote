@@ -6,7 +6,7 @@ import { EmptyState } from "@/components/ui";
 import RecordView from "./record-view";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Record · Meetnote" };
+export const metadata = { title: "Record · From the Call" };
 
 export default async function RecordPage() {
   const db = await supabaseServer();

@@ -1,9 +1,9 @@
-# Meetnote
+# From the Call
 
 Meeting-notes SaaS. Read PLAN.md first for product, stack, phases, and the account checklist.
 
 ## Hard rules
-- This product is separate from Protegion Life. Never deploy to the "Protegion Life's projects" Vercel team or create resources in the "Protegion" Supabase organization. Meetnote's Supabase project and Vercel project live in separate accounts that are not reachable from the MCP connectors in this session.
+- This product is separate from Protegion Life. Never deploy to the "Protegion Life's projects" Vercel team or create resources in the "Protegion" Supabase organization. From the Call's Supabase project and Vercel project live in separate accounts that are not reachable from the MCP connectors in this session.
 - Secrets live only in `.env.local` (git-ignored). Template: `.env.example`. Never write real values into `.env.example`.
 - Plain code wherever possible; the LLM is only used to understand language (extracting tasks from a transcript, drafting text). Explain every new AI call.
 - Every API route checks auth via `getAuth(req)` (cookie session or `Authorization: Bearer`). Row Level Security on `meetings` is the real boundary; the service role is only used for storage signing and the post-response pipeline, always scoped by `user_id`.
@@ -63,7 +63,7 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 
 ## The agent (Phase 3)
 - `src/lib/agent.ts` is the only place the model writes text a person might send. It drafts a ticket from a task, or a follow-up email for someone the notes named. It rephrases the transcript and never invents facts; when something is missing it says so in the draft.
-- Drafts land in the `drafts` table as `pending` and show on `/approvals`. A person edits, approves or dismisses. **Nothing is ever sent from Meetnote without an explicit approval**, and there is no code path that sends without one.
+- Drafts land in the `drafts` table as `pending` and show on `/approvals`. A person edits, approves or dismisses. **Nothing is ever sent from From the Call without an explicit approval**, and there is no code path that sends without one.
 - An email can only be drafted for a person already in that meeting's `people_to_contact`; free-text targets are refused.
 - One live ticket draft per task (unique index on `drafts.task_id`; upsert replaces). Drafts cascade away with their meeting.
 - Draft bodies keep their Markdown, because that is what Linear and Jira expect on paste. `src/lib/markdown-lite.ts` renders a preview as React elements, never HTML, so model output cannot inject markup.

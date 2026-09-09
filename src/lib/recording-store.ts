@@ -1,7 +1,7 @@
 // Browser-only. Saves recording chunks to IndexedDB every few seconds so a
 // crashed tab or closed laptop doesn't lose the meeting.
 
-const DB_NAME = "meetnote";
+const DB_NAME = "fromthecall";
 const DB_VERSION = 1;
 const RECORDINGS = "recordings";
 const CHUNKS = "chunks";

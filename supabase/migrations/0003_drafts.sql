@@ -1,5 +1,5 @@
 -- Drafted follow-up work: a ticket written from a task, or an email written
--- from a person the meeting said to contact. Nothing leaves Meetnote until a
+-- from a person the meeting said to contact. Nothing leaves From the Call until a
 -- person approves it.
 -- Safe to run more than once.
 

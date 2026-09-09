@@ -3,7 +3,7 @@ import { sortDrafts, toPublicDraft, type DraftRow } from "@/lib/draft";
 import ApprovalsView from "./approvals-view";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Approvals · Meetnote" };
+export const metadata = { title: "Approvals · From the Call" };
 
 type Joined = DraftRow & { meetings: { title: string } | null };
 

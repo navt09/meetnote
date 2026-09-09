@@ -5,7 +5,7 @@ import { listAccounts, type OwnerAccount } from "@/lib/owner-store";
 import OwnerView from "./owner-view";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Owner · Meetnote" };
+export const metadata = { title: "Owner · From the Call" };
 
 /**
  * The operator's page: who has signed up, what they cost, and the only way to

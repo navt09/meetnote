@@ -42,7 +42,7 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!stored) return NextResponse.json({ error: "Connect Google in Settings first." }, { status: 400 });
   if (!hasScope(stored.config.scopes ?? [], SCOPE_CALENDAR_WRITE)) {
     return NextResponse.json(
-      { error: "Meetnote can read your calendar but not add to it. Reconnect Google in Settings to allow it." },
+      { error: "From the Call can read your calendar but not add to it. Reconnect Google in Settings to allow it." },
       { status: 400 },
     );
   }
@@ -52,7 +52,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const due = parseDue(task.due, now) ?? new Date(now.getTime() + 24 * 3600_000);
   const slot = slotFor(due, MINUTES[task.kind] ?? 60, now);
 
-  const description = [task.details, "", `From Meetnote · ${task.owner ? `owner: ${task.owner}` : "unassigned"}`]
+  const description = [task.details, "", `From From the Call · ${task.owner ? `owner: ${task.owner}` : "unassigned"}`]
     .filter(Boolean)
     .join("\n");
 

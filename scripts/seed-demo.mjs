@@ -4,7 +4,7 @@
 //   node scripts/seed-demo.mjs [baseUrl] [audioFile]   # create, print credentials
 //   node scripts/seed-demo.mjs --clean                 # delete every demo account
 //
-// Demo accounts use the demo-*@meetnote.invalid pattern and can't receive email.
+// Demo accounts use the demo-*@fromthecall.invalid pattern and can't receive email.
 
 import { readFileSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
@@ -32,7 +32,7 @@ if (process.argv.includes("--clean")) {
   if (error) throw error;
   let n = 0;
   for (const u of data.users) {
-    if (u.email?.startsWith("demo-") && u.email.endsWith("@meetnote.invalid")) {
+    if (u.email?.startsWith("demo-") && u.email.endsWith("@fromthecall.invalid")) {
       // Storage is not covered by the database cascade, so clear it explicitly.
       const paths = [];
       const { data: months } = await admin.storage.from("recordings").list(u.id, { limit: 1000 });
@@ -53,7 +53,7 @@ if (process.argv.includes("--clean")) {
 
 const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
 const AUDIO = process.argv[3] ?? "C:/Users/navee/AppData/Local/Temp/mn/standup.wav";
-const email = `demo-${Date.now()}@meetnote.invalid`;
+const email = `demo-${Date.now()}@fromthecall.invalid`;
 const password = "demo-password-1234";
 
 const { data: newUser, error: cuErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });

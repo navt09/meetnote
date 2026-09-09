@@ -9,7 +9,7 @@ import { toPublicConnector, type ConnectorRow, type TicketProvider } from "@/lib
 import SettingsView from "./settings-view";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Settings · Meetnote" };
+export const metadata = { title: "Settings · From the Call" };
 
 export default async function SettingsPage() {
   const db = await supabaseServer();

@@ -1,4 +1,4 @@
--- Meetnote: meetings table with per-user row security.
+-- From the Call: meetings table with per-user row security.
 -- Safe to run more than once.
 
 create extension if not exists "pgcrypto";

@@ -10,7 +10,7 @@ import { HeroFigure, StatTile } from "@/components/stat-tile";
 import { StatusPill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Dashboard · Meetnote" };
+export const metadata = { title: "Dashboard · From the Call" };
 
 const WEEKS = 8;
 

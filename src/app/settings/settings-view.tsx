@@ -559,7 +559,7 @@ function GoogleCard({
     >
       {stale ? (
         <p className="text-xs text-warn">
-          This connection was made before calendar writing was added. Reconnect to let Meetnote block tasks out on your calendar.
+          This connection was made before calendar writing was added. Reconnect to let From the Call block tasks out on your calendar.
         </p>
       ) : null}
     </Row>

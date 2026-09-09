@@ -1,12 +1,12 @@
-# Meetnote — build plan
+# From the Call — build plan
 
-Working name: **meetnote** (rename any time). Started 2026-09-08.
+Working name: **fromthecall** (rename any time). Started 2026-09-08.
 
 ## What it is
 
 A web app that records the audio of any meeting you are in (Zoom, Teams, Google Meet, anything), transcribes it, pulls out what matters, and then *does the follow-up work* with your approval.
 
-First niche: **engineering teams**. Standups, sprint planning, and bug triage produce action items that never get written down. Meetnote turns them into draft Jira/Linear tickets the user approves with one click.
+First niche: **engineering teams**. Standups, sprint planning, and bug triage produce action items that never get written down. From the Call turns them into draft Jira/Linear tickets the user approves with one click.
 
 Differentiator vs Otter / Fireflies / Fathom / Granola: the agent that acts on the tasks, plus bring-your-own-LLM.
 
@@ -54,8 +54,8 @@ Robustness built in:
 
 ## Account checklist (you do these; I cannot create accounts)
 
-1. **GitHub**: create an empty repo named `meetnote` under your personal account. Do not add a README. Send me the URL and I will push the code.
-2. **Vercel (Hobby)**: sign in with the GitHub account from step 1 at vercel.com, click *Add New > Project*, import `meetnote`. Leave the settings as they are. Hobby is free; upgrade to Pro (creates a team, ~$20/mo) when you take on paying users. You can move the project into the team then.
+1. **GitHub**: create an empty repo named `fromthecall` under your personal account. Do not add a README. Send me the URL and I will push the code.
+2. **Vercel (Hobby)**: sign in with the GitHub account from step 1 at vercel.com, click *Add New > Project*, import `fromthecall`. Leave the settings as they are. Hobby is free; upgrade to Pro (creates a team, ~$20/mo) when you take on paying users. You can move the project into the team then.
 3. **Supabase**: at supabase.com, *New organization* (free plan), then *New project* inside it, region `us-east-1` (or nearest you). Copy the Project URL and the anon/publishable key from *Project Settings > API*. If you use the same Supabase login as Protegion, the new org still shows up separately and I can manage it from here.
 4. **Deepgram**: console.deepgram.com, create an API key. Comes with free credit.
 5. **Anthropic**: console.anthropic.com, create an API key.
@@ -80,7 +80,7 @@ Email limits: Supabase's built-in mailer sends at most 2 auth emails an hour and
 
 **Phase 3 (started 2026-09-08): the agent.**
 
-Done: drafting and approval. Pressing "draft ticket" on a task writes a real engineering ticket from the meeting transcript; "draft email" on a flagged person writes the follow-up. Everything lands in **Approvals**, where it can be edited, approved, dismissed or copied out. Nothing leaves Meetnote without a person approving it, and the model can only draft for people the notes actually named.
+Done: drafting and approval. Pressing "draft ticket" on a task writes a real engineering ticket from the meeting transcript; "draft email" on a flagged person writes the follow-up. Everything lands in **Approvals**, where it can be edited, approved, dismissed or copied out. Nothing leaves From the Call without a person approving it, and the model can only draft for people the notes actually named.
 
 Still to do in Phase 3: push an approved draft straight into Linear or Jira (needs the customer's API key and a settings page), send an approved email through Gmail, post a summary to Slack, and bring-your-own-LLM.
 
@@ -105,7 +105,7 @@ Resend also needs a domain you own (about $10-15/year); its free tier covers 3,0
 
 ## Google setup, and why connections expire
 
-Meetnote asks Google for exactly two permissions:
+From the Call asks Google for exactly two permissions:
 
 - `gmail.send` — send an approved email as you. Send only; it cannot read your mail.
 - `calendar.events` — read your calendar and add events. Replaces the old read-only scope so tasks can be blocked out.
@@ -131,7 +131,7 @@ One caveat worth knowing: Google documents the 7-day rule as applying to Testing
 
 ### Other reasons a Google connection dies
 
-Design for reconnection rather than assuming a token is forever: the user revokes access, the token goes unused for six months, they change their Google password (this one kills Gmail scopes specifically), or a Workspace admin restricts the service. Meetnote treats all of these as "reconnect" rather than retrying.
+Design for reconnection rather than assuming a token is forever: the user revokes access, the token goes unused for six months, they change their Google password (this one kills Gmail scopes specifically), or a Workspace admin restricts the service. From the Call treats all of these as "reconnect" rather than retrying.
 
 ## Legal notes
 

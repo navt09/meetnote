@@ -179,7 +179,7 @@ export async function sendEmail(
   if (res.status === 403) {
     const body = (await res.text().catch(() => "")).slice(0, 200);
     if (/insufficientPermissions|insufficient authentication scopes/i.test(body)) {
-      throw new GoogleReconnectError("Meetnote wasn't granted permission to send email. Reconnect Google and allow sending.");
+      throw new GoogleReconnectError("From the Call wasn't granted permission to send email. Reconnect Google and allow sending.");
     }
     throw new GoogleError("Google refused to send that email.");
   }
@@ -233,7 +233,7 @@ export async function createEvent(
   if (res.status === 403) {
     const body = (await res.text().catch(() => "")).slice(0, 300);
     if (/insufficientPermissions|insufficient authentication scopes/i.test(body)) {
-      throw new GoogleReconnectError("Meetnote wasn't granted permission to add calendar events. Reconnect Google and allow it.");
+      throw new GoogleReconnectError("From the Call wasn't granted permission to add calendar events. Reconnect Google and allow it.");
     }
     throw new GoogleError("Google refused to create that event.");
   }

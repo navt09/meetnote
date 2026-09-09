@@ -3,7 +3,7 @@ import { sortTasks, toPublicTask, type TaskRow } from "@/lib/task";
 import TasksView from "./tasks-view";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Tasks · Meetnote" };
+export const metadata = { title: "Tasks · From the Call" };
 
 type Joined = TaskRow & { meetings: { title: string } | null };
 

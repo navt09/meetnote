@@ -8,7 +8,7 @@ import { EmptyState, StatusPill } from "@/components/ui";
 import DeleteMeetingButton from "./delete-button";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Notes · Meetnote" };
+export const metadata = { title: "Notes · From the Call" };
 
 type Row = Pick<Meeting, "id" | "title" | "status" | "error" | "duration_seconds" | "recorded_at" | "transcription_cost_usd" | "llm_cost_usd"> & {
   notes: { summary?: string } | null;

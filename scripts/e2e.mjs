@@ -30,7 +30,7 @@ if (!URL_ || !ANON || !SERVICE) {
 
 const admin = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const anon = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
-const email = `e2e-${Date.now()}@meetnote.invalid`;
+const email = `e2e-${Date.now()}@fromthecall.invalid`;
 let userId = null;
 let meetingId = null;
 const t0 = Date.now();
@@ -228,7 +228,7 @@ try {
   log("audio download link ok (302 to signed URL)");
 
   // isolation: a second user must get 404 for this meeting
-  const other = `e2e-other-${Date.now()}@meetnote.invalid`;
+  const other = `e2e-other-${Date.now()}@fromthecall.invalid`;
   const { data: ou } = await admin.auth.admin.createUser({ email: other, email_confirm: true });
   const { data: olink } = await admin.auth.admin.generateLink({ type: "magiclink", email: other });
   const { data: osess } = await anon.auth.verifyOtp({ token_hash: olink.properties.hashed_token, type: "magiclink" });

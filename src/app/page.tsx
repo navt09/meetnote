@@ -19,7 +19,7 @@ export default function Home() {
         </h1>
 
         <p className="max-w-lg leading-relaxed text-muted">
-          Meetnote captures the audio, writes the notes, pulls out every task and decision,
+          From the Call captures the audio, writes the notes, pulls out every task and decision,
           and drafts the follow-ups for you to approve.
         </p>
 
