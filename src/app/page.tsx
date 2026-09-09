@@ -10,50 +10,23 @@ export const metadata = {
     "Record any meeting without a bot joining it. Get notes, action items, and drafted tickets and emails you approve before anything is sent.",
 };
 
+// Every line on this page is written to be skimmed, not read. A headline
+// carries the point; the line under it is there for anyone who slows down.
+
 const STEPS = [
-  {
-    title: "Hit record and pick a window",
-    body: "Choose the window your meeting is in and tick “Share audio”. Nothing joins the call, nobody gets an email saying a notetaker has arrived, and the other side sees no extra participant.",
-  },
-  {
-    title: "Talk normally",
-    body: "Your microphone and the meeting audio are mixed and recorded in your browser, backed up every few seconds. Close the tab by accident and the recording is still there when you come back.",
-  },
-  {
-    title: "Get the notes and the task list",
-    body: "A summary, every action item with who owns it, the decisions that were actually made, and the people the meeting said to follow up with.",
-  },
-  {
-    title: "Approve the follow-up",
-    body: "Tickets and emails are written for you from what was said. You read them, edit anything, and approve. Only then does anything leave.",
-  },
+  { title: "Hit record, pick a window", body: "Tick “Share audio”. Nothing joins the call." },
+  { title: "Talk normally", body: "Recorded in your browser, backed up as you go." },
+  { title: "Get notes and tasks", body: "Summary, owners, decisions, who to chase." },
+  { title: "Approve the follow-up", body: "Tickets and emails drafted. Nothing leaves until you say yes." },
 ];
 
 const FEATURES = [
-  {
-    title: "No bot in your meeting",
-    body: "Most notetakers dial in as a participant. Yours records the audio on your machine, so there is nothing to admit, nothing to explain, and nothing that gets blocked by an IT policy.",
-  },
-  {
-    title: "Real tickets, not a to-do list",
-    body: "An action item becomes a properly written Linear or Jira issue with context and acceptance criteria, created in your tracker once you approve it.",
-  },
-  {
-    title: "Nothing sends itself",
-    body: "Every draft waits for a person. There is no setting that turns that off and no code path that skips it, because a wrong ticket filed automatically costs more than it saves.",
-  },
-  {
-    title: "It says when it does not know",
-    body: "If the meeting never said who owns something, the draft says so rather than inventing a name. Guessed detail is worse than a gap you can see.",
-  },
-  {
-    title: "Decisions, kept",
-    body: "The thing nobody writes down and everyone argues about six weeks later. Captured with the reasoning, searchable across every meeting you have run.",
-  },
-  {
-    title: "Yours, and deletable",
-    body: "Recordings and notes are private to your account. Delete a meeting and the audio goes with it, immediately and for good.",
-  },
+  { title: "No bot in your meeting", body: "Records on your machine. Nothing to admit, nothing to explain." },
+  { title: "Real tickets, not a to-do list", body: "Action items become proper Linear or Jira issues." },
+  { title: "Nothing sends itself", body: "Every draft waits for you. No setting turns that off." },
+  { title: "Says when it doesn’t know", body: "A missing owner stays blank. It never guesses a name." },
+  { title: "Decisions, kept", body: "What was decided and why, searchable across every meeting." },
+  { title: "Yours, and deletable", body: "Delete a meeting and the audio is gone for good." },
 ];
 
 const CONNECTS = [
@@ -80,6 +53,26 @@ function Heading({ children }: { children: React.ReactNode }) {
   return <h2 className="font-display text-3xl font-semibold tracking-[-0.02em] text-balance sm:text-4xl">{children}</h2>;
 }
 
+/** The "you get this" tick on a pricing line. Green on Pro, quiet on Free. */
+function Check({ strong }: { strong: boolean }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`mt-[0.2rem] shrink-0 ${strong ? "text-ok" : "text-faint"}`}
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 export default function Home() {
   return (
     <>
@@ -95,8 +88,8 @@ export default function Home() {
           </h1>
 
           <p className="max-w-lg text-lg leading-relaxed text-muted">
-            It listens to the call, writes the notes, pulls out every task and decision, then drafts the
-            tickets and emails. All that is left for you is to read them and say yes.
+            It listens to the call, writes the notes, pulls out every task, then drafts the tickets and emails.
+            You read them and say yes.
           </p>
 
           <div className="mt-1 flex flex-wrap items-center gap-3">
@@ -125,36 +118,33 @@ export default function Home() {
             <li key={w} className="font-display text-xl font-medium">{w}</li>
           ))}
         </ul>
-        <p className="mt-4 max-w-2xl leading-relaxed text-muted">
-          There is no integration to set up, because there is nothing to integrate with. If the sound comes out
-          of your computer, it can be recorded. Runs in Chrome and Edge, with nothing to install.
+        <p className="mt-4 max-w-xl leading-relaxed text-muted">
+          If the sound comes out of your computer, it can be recorded. Chrome and Edge, nothing to install.
         </p>
       </section>
 
-      {/* ---------- steps ---------- */}
+      {/* ---------- steps: a strip you scan across, not a list you read down ---------- */}
       <section id="how" className="mt-24 scroll-mt-20">
-        <Heading>Four steps, then it is someone else&apos;s turn</Heading>
-        <ol className="mt-8 grid gap-px overflow-hidden rounded-xl border border-panel-border bg-panel-border sm:grid-cols-2">
+        <Heading>Four steps</Heading>
+        <ol className="mt-8 grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
           {STEPS.map((s, i) => (
-            <li key={s.title} className="flex gap-4 bg-panel p-6">
-              <span className="font-display text-3xl font-semibold leading-none text-faint">{i + 1}</span>
-              <div>
-                <h3 className="font-semibold">{s.title}</h3>
-                <p className="mt-1.5 leading-relaxed text-muted">{s.body}</p>
-              </div>
+            <li key={s.title} className="border-t border-panel-border pt-4">
+              <span className="font-display text-4xl font-semibold leading-none text-accent">{i + 1}</span>
+              <h3 className="mt-3 font-semibold leading-snug">{s.title}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted">{s.body}</p>
             </li>
           ))}
         </ol>
       </section>
 
-      {/* ---------- features: a list, not a wall of cards ---------- */}
+      {/* ---------- features: six headlines, one line each ---------- */}
       <section id="features" className="mt-24 scroll-mt-20">
         <Heading>What it actually does</Heading>
-        <div className="mt-6 grid gap-x-12 sm:grid-cols-2">
+        <div className="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
-            <div key={f.title} className="border-t border-panel-border py-6">
-              <h3 className="font-display text-xl font-semibold tracking-tight">{f.title}</h3>
-              <p className="mt-2 leading-relaxed text-muted">{f.body}</p>
+            <div key={f.title} className="border-t border-panel-border pt-4">
+              <h3 className="font-display text-lg font-semibold leading-snug tracking-tight">{f.title}</h3>
+              <p className="mt-1 text-sm leading-relaxed text-muted">{f.body}</p>
             </div>
           ))}
         </div>
@@ -163,9 +153,8 @@ export default function Home() {
       {/* ---------- connects to ---------- */}
       <section className="mt-24">
         <Heading>Where the work ends up</Heading>
-        <p className="mt-3 max-w-2xl leading-relaxed text-muted">
-          Connect what your team already uses. Each one takes a single click and asks for the narrowest
-          permission that does the job.
+        <p className="mt-3 max-w-xl leading-relaxed text-muted">
+          One click each, and the narrowest permission that does the job.
         </p>
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
           {CONNECTS.map((c) => (
@@ -185,40 +174,52 @@ export default function Home() {
       {/* ---------- pricing ---------- */}
       <section id="pricing" className="scroll-mt-20">
         <Heading>Pricing</Heading>
-        <p className="mt-3 max-w-2xl leading-relaxed text-muted">
-          One price, everything included. No per-integration upsell and no seat minimum.
-        </p>
+        <p className="mt-3 max-w-xl leading-relaxed text-muted">One price, everything included. No seat minimum.</p>
 
         <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:items-start">
           {PLANS.map((plan) => {
+            const pro = plan.highlight;
             const card = (
-              <div className={`glass flex h-full flex-col p-6 ${plan.highlight ? "border-accent/50" : ""}`}>
-                <div className="flex items-center gap-2">
+              <div
+                className={`flex h-full flex-col rounded-xl border p-6 sm:p-7 ${
+                  pro ? "border-accent/70 bg-panel-hi" : "border-panel-border bg-panel"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-2">
                   <h3 className="font-display text-2xl font-semibold tracking-tight">{plan.name}</h3>
-                  {plan.highlight ? <span className="pill pill-live">Most teams</span> : null}
+                  {pro ? <span className="pill pill-live">Most teams pick this</span> : null}
                 </div>
                 <p className="mt-1 text-sm text-muted">{plan.tagline}</p>
 
-                <p className="mt-5 flex items-baseline gap-1.5">
-                  <span className="font-display text-5xl font-semibold tracking-tight">{plan.price}</span>
-                  <span className="text-sm text-faint">{plan.cadence}</span>
+                <p className="mt-6 flex items-baseline gap-1">
+                  <span className={`font-display font-semibold tracking-tight ${pro ? "text-6xl" : "text-5xl"}`}>{plan.price}</span>
+                  {plan.cadence ? <span className="text-lg text-muted">{plan.cadence}</span> : null}
                 </p>
+                <p className="mt-0.5 text-sm text-faint">{plan.note}</p>
 
-                <ul className="mt-5 flex flex-1 flex-col gap-2">
+                <p className={`mt-6 text-sm ${pro ? "font-medium text-fg" : "text-muted"}`}>{plan.lead}</p>
+                <ul className="mt-3 flex flex-1 flex-col gap-2.5">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex gap-2.5 text-sm leading-relaxed">
-                      <span aria-hidden className={`mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full ${plan.highlight ? "bg-work" : "bg-faint"}`} />
+                    <li key={f} className="flex gap-2.5 text-sm leading-snug">
+                      <Check strong={pro} />
                       {f}
                     </li>
                   ))}
                 </ul>
 
-                <Link href="/login" className={`btn mt-6 justify-center ${plan.highlight ? "btn-primary" : "btn-ghost"}`}>
+                <Link href="/login" className={`btn mt-7 justify-center ${pro ? "btn-primary" : "btn-ghost"}`}>
                   {plan.cta}
                 </Link>
+                {pro ? <p className="mt-2.5 text-center text-xs text-faint">Your first three meetings are free.</p> : null}
               </div>
             );
-            return plan.highlight ? <Tilt key={plan.id} max={5}>{card}</Tilt> : <div key={plan.id}>{card}</div>;
+            return pro ? (
+              <Tilt key={plan.id} max={5}>
+                {card}
+              </Tilt>
+            ) : (
+              <div key={plan.id}>{card}</div>
+            );
           })}
         </div>
       </section>
