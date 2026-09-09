@@ -102,7 +102,11 @@ try {
   const created = await api("/api/meetings", { method: "POST", body: JSON.stringify({ mimeType: mime, bytes: audio.length, durationSeconds: 40, recordedAt: new Date().toISOString() }) }, token);
   if (created.status !== 201) throw new Error(`create meeting: ${created.status} ${JSON.stringify(created.json)}`);
   meetingId = created.json.meetingId;
-  log(`meeting created ${meetingId} -> ${created.json.storagePath}`);
+  log(`meeting created ${meetingId}`);
+  // The response must not carry internals the browser has no business seeing.
+  for (const leaked of ["storagePath", "storage_path", "user_id"]) {
+    if (leaked in created.json) throw new Error(`create response leaked ${leaked}`);
+  }
 
   const put = await fetch(created.json.signedUrl, { method: "PUT", headers: { "Content-Type": mime, "x-upsert": "true" }, body: audio });
   if (!put.ok) throw new Error(`upload: ${put.status} ${await put.text()}`);
@@ -124,7 +128,14 @@ try {
   }
   if (!m || m.status !== "done") throw new Error(`pipeline ended with ${m?.status}: ${m?.error}`);
   log(`done: "${m.title}" | ${m.transcript.length} segments | ${m.notes.action_items.length} actions | ${m.notes.decisions.length} decisions | ${m.notes.people_to_contact.length} people`);
-  log(`cost: transcription $${Number(m.transcription_cost_usd).toFixed(4)} + notes $${Number(m.llm_cost_usd).toFixed(4)}`);
+
+  // A normal account must not see storage paths, ids, token counts or costs.
+  const forbidden = ["user_id", "storage_path", "mime_type", "bytes", "usage", "transcription_cost_usd", "llm_cost_usd", "created_at", "updated_at"];
+  const leaked = forbidden.filter((k) => k in m);
+  if (leaked.length) throw new Error(`meeting response leaked: ${leaked.join(", ")}`);
+  if (m.internal) throw new Error("non-owner account received internal cost figures");
+  log(`internals hidden from a normal account (checked ${forbidden.length} fields)`);
+  log(`duration ${m.durationSeconds}s, hasAudio ${m.hasAudio}`);
 
   // 5. list, rename, another user can't see it, audio link, delete
   const list = await api("/api/meetings", {}, token);
