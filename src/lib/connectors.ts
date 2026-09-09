@@ -8,8 +8,32 @@ export const PROVIDERS: Provider[] = ["linear", "jira", "slack", "google"];
 export const TICKET_PROVIDERS: TicketProvider[] = ["linear", "jira"];
 
 /** Secrets. Never leaves the server. */
-export type LinearCredentials = { apiKey: string };
-export type JiraCredentials = { siteUrl: string; email: string; apiToken: string };
+/**
+ * apiKey holds either a pasted personal API key or an OAuth access token.
+ * oauth distinguishes them, because the two need different Authorization
+ * headers and only the OAuth one can be refreshed.
+ */
+export type LinearCredentials = {
+  apiKey: string;
+  oauth?: boolean;
+  refreshToken?: string;
+  expiresAt?: number;
+};
+/**
+ * Either an API token (site URL + email + token) or OAuth (access token +
+ * cloud id). siteUrl is kept in both cases because only it can build a
+ * clickable /browse/KEY link; a cloud id cannot.
+ */
+export type JiraCredentials = {
+  siteUrl: string;
+  email?: string;
+  apiToken?: string;
+  oauth?: boolean;
+  accessToken?: string;
+  refreshToken?: string;
+  expiresAt?: number;
+  cloudId?: string;
+};
 export type SlackCredentials = { webhookUrl: string };
 export type GoogleCredentials = { refreshToken: string; accessToken?: string; expiresAt?: number };
 

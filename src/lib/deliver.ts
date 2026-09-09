@@ -1,7 +1,9 @@
 import "server-only";
 import { getTicketProvider, loadConnector, noteConnectorError } from "./connector-store";
 import * as linear from "./providers/linear";
+import * as linearOAuth from "./providers/linear-oauth";
 import * as jira from "./providers/jira";
+import * as jiraOAuth from "./providers/jira-oauth";
 import * as google from "./providers/google";
 import type {
   GoogleConfig,
@@ -43,7 +45,10 @@ async function deliverTicket(userId: string, draft: DraftRow): Promise<Delivery>
     const stored = await loadConnector<LinearCredentials, LinearConfig>(userId, "linear");
     if (!stored?.config.teamId) return { delivered: false, reason: "not_configured" };
     try {
-      const issue = await linear.createIssue(stored.credentials, {
+      // OAuth access tokens last 24 hours, so refresh before using them.
+      const token = await linearOAuth.accessTokenFor(userId, stored.credentials, stored.config);
+      const creds = { ...stored.credentials, apiKey: token };
+      const issue = await linear.createIssue(creds, {
         teamId: stored.config.teamId,
         title: draft.subject,
         description: draft.body,
@@ -51,7 +56,7 @@ async function deliverTicket(userId: string, draft: DraftRow): Promise<Delivery>
       await noteConnectorError(userId, "linear", null);
       return { delivered: true, destination: "linear", url: issue.url, label: issue.identifier };
     } catch (err) {
-      const reconnect = err instanceof linear.LinearAuthError;
+      const reconnect = err instanceof linear.LinearAuthError || err instanceof linearOAuth.LinearReconnectError;
       const message = err instanceof Error ? err.message : "Linear rejected the issue.";
       await noteConnectorError(userId, "linear", message);
       throw new DeliveryError(message, reconnect);
@@ -61,7 +66,9 @@ async function deliverTicket(userId: string, draft: DraftRow): Promise<Delivery>
   const stored = await loadConnector<JiraCredentials, JiraConfig>(userId, "jira");
   if (!stored?.config.projectKey) return { delivered: false, reason: "not_configured" };
   try {
-    const issue = await jira.createIssue(stored.credentials, {
+    // Refreshing also rotates and re-stores the refresh token.
+    const creds = await jiraOAuth.accessTokenFor(userId, stored.credentials, stored.config);
+    const issue = await jira.createIssue(creds, {
       projectKey: stored.config.projectKey,
       summary: draft.subject,
       description: draft.body,
@@ -70,7 +77,7 @@ async function deliverTicket(userId: string, draft: DraftRow): Promise<Delivery>
     await noteConnectorError(userId, "jira", null);
     return { delivered: true, destination: "jira", url: issue.url, label: issue.key };
   } catch (err) {
-    const reconnect = err instanceof jira.JiraAuthError;
+    const reconnect = err instanceof jira.JiraAuthError || err instanceof jiraOAuth.JiraReconnectError;
     const message = err instanceof Error ? err.message : "Jira rejected the issue.";
     await noteConnectorError(userId, "jira", message);
     throw new DeliveryError(message, reconnect);

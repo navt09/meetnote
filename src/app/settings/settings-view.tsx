@@ -15,6 +15,7 @@ export default function SettingsView({
   initialTicketProvider,
   storageReady,
   googleReady,
+  oauthReady,
   tier,
   email,
 }: {
@@ -22,6 +23,7 @@ export default function SettingsView({
   initialTicketProvider: TicketProvider | null;
   storageReady: boolean;
   googleReady: boolean;
+  oauthReady: { linear: boolean; jira: boolean; slack: boolean };
   tier: Tier;
   email: string | null;
 }) {
@@ -112,8 +114,8 @@ export default function SettingsView({
       ) : null}
 
       <div className="flex flex-col gap-3">
-        <LinearCard connector={get("linear")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
-        <JiraCard connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
+        <LinearCard oauthReady={oauthReady.linear} connector={get("linear")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
+        <JiraCard oauthReady={oauthReady.jira} connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
 
         {get("linear") || get("jira") ? (
           <div className="glass p-5">
@@ -141,7 +143,7 @@ export default function SettingsView({
           </div>
         ) : null}
 
-        <SlackCard connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
+        <SlackCard oauthReady={oauthReady.slack} connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <GoogleCard connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
       </div>
     </section>
@@ -199,9 +201,21 @@ function Shell({
   );
 }
 
+/**
+ * Starts a provider's consent flow. Deliberately a plain anchor: these endpoints
+ * redirect out to the provider's own screen, which next/link cannot do.
+ */
+function ConnectButton({ href, label = "Connect" }: { href: string; label?: string }) {
+  return (
+    <a className="btn btn-primary self-start" href={href}>
+      {label}
+    </a>
+  );
+}
+
 // ---- Linear -----------------------------------------------------------------
 
-function LinearCard({ connector, busy, setBusy, onChanged, disconnect }: CardProps) {
+function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady }: CardProps & { oauthReady: boolean }) {
   const toast = useToast();
   const [apiKey, setApiKey] = useState("");
   const [teams, setTeams] = useState<Team[]>([]);
@@ -255,19 +269,23 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect }: CardPro
       detail={config.teamName ? `Issues go to the ${config.teamName} team.` : undefined}
     >
       {!connector ? (
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="lin_api_…"
-            className="field text-sm"
-            aria-label="Linear API key"
-          />
-          <button className="btn btn-primary" disabled={busy === "linear" || !apiKey.trim()} onClick={connect}>
-            {busy === "linear" ? "Checking…" : "Connect"}
-          </button>
-        </div>
+        oauthReady ? (
+          <ConnectButton href="/api/connectors/linear/start" />
+        ) : (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="lin_api_…"
+              className="field text-sm"
+              aria-label="Linear API key"
+            />
+            <button className="btn btn-primary" disabled={busy === "linear" || !apiKey.trim()} onClick={connect}>
+              {busy === "linear" ? "Checking…" : "Connect"}
+            </button>
+          </div>
+        )
       ) : (
         <div className="flex flex-wrap items-center gap-2">
           {teams.length > 0 ? (
@@ -289,7 +307,7 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect }: CardPro
           )}
         </div>
       )}
-      {!connector ? (
+      {!connector && !oauthReady ? (
         <p className="mt-2 text-xs text-faint">Linear → Settings → Account → Security &amp; access → API.</p>
       ) : null}
     </Shell>
@@ -298,7 +316,7 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect }: CardPro
 
 // ---- Jira -------------------------------------------------------------------
 
-function JiraCard({ connector, busy, setBusy, onChanged, disconnect }: CardProps) {
+function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady }: CardProps & { oauthReady: boolean }) {
   const toast = useToast();
   const [form, setForm] = useState({ siteUrl: "", email: "", apiToken: "" });
   const [projects, setProjects] = useState<Project[]>([]);
@@ -351,7 +369,9 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect }: CardProps
       onDisconnect={() => disconnect("jira", "Jira")}
       detail={config.projectKey ? `Issues go to ${config.projectName ?? config.projectKey} as ${config.issueType ?? "Task"}.` : undefined}
     >
-      {!connector ? (
+      {!connector && oauthReady ? (
+        <ConnectButton href="/api/connectors/jira/start" />
+      ) : !connector ? (
         <div className="flex flex-col gap-2">
           <input value={form.siteUrl} onChange={(e) => setForm({ ...form, siteUrl: e.target.value })} placeholder="acme.atlassian.net" className="field text-sm" aria-label="Jira site" />
           <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@company.com" className="field text-sm" aria-label="Jira email" />
@@ -379,7 +399,7 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect }: CardProps
 
 // ---- Slack ------------------------------------------------------------------
 
-function SlackCard({ connector, busy, setBusy, onChanged, disconnect }: CardProps) {
+function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady }: CardProps & { oauthReady: boolean }) {
   const toast = useToast();
   const [webhookUrl, setWebhookUrl] = useState("");
 
@@ -399,7 +419,12 @@ function SlackCard({ connector, busy, setBusy, onChanged, disconnect }: CardProp
 
   return (
     <Shell provider="slack" title="Slack" connected={!!connector} error={connector?.lastError} busy={busy === "slack"} onDisconnect={() => disconnect("slack", "Slack")}>
-      {!connector ? (
+      {!connector && oauthReady ? (
+        <div className="flex flex-col gap-2">
+          <ConnectButton href="/api/connectors/slack/start" />
+          <p className="text-xs text-faint">Slack asks which channel to post to during the install.</p>
+        </div>
+      ) : !connector ? (
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-2 sm:flex-row">
             <input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.slack.com/services/…" className="field text-sm" aria-label="Slack webhook URL" />

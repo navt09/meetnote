@@ -1,6 +1,9 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { credentialsKeyConfigured } from "@/lib/crypto";
 import { googleConfigured } from "@/lib/providers/google";
+import { linearOAuthConfigured } from "@/lib/providers/linear-oauth";
+import { jiraOAuthConfigured } from "@/lib/providers/jira-oauth";
+import { slackOAuthConfigured } from "@/lib/providers/slack-oauth";
 import { tierFor } from "@/lib/account-store";
 import { toPublicConnector, type ConnectorRow, type TicketProvider } from "@/lib/connectors";
 import SettingsView from "./settings-view";
@@ -27,6 +30,11 @@ export default async function SettingsPage() {
       initialTicketProvider={ticketProvider}
       storageReady={credentialsKeyConfigured()}
       googleReady={googleConfigured()}
+      oauthReady={{
+        linear: linearOAuthConfigured(),
+        jira: jiraOAuthConfigured(),
+        slack: slackOAuthConfigured(),
+      }}
       tier={tier}
       email={userData.user?.email ?? null}
     />

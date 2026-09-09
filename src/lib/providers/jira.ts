@@ -14,8 +14,24 @@ export class JiraAuthError extends Error {}
 export class JiraPermissionError extends Error {}
 export class JiraError extends Error {}
 
+/**
+ * OAuth and API-token credentials differ in BOTH the header and the host:
+ * an API token talks to the site directly, while an OAuth token must go through
+ * api.atlassian.com with the site's cloud id in the path. Pointing a Bearer
+ * token at the site URL simply does not work.
+ */
 function authHeader(creds: JiraCredentials): string {
+  if (creds.oauth) return `Bearer ${creds.accessToken}`;
   return `Basic ${Buffer.from(`${creds.email}:${creds.apiToken}`).toString("base64")}`;
+}
+
+export function apiBase(creds: JiraCredentials): string {
+  return creds.oauth ? `https://api.atlassian.com/ex/jira/${creds.cloudId}` : creds.siteUrl;
+}
+
+/** The clickable URL. Built from the stored site address; a cloud id is not browsable. */
+export function browseUrl(creds: JiraCredentials, issueKey: string): string {
+  return `${(creds.siteUrl ?? "").replace(/\/$/, "")}/browse/${issueKey}`;
 }
 
 type ErrorCollection = { errorMessages?: string[]; errors?: Record<string, string> };
@@ -23,7 +39,7 @@ type ErrorCollection = { errorMessages?: string[]; errors?: Record<string, strin
 async function call<T>(creds: JiraCredentials, path: string, init: RequestInit = {}): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${creds.siteUrl}${path}`, {
+    res = await fetch(`${apiBase(creds)}${path}`, {
       ...init,
       headers: {
         Authorization: authHeader(creds),
@@ -150,8 +166,9 @@ export async function createIssue(
       },
     }),
   });
-  // The API only returns its own URL; the browser one is built from the site.
-  return { id: data.id, key: data.key, url: `${creds.siteUrl}/browse/${data.key}` };
+  // The API returns only its own URL, which is not usable in a browser under
+  // OAuth; the clickable one comes from the stored site address.
+  return { id: data.id, key: data.key, url: browseUrl(creds, data.key) };
 }
 
 export async function verify(

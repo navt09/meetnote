@@ -56,8 +56,15 @@ const AUDIO = process.argv[3] ?? "C:/Users/navee/AppData/Local/Temp/mn/standup.w
 const email = `demo-${Date.now()}@meetnote.invalid`;
 const password = "demo-password-1234";
 
-const { error: cuErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
+const { data: newUser, error: cuErr } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
 if (cuErr) throw new Error(`createUser: ${cuErr.message}`);
+
+// New accounts start on the free tier, which cannot record or use the AI.
+// A demo account needs to actually exercise the pipeline.
+const { error: tierErr } = await admin
+  .from("accounts")
+  .upsert({ user_id: newUser.user.id, tier: "active", note: "demo account" }, { onConflict: "user_id" });
+if (tierErr) throw new Error(`set tier: ${tierErr.message}`);
 const { data: sess, error: sErr } = await anon.auth.signInWithPassword({ email, password });
 if (sErr) throw new Error(`signIn: ${sErr.message}`);
 const token = sess.session.access_token;

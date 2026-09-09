@@ -59,6 +59,23 @@ try {
   if (cuErr) throw new Error(`createUser: ${cuErr.message}`);
   userId = cu.user.id;
 
+  // A brand new account is on the free tier and is blocked from anything that
+  // costs money. Check that first, then promote so the rest of the run works.
+  {
+    const { data: sess } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
+    const res = await fetch(`${BASE}/api/meetings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session.access_token}` },
+      body: JSON.stringify({ mimeType: "audio/wav", bytes: 1000 }),
+    });
+    if (res.status !== 402) throw new Error(`a free account should be refused with 402, got ${res.status}`);
+    log("free account refused (402) before being made active");
+  }
+  const { error: tierErr } = await admin
+    .from("accounts")
+    .upsert({ user_id: userId, tier: "active", note: "e2e" }, { onConflict: "user_id" });
+  if (tierErr) throw new Error(`set tier: ${tierErr.message}`);
+
   // password sign-in is the primary path users take
   const { data: pw, error: pwErr } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
   if (pwErr || !pw.session) throw new Error(`signInWithPassword: ${pwErr?.message ?? "no session"}`);

@@ -23,12 +23,21 @@ type GraphQLResponse<T> = { data?: T; errors?: GraphQLError[] };
 export class LinearAuthError extends Error {}
 export class LinearError extends Error {}
 
-async function gql<T>(apiKey: string, query: string, variables?: Record<string, unknown>): Promise<T> {
+/**
+ * The two credential types need different headers, and getting it wrong looks
+ * identical to a revoked key: a pasted personal key goes in raw, an OAuth
+ * access token needs "Bearer ".
+ */
+export function authHeaderFor(creds: LinearCredentials): string {
+  return creds.oauth ? `Bearer ${creds.apiKey}` : creds.apiKey;
+}
+
+async function gql<T>(authHeader: string, query: string, variables?: Record<string, unknown>): Promise<T> {
   let res: Response;
   try {
     res = await fetch(ENDPOINT, {
       method: "POST",
-      headers: { Authorization: apiKey, "Content-Type": "application/json" },
+      headers: { Authorization: authHeader, "Content-Type": "application/json" },
       body: JSON.stringify({ query, variables }),
       signal: AbortSignal.timeout(20_000),
     });
@@ -57,7 +66,7 @@ export type LinearTeam = { id: string; name: string };
 /** Teams this key can see. Used to let a person choose where issues land. */
 export async function listTeams(creds: LinearCredentials): Promise<LinearTeam[]> {
   const data = await gql<{ teams: { nodes: LinearTeam[] } }>(
-    creds.apiKey,
+    authHeaderFor(creds),
     `query Teams { teams(first: 100) { nodes { id name } } }`,
   );
   return data.teams.nodes;
@@ -75,7 +84,7 @@ export async function createIssue(
   input: { teamId: string; title: string; description: string },
 ): Promise<CreatedIssue> {
   const data = await gql<{ issueCreate: { success: boolean; issue: CreatedIssue | null } }>(
-    creds.apiKey,
+    authHeaderFor(creds),
     `mutation IssueCreate($input: IssueCreateInput!) {
        issueCreate(input: $input) {
          success
