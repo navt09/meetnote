@@ -6,7 +6,32 @@ import { HttpError, withRetry } from "./retry";
 import { extractNotes } from "./extract";
 import { nextStep, type Meeting } from "./meeting";
 import { toPublicFailure } from "./public-error";
-import type { TranscriptSegment } from "./schema";
+import { actionItemsToRows } from "./task";
+import type { ActionItem, TranscriptSegment } from "./schema";
+
+/**
+ * Mirrors a meeting's action items into the tasks table.
+ * Keyed on (meeting_id, idx) so re-running extraction updates the same rows
+ * rather than duplicating them. Any "done" tick the user made is preserved,
+ * because status is not part of the update.
+ */
+async function syncTasks(meetingId: string, userId: string, items: ActionItem[]): Promise<void> {
+  const admin = supabaseAdmin();
+  const rows = actionItemsToRows(items, userId, meetingId);
+
+  if (rows.length > 0) {
+    const { error } = await admin.from("tasks").upsert(rows, { onConflict: "meeting_id,idx" });
+    if (error) {
+      // Notes are already saved; a task sync failure shouldn't fail the meeting.
+      console.error(JSON.stringify({ event: "task_sync_error", meetingId, message: error.message }));
+      return;
+    }
+  }
+  // Drop tasks left over from a longer previous extraction.
+  const { error: pruneError } = await admin.from("tasks").delete().eq("meeting_id", meetingId).gte("idx", rows.length);
+  if (pruneError) console.error(JSON.stringify({ event: "task_prune_error", meetingId, message: pruneError.message }));
+  console.log(JSON.stringify({ event: "tasks_synced", meetingId, count: rows.length }));
+}
 
 export type TranscribeResult = { segments: TranscriptSegment[]; durationSeconds: number; costUsd: number };
 
@@ -121,6 +146,7 @@ export async function runPipeline(meetingId: string, userId: string): Promise<vo
         status: "done",
         error: null,
       });
+      await syncTasks(meetingId, userId, e.notes.action_items);
     }
   } catch (err) {
     // Full detail to the server log; only a safe summary onto the row.

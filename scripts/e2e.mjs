@@ -137,7 +137,28 @@ try {
   log(`internals hidden from a normal account (checked ${forbidden.length} fields)`);
   log(`duration ${m.durationSeconds}s, hasAudio ${m.hasAudio}`);
 
-  // 5. list, rename, another user can't see it, audio link, delete
+  // 5. action items became real, tickable task rows
+  const tasksRes = await api("/api/tasks", {}, token);
+  if (tasksRes.status !== 200) throw new Error(`tasks list: ${tasksRes.status} ${JSON.stringify(tasksRes.json)}`);
+  const tasks = tasksRes.json.tasks ?? [];
+  if (tasks.length !== m.notes.action_items.length) {
+    throw new Error(`expected ${m.notes.action_items.length} tasks, got ${tasks.length}`);
+  }
+  for (const leakedField of ["user_id", "meeting_id", "idx", "created_at", "updated_at"]) {
+    if (leakedField in tasks[0]) throw new Error(`task response leaked ${leakedField}`);
+  }
+  if (tasks.some((t) => t.status !== "open")) throw new Error("new tasks should start open");
+  log(`${tasks.length} tasks created from the action items, internals hidden`);
+
+  const ticked = await api(`/api/tasks/${tasks[0].id}`, { method: "PATCH", body: JSON.stringify({ status: "done" }) }, token);
+  if (ticked.status !== 200 || ticked.json.task.status !== "done" || !ticked.json.task.completedAt) {
+    throw new Error(`tick task: ${ticked.status} ${JSON.stringify(ticked.json)}`);
+  }
+  const badStatus = await api(`/api/tasks/${tasks[0].id}`, { method: "PATCH", body: JSON.stringify({ status: "banana" }) }, token);
+  if (badStatus.status !== 400) throw new Error(`invalid status accepted: ${badStatus.status}`);
+  log("task ticked off and an invalid status refused");
+
+  // 6. list, rename, another user can't see it, audio link, delete
   const list = await api("/api/meetings", {}, token);
   if (!list.json.meetings?.some((x) => x.id === meetingId)) throw new Error("meeting missing from list");
   const renamed = await api(`/api/meetings/${meetingId}`, { method: "PATCH", body: JSON.stringify({ title: "Renamed by e2e" }) }, token);
@@ -154,14 +175,20 @@ try {
   const { data: olink } = await admin.auth.admin.generateLink({ type: "magiclink", email: other });
   const { data: osess } = await anon.auth.verifyOtp({ token_hash: olink.properties.hashed_token, type: "magiclink" });
   const peek = await api(`/api/meetings/${meetingId}`, {}, osess.session.access_token);
+  const peekTasks = await api("/api/tasks", {}, osess.session.access_token);
+  const peekTick = await api(`/api/tasks/${tasks[1].id}`, { method: "PATCH", body: JSON.stringify({ status: "done" }) }, osess.session.access_token);
   await admin.auth.admin.deleteUser(ou.user.id);
-  if (peek.status !== 404) throw new Error(`isolation broken: other user got ${peek.status}`);
-  log("row level security ok (other user gets 404)");
+  if (peek.status !== 404) throw new Error(`isolation broken: other user read the meeting (${peek.status})`);
+  if ((peekTasks.json.tasks ?? []).length !== 0) throw new Error("isolation broken: other user saw the tasks");
+  if (peekTick.status !== 404) throw new Error(`isolation broken: other user ticked a task (${peekTick.status})`);
+  log("row level security ok (other user sees no meeting and no tasks)");
 
   const del = await api(`/api/meetings/${meetingId}`, { method: "DELETE" }, token);
   if (del.status !== 200) throw new Error(`delete: ${del.status} ${JSON.stringify(del.json)}`);
+  const afterDelete = await api("/api/tasks", {}, token);
+  if ((afterDelete.json.tasks ?? []).length !== 0) throw new Error("tasks outlived their meeting");
   meetingId = null;
-  log("deleted meeting + audio");
+  log("deleted meeting + audio, and its tasks went with it");
   console.log("\nE2E PASSED");
 } catch (err) {
   console.error("\nE2E FAILED:", err.message);

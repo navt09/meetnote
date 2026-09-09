@@ -204,6 +204,6 @@ export default function LoginForm() {
 }
 
 function safeNext(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/meetings";
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/notes";
   return value;
 }

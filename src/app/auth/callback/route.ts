@@ -39,12 +39,12 @@ export async function GET(req: Request) {
 function redirectToLogin(url: URL, message: string, next: string) {
   const login = new URL("/login", url.origin);
   login.searchParams.set("error", friendlyAuthError(message));
-  if (next !== "/meetings") login.searchParams.set("next", next);
+  if (next !== "/notes") login.searchParams.set("next", next);
   return NextResponse.redirect(login);
 }
 
 /** Only same-site relative paths; never "//evil.com". */
 function safePath(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/meetings";
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/notes";
   return value;
 }

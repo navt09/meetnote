@@ -16,7 +16,7 @@ export default function DeleteMeetingButton({ id, afterDelete }: { id: string; a
     try {
       await deleteJson(`/api/meetings/${id}`);
       toast("Meeting deleted", "ok");
-      if (afterDelete === "list") router.push("/meetings");
+      if (afterDelete === "list") router.push("/notes");
       else router.refresh();
     } catch (err) {
       toast(err instanceof Error ? err.message : "Delete failed", "error");

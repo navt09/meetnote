@@ -8,6 +8,12 @@ Meeting-notes SaaS. Read PLAN.md first for product, stack, phases, and the accou
 - Plain code wherever possible; the LLM is only used to understand language (extracting tasks from a transcript, drafting text). Explain every new AI call.
 - Every API route checks auth via `getAuth(req)` (cookie session or `Authorization: Bearer`). Row Level Security on `meetings` is the real boundary; the service role is only used for storage signing and the post-response pipeline, always scoped by `user_id`.
 
+## Navigation
+Three tabs when signed in: **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Record** (`/record`). `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/nav-tabs.tsx`.
+
+## Tasks
+Action items are mirrored from `meetings.notes` into a real `tasks` table by `syncTasks()` in `src/lib/pipeline.ts`, keyed on `(meeting_id, idx)`. Re-running extraction upserts the same rows, so a person's "done" tick survives; rows beyond the new count are pruned. Only `status` is editable through the API. Deleting a meeting cascades to its tasks.
+
 ## Layout
 - `src/proxy.ts` — Next 16 request proxy: refreshes the Supabase session cookie, redirects signed-out users away from `/record` and `/meetings`.
 - `src/lib/supabase/{client,server}.ts` — browser client; cookie server client; `getAuth()`.

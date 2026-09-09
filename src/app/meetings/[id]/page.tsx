@@ -11,7 +11,7 @@ import { notesToMarkdown } from "@/lib/markdown";
 import { formatTimestamp } from "@/lib/transcript";
 import { formatUsd } from "@/lib/cost";
 import { fetchMeeting, patchJson, startProcessing } from "@/lib/upload";
-import DeleteMeetingButton from "../delete-button";
+import DeleteMeetingButton from "@/app/notes/delete-button";
 
 const POLL_MS = 2500;
 
@@ -125,7 +125,7 @@ export default function MeetingPage() {
       <section className="pt-10">
         <div className="glass pop p-8 text-center">
           <p className="text-sm text-danger">{loadError}</p>
-          <Link href="/meetings" className="btn btn-ghost mt-4">Back to meetings</Link>
+          <Link href="/notes" className="btn btn-ghost mt-4">Back to notes</Link>
         </div>
       </section>
     );
@@ -136,8 +136,8 @@ export default function MeetingPage() {
   return (
     <section className="flex flex-col gap-6 pt-10">
       <div className="rise">
-        <Link href="/meetings" className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-fg">
-          <span aria-hidden>←</span> All meetings
+        <Link href="/notes" className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-fg">
+          <span aria-hidden>←</span> All notes
         </Link>
 
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">

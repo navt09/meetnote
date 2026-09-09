@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { ToastProvider } from "@/components/toast";
+import NavTabs from "@/components/nav-tabs";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -35,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToastProvider>
           <header className="sticky top-0 z-40 border-b border-panel-border/60 bg-bg/60 backdrop-blur-xl">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-              <Link href={email ? "/meetings" : "/"} className="group flex items-center gap-2.5 font-semibold tracking-tight">
+              <Link href={email ? "/notes" : "/"} className="group flex items-center gap-2.5 font-semibold tracking-tight">
                 <span className="relative inline-grid h-6 w-6 place-items-center">
                   <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent to-accent-2 opacity-90 transition-transform duration-300 group-hover:rotate-12" />
                   <span className="relative text-[0.7rem] font-black text-[#05060a]">M</span>
@@ -45,8 +46,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <nav className="flex items-center gap-1 text-sm text-muted sm:gap-3">
                 {email ? (
                   <>
-                    <Link href="/meetings" className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-white/5 hover:text-fg">Meetings</Link>
-                    <Link href="/record" className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-white/5 hover:text-fg">Record</Link>
+                    <NavTabs />
                     <form action="/auth/signout" method="post" className="ml-1 flex items-center gap-2">
                       <span className="hidden max-w-[14ch] truncate text-xs sm:inline" title={email}>{email}</span>
                       <button className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-white/5 hover:text-fg" type="submit">Sign out</button>
