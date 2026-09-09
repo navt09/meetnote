@@ -22,7 +22,22 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
   const [owner, setOwner] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState<Set<string>>(new Set(drafted));
   const [drafting, setDrafting] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState<string | null>(null);
   const error = loadError;
+
+  /** Blocks time out on the user's own calendar. Nobody else is invited or emailed. */
+  async function addToCalendar(task: PublicTask) {
+    setScheduling(task.id);
+    try {
+      const res = await postJson<{ url: string; when: string }>(`/api/tasks/${task.id}/calendar`, {});
+      setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, calendarEventUrl: res.url } : t)));
+      toast(`Blocked out ${res.when}`, "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not add that to your calendar", "error");
+    } finally {
+      setScheduling(null);
+    }
+  }
 
   async function draft(task: PublicTask) {
     setDrafting(task.id);
@@ -151,6 +166,19 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
                       className="text-muted transition-colors hover:text-fg disabled:opacity-50"
                     >
                       {drafting === t.id ? "drafting…" : "draft ticket"}
+                    </button>
+                  )}
+                  {t.calendarEventUrl ? (
+                    <a href={t.calendarEventUrl} target="_blank" rel="noreferrer" className="text-accent transition-colors hover:underline">
+                      on your calendar
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => addToCalendar(t)}
+                      disabled={scheduling === t.id}
+                      className="text-muted transition-colors hover:text-fg disabled:opacity-50"
+                    >
+                      {scheduling === t.id ? "adding…" : "add to calendar"}
                     </button>
                   )}
                 </p>

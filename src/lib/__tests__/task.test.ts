@@ -4,7 +4,8 @@ import type { ActionItem } from "../schema";
 
 const task = (over: Partial<PublicTask>): PublicTask => ({
   id: "t", meetingId: "m", meetingTitle: "Standup", title: "T", details: "", owner: null, due: null,
-  priority: "medium", kind: "task", status: "open", completedAt: null, createdAt: "2026-09-01T00:00:00Z", ...over,
+  priority: "medium", kind: "task", status: "open", completedAt: null, createdAt: "2026-09-01T00:00:00Z",
+  calendarEventUrl: null, ...over,
 });
 
 describe("actionItemsToRows", () => {

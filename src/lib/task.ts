@@ -18,6 +18,8 @@ export type TaskRow = {
   kind: TaskKind;
   status: TaskStatus;
   completed_at: string | null;
+  calendar_event_url: string | null;
+  calendar_event_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +38,8 @@ export type PublicTask = {
   status: TaskStatus;
   completedAt: string | null;
   createdAt: string;
+  /** Set once the task has been blocked out on the calendar. */
+  calendarEventUrl: string | null;
 };
 
 export function toPublicTask(row: TaskRow, meetingTitle: string): PublicTask {
@@ -52,6 +56,7 @@ export function toPublicTask(row: TaskRow, meetingTitle: string): PublicTask {
     status: row.status,
     completedAt: row.completed_at,
     createdAt: row.created_at,
+    calendarEventUrl: row.calendar_event_url ?? null,
   };
 }
 

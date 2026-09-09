@@ -12,10 +12,11 @@ import type { GoogleConfig, GoogleCredentials } from "../connectors";
  * readonly) is *restricted* and does trigger that assessment. Do not widen these.
  */
 
-export const SCOPES = [
-  "https://www.googleapis.com/auth/gmail.send",
-  "https://www.googleapis.com/auth/calendar.events.readonly",
-] as const;
+export const SCOPE_GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send";
+/** Read and write events. Replaces the old read-only scope so tasks can be blocked out. */
+export const SCOPE_CALENDAR_WRITE = "https://www.googleapis.com/auth/calendar.events";
+
+export const SCOPES = [SCOPE_GMAIL_SEND, SCOPE_CALENDAR_WRITE] as const;
 
 const AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const TOKEN_URL = "https://oauth2.googleapis.com/token";
@@ -180,6 +181,65 @@ export async function sendEmail(
 
   const json = (await res.json()) as { id: string };
   return { id: json.id };
+}
+
+export type NewEvent = {
+  title: string;
+  /** ISO 8601 with an offset, e.g. 2026-09-15T14:00:00Z. */
+  start: string;
+  end: string;
+  description?: string;
+  attendees?: string[];
+  /** Whether Google emails the attendees. Default is to stay quiet. */
+  notify?: boolean;
+};
+
+export type CreatedEvent = { id: string; url: string; title: string; start: string };
+
+/**
+ * Puts an event on the user's primary calendar.
+ *
+ * sendUpdates defaults to "none" so approving a draft never silently emails a
+ * roomful of people; the caller opts in.
+ */
+export async function createEvent(
+  userId: string,
+  creds: GoogleCredentials,
+  config: GoogleConfig,
+  event: NewEvent,
+): Promise<CreatedEvent> {
+  const token = await accessTokenFor(userId, creds, config);
+  const params = new URLSearchParams({ sendUpdates: event.notify ? "all" : "none" });
+
+  const res = await googleFetch(token, `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      summary: event.title,
+      description: event.description,
+      start: { dateTime: event.start },
+      end: { dateTime: event.end },
+      attendees: (event.attendees ?? []).filter((a) => a.includes("@")).map((email) => ({ email })),
+    }),
+  });
+
+  if (res.status === 401) throw new GoogleReconnectError("Google rejected the saved credentials. Reconnect Google.");
+  if (res.status === 403) {
+    const body = (await res.text().catch(() => "")).slice(0, 300);
+    if (/insufficientPermissions|insufficient authentication scopes/i.test(body)) {
+      throw new GoogleReconnectError("Meetnote wasn't granted permission to add calendar events. Reconnect Google and allow it.");
+    }
+    throw new GoogleError("Google refused to create that event.");
+  }
+  if (!res.ok) throw new GoogleError(`Calendar rejected the event (${res.status}).`);
+
+  const json = (await res.json()) as { id: string; htmlLink?: string; summary?: string; start?: { dateTime?: string; date?: string } };
+  return {
+    id: json.id,
+    url: json.htmlLink ?? "https://calendar.google.com/",
+    title: json.summary ?? event.title,
+    start: json.start?.dateTime ?? json.start?.date ?? event.start,
+  };
 }
 
 export type CalendarEvent = { id: string; title: string; start: string; attendees: string[] };
