@@ -140,7 +140,7 @@ export default function LoginForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="you@company.com"
-            className="rounded-xl border border-panel-border bg-black/30 px-4 py-3 text-base text-fg outline-none focus:border-accent"
+            className="field text-base"
           />
         </label>
 
@@ -155,7 +155,7 @@ export default function LoginForm() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={mode === "signup" ? `At least ${PASSWORD_MIN_LENGTH} characters` : "Your password"}
-                className="w-full rounded-xl border border-panel-border bg-black/30 px-4 py-3 pr-16 text-base text-fg outline-none focus:border-accent"
+                className="w-full field pr-16 text-base"
               />
               <button
                 type="button"

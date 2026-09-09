@@ -32,7 +32,6 @@ export default function RecordPage() {
 
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsed, setElapsed] = useState(0);
-  const [level, setLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [saveStep, setSaveStep] = useState<SaveStep | null>(null);
@@ -107,7 +106,6 @@ export default function RecordPage() {
     if (!ctx) return;
     const { width, height } = canvas;
     const mid = height / 2;
-    let last = 0;
 
     const render = () => {
       const analyser = recorderRef.current?.analyser;
@@ -115,22 +113,12 @@ export default function RecordPage() {
       const data = new Uint8Array(analyser.fftSize);
       analyser.getByteTimeDomainData(data);
 
-      // Loudness, smoothed, drives the glow on the stop button.
-      let peak = 0;
-      for (let i = 0; i < data.length; i++) peak = Math.max(peak, Math.abs(data[i] - 128) / 128);
-      last = last * 0.8 + peak * 0.2;
-      setLevel(last);
-
       ctx.clearRect(0, 0, width, height);
-      const grad = ctx.createLinearGradient(0, 0, width, 0);
-      grad.addColorStop(0, "rgba(110,231,249,0.25)");
-      grad.addColorStop(0.5, "#6ee7f9");
-      grad.addColorStop(1, "rgba(139,124,255,0.35)");
 
       // Mirrored bars, which read better than a raw waveform line.
       const bars = 84;
       const step = width / bars;
-      ctx.fillStyle = grad;
+      ctx.fillStyle = "#629bff";
       for (let b = 0; b < bars; b++) {
         const slice = data.slice(Math.floor((b / bars) * data.length), Math.floor(((b + 1) / bars) * data.length));
         let m = 0;
@@ -156,7 +144,6 @@ export default function RecordPage() {
     assignBlob(null);
     setCreated(null);
     setElapsed(0);
-    setLevel(0);
     setUploadProgress(0);
     memChunksRef.current = [];
   }
@@ -178,7 +165,6 @@ export default function RecordPage() {
       },
       onStop: () => {
         stopTimers();
-        setLevel(0);
         const out = new Blob(memChunksRef.current, { type: recorder.mimeType });
         assignBlob(out);
         setPhase("stopped");
@@ -286,7 +272,6 @@ export default function RecordPage() {
   // ---- render --------------------------------------------------------------
 
   const savingText = saveStep === "create" ? "Creating the meeting" : saveStep === "upload" ? "Uploading audio" : "Starting transcription";
-  const glow = 0.35 + level * 0.9;
 
   return (
     <section className="flex flex-col gap-6 pt-10">
@@ -300,7 +285,7 @@ export default function RecordPage() {
       ) : null}
 
       {recoverable.length > 0 && phase === "idle" ? (
-        <div className="glass glass-lit rise p-5">
+        <div className="glass rise p-5">
           <p className="mb-3 text-sm font-semibold">Unfinished recordings in this browser</p>
           <ul className="space-y-2 text-sm">
             {recoverable.map((r) => (
@@ -319,7 +304,7 @@ export default function RecordPage() {
         </div>
       ) : null}
 
-      <div className="glass glass-lit rise overflow-hidden p-6 sm:p-8">
+      <div className="glass rise overflow-hidden p-6 sm:p-8">
         <div className="flex flex-col items-center gap-6">
           <div className="flex w-full items-center justify-between">
             <span className={`pill ${phase === "recording" ? "pill-danger" : phase === "saving" ? "pill-live" : ""}`}>
@@ -338,7 +323,7 @@ export default function RecordPage() {
             ref={canvasRef}
             width={1000}
             height={140}
-            className="h-[110px] w-full rounded-2xl bg-black/30 sm:h-[140px]"
+            className="h-[100px] w-full rounded-lg bg-bg-elev sm:h-[120px]"
             aria-hidden
           />
 
@@ -346,7 +331,6 @@ export default function RecordPage() {
             <button
               onClick={() => recorderRef.current?.stop()}
               className="record-btn record-btn-stop"
-              style={{ boxShadow: `0 0 0 1px rgba(255,92,122,0.4), 0 0 ${28 + level * 70}px rgba(255,92,122,${glow})` }}
               aria-label="Stop recording"
             >
               <span className="block h-6 w-6 rounded-[6px] bg-current" />

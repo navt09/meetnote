@@ -13,7 +13,7 @@ const TABS = [
 export default function NavTabs() {
   const pathname = usePathname() ?? "";
   return (
-    <div className="flex items-center gap-0.5 rounded-full border border-panel-border bg-black/25 p-1">
+    <div className="flex items-center gap-0.5">
       {TABS.map((t) => {
         const active = t.match(pathname);
         return (
@@ -21,17 +21,11 @@ export default function NavTabs() {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`relative rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-              active ? "text-fg" : "text-muted hover:text-fg"
+            className={`rounded-md px-2.5 py-1.5 text-sm transition-colors ${
+              active ? "bg-panel-hi font-medium text-fg" : "text-muted hover:text-fg"
             }`}
           >
-            {active ? (
-              <span
-                aria-hidden
-                className="absolute inset-0 rounded-full border border-accent/30 bg-gradient-to-r from-accent/20 to-accent-2/20"
-              />
-            ) : null}
-            <span className="relative">{t.label}</span>
+            {t.label}
           </Link>
         );
       })}

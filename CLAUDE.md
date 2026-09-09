@@ -13,7 +13,7 @@ Four tabs when signed in: **Home** (`/dashboard`), **Notes** (`/notes`, the meet
 
 ## Charts
 - Series colours are `--chart-1` / `--chart-2` in `globals.css`, in that fixed order, never cycled. They are the dark-mode steps of a validated categorical palette and all six checks pass against the panel surface. **The UI accents fail the lightness band; do not use them for chart marks.**
-- Before changing or adding a series colour, run the validator in the `dataviz` skill (`node scripts/validate_palette.js "<hex,...>" --mode dark --surface "#121520"`) and fix any FAIL. Don't eyeball it.
+- Before changing or adding a series colour, run the validator in the `dataviz` skill (`node scripts/validate_palette.js "<hex,...>" --mode dark --surface "#121214"`) and fix any FAIL. Don't eyeball it.
 - One axis only, never two y-scales. Bars: 4px rounded ends anchored to the baseline, 2px gap between adjacent bars, solid hairline gridlines (never dashed). Two or more series always get a legend. Every chart ships a hover tooltip and a "View as table" fallback.
 - Dashboard aggregation lives in `src/lib/stats.ts`, all pure and time-injectable so tests aren't date-dependent.
 
@@ -49,15 +49,14 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 - Deleting a user does NOT delete their audio: storage has no cascade. Any account-deletion feature must clear `<user_id>/` in the bucket first (see `--clean` in `scripts/seed-demo.mjs`).
 
 ## UI
-- Design tokens and every animation live in `src/app/globals.css`. Reuse the classes rather than adding one-off keyframes: `.glass`, `.glass-lit`, `.glass-hover`, `.btn`, `.pill`, `.rise`, `.pop`, `.stagger`, `.skeleton`, `.bar-track`, `.record-btn`, `.step-dot`, `.field`.
+- Design tokens and every animation live in `src/app/globals.css`. The look is deliberately restrained: one accent (`--accent`), flat surfaces, neutral greys, short entry-only motion. No gradients, no glow, no glass blur, no decorative icons. Reuse the classes rather than adding one-off styles: `.glass`, `.glass-hover`, `.btn`, `.pill`, `.rise`, `.stagger`, `.skeleton`, `.bar-track`, `.record-btn`, `.step-dot`, `.field`.
 - Everything is disabled under `prefers-reduced-motion`; keep it that way.
-- Card backgrounds must stay legible without `backdrop-filter`; some browsers drop the blur mid-scroll.
 - Shared pieces: `src/components/ui.tsx` (skeletons, status pill, stepper, empty state), `src/components/toast.tsx` (`useToast()`), `src/components/notes.tsx`. Use a toast, never `alert()`.
 - `npm run seed:demo` creates a demo account with a finished meeting for looking at the UI; `npm run seed:demo -- --clean` removes them and their audio.
 
 ## Conventions
 - Anthropic SDK only for LLM calls; default model `claude-opus-5`; structured output via `zodOutputFormat` and Zod validation of the parsed JSON.
 - Every vendor call logs one JSON line (`event`, sizes, usage, `costUsd`) so spend is visible in Vercel logs.
-- Dark theme tokens in `src/app/globals.css`; reuse `.glass`, `.btn`, `.pill` classes.
+
 - Storage bucket is `recordings` (private). Object paths are `<user_id>/<yyyy-mm>/<meeting_id>.<ext>`; ownership is checked with `pathBelongsTo()`.
 - Meeting status machine: recorded → uploaded → transcribing → transcribed → extracting → done, or error (retryable; finished steps are skipped).

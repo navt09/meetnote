@@ -92,7 +92,7 @@ export default function ResetForm() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={`At least ${PASSWORD_MIN_LENGTH} characters`}
-            className="w-full rounded-xl border border-panel-border bg-black/30 px-4 py-3 pr-16 text-base text-fg outline-none focus:border-accent"
+            className="w-full field pr-16 text-base"
           />
           <button type="button" onClick={() => setShow((s) => !s)} className="absolute right-3 text-xs text-muted hover:text-fg">
             {show ? "Hide" : "Show"}

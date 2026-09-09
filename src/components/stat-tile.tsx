@@ -2,7 +2,7 @@ import type { Delta } from "@/lib/stats";
 
 /**
  * label · value · optional delta against a named period.
- * The value uses proportional figures; tabular is for columns, not display sizes.
+ * Proportional figures at display size; tabular is for columns.
  */
 export function StatTile({
   label,
@@ -19,33 +19,26 @@ export function StatTile({
 }) {
   const tone =
     !delta || delta.direction === "flat" || goodDirection === "none"
-      ? "text-muted"
+      ? "text-faint"
       : delta.direction === goodDirection
         ? "text-ok"
         : "text-warn";
 
   return (
-    <div className="glass glass-hover p-5">
+    <div className="glass p-4">
       <p className="text-xs text-muted">{label}</p>
-      <p className="mt-1.5 text-3xl font-semibold leading-none">{value}</p>
-      {deltaText ? (
-        <p className={`mt-2 flex items-center gap-1 text-xs ${tone}`}>
-          {delta && delta.direction !== "flat" ? <span aria-hidden>{delta.direction === "up" ? "↑" : "↓"}</span> : null}
-          {deltaText}
-        </p>
-      ) : null}
+      <p className="mt-2 text-2xl font-semibold leading-none">{value}</p>
+      {deltaText ? <p className={`mt-2 text-xs ${tone}`}>{deltaText}</p> : null}
     </div>
   );
 }
 
-/** The single number the dashboard leads with. Exactly one per view. */
+/** The single number the page leads with. Exactly one per view. */
 export function HeroFigure({ value, label, sub }: { value: string; label: string; sub?: string }) {
   return (
     <div>
-      <p className="text-xs uppercase tracking-widest text-muted">{label}</p>
-      <p className="mt-1 text-6xl font-semibold leading-none tracking-tight">
-        <span className="grad-text">{value}</span>
-      </p>
+      <p className="text-xs text-muted">{label}</p>
+      <p className="mt-1 text-5xl font-semibold leading-none tracking-tight">{value}</p>
       {sub ? <p className="mt-2 text-sm text-muted">{sub}</p> : null}
     </div>
   );

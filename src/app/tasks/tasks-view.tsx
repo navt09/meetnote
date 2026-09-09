@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { patchJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState } from "@/components/ui";
-import { filterTasks, KIND_ICON, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
+import { filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "open", label: "To do" },
@@ -47,20 +47,20 @@ export default function TasksView({ initial, loadError }: { initial: PublicTask[
             {tasks.length > openCount ? ` · ${tasks.length - openCount} done` : ""}
           </p>
         </div>
-        <Link href="/record" className="btn btn-primary">New recording</Link>
+        <Link href="/record" className="btn btn-primary">New meeting</Link>
       </div>
 
       {error ? <p className="glass p-4 text-sm text-danger">{error}</p> : null}
 
       {tasks.length > 0 ? (
         <div className="rise flex flex-wrap items-center gap-2">
-          <div className="flex gap-1 rounded-full border border-panel-border bg-black/25 p-1">
+          <div className="flex gap-0.5 rounded-lg border border-panel-border p-0.5">
             {FILTERS.map((f) => (
               <button
                 key={f.key}
                 onClick={() => setFilter(f.key)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  filter === f.key ? "bg-gradient-to-r from-accent to-accent-2 text-[#05060a]" : "text-muted hover:text-fg"
+                className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                  filter === f.key ? "bg-panel-hi font-medium text-fg" : "text-muted hover:text-fg"
                 }`}
               >
                 {f.label}
@@ -103,37 +103,31 @@ export default function TasksView({ initial, loadError }: { initial: PublicTask[
         {visible.map((t) => {
           const done = t.status === "done";
           return (
-            <li key={t.id} className={`glass glass-hover flex items-start gap-3.5 p-4 ${done ? "opacity-60" : ""}`}>
+            <li key={t.id} className={`glass glass-hover flex items-start gap-3 p-4 ${done ? "opacity-55" : ""}`}>
               <button
                 onClick={() => toggle(t)}
                 aria-label={done ? `Mark "${t.title}" as not done` : `Mark "${t.title}" as done`}
-                className={`mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-md border text-[0.65rem] transition-all ${
-                  done
-                    ? "border-transparent bg-gradient-to-br from-accent to-accent-2 text-[#05060a]"
-                    : "border-panel-border hover:border-accent hover:shadow-[0_0_0_4px_rgba(110,231,249,0.12)]"
+                className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded border text-[0.6rem] transition-colors ${
+                  done ? "border-accent bg-accent text-[color:var(--accent-ink)]" : "border-panel-border hover:border-accent"
                 }`}
               >
                 {done ? "✓" : ""}
               </button>
 
               <div className="min-w-0 flex-1">
-                <p className={`font-medium leading-snug ${done ? "line-through decoration-muted" : ""}`}>
-                  <span className="mr-1.5 text-accent" aria-hidden>{KIND_ICON[t.kind]}</span>
-                  {t.title}
-                </p>
+                <p className={`text-sm font-medium leading-snug ${done ? "line-through decoration-faint" : ""}`}>{t.title}</p>
                 {t.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{t.details}</p> : null}
-                <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                  <span className="rounded-md bg-white/5 px-1.5 py-0.5">{t.owner ?? "unassigned"}</span>
+                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
+                  <span>{t.owner ?? "unassigned"}</span>
                   <span>{kindLabel(t.kind)}</span>
                   {t.due ? <span className="text-warn">due {t.due}</span> : null}
-                  <span aria-hidden>·</span>
-                  <Link href={`/meetings/${t.meetingId}`} className="truncate transition-colors hover:text-accent">
+                  <Link href={`/meetings/${t.meetingId}`} className="truncate transition-colors hover:text-fg">
                     {t.meetingTitle}
                   </Link>
                 </p>
               </div>
 
-              <span className={`pill flex-none ${t.priority === "high" && !done ? "pill-danger" : ""}`}>{t.priority}</span>
+              {t.priority === "high" && !done ? <span className="pill pill-danger flex-none">high</span> : null}
             </li>
           );
         })}

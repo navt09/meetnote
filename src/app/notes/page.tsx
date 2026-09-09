@@ -41,7 +41,7 @@ export default async function NotesPage() {
             </p>
           ) : null}
         </div>
-        <Link href="/record" className="btn btn-primary">New recording</Link>
+        <Link href="/record" className="btn btn-primary">New meeting</Link>
       </div>
 
       {error ? <p className="glass p-4 text-sm text-danger">Could not load your notes. Refresh to try again.</p> : null}

@@ -3,7 +3,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { isOwnerEmail } from "@/lib/admin";
 import { formatUsd } from "@/lib/cost";
 import type { MeetingStatus } from "@/lib/meeting";
-import { KIND_ICON, type TaskPriority } from "@/lib/task";
+import type { TaskPriority, TaskKind } from "@/lib/task";
 import { countByWeek, delta, deltaLabel, humanDuration, sumByWeek, weekBuckets } from "@/lib/stats";
 import ActivityChart, { type ActivityWeek } from "@/components/activity-chart";
 import { HeroFigure, StatTile } from "@/components/stat-tile";
@@ -30,7 +30,7 @@ type TaskRow = {
   title: string;
   status: string;
   priority: TaskPriority;
-  kind: keyof typeof KIND_ICON;
+  kind: TaskKind;
   owner: string | null;
   due: string | null;
   completed_at: string | null;
@@ -126,11 +126,11 @@ export default async function DashboardPage() {
         />
         <div className="flex gap-2">
           <Link href="/tasks" className="btn btn-ghost">View tasks</Link>
-          <Link href="/record" className="btn btn-primary">New recording</Link>
+          <Link href="/record" className="btn btn-primary">New meeting</Link>
         </div>
       </div>
 
-      <div className="stagger grid gap-4 sm:grid-cols-3">
+      <div className="stagger grid gap-3 sm:grid-cols-3">
         <StatTile
           label="Meetings this week"
           value={String(meetingsPerWeek[last])}
@@ -158,49 +158,48 @@ export default async function DashboardPage() {
         />
       </div>
 
-      <div className="glass glass-lit rise p-6">
+      <div className="glass rise p-6">
         <ActivityChart weeks={weeks} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-3 lg:grid-cols-2">
         <div className="glass rise p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="pill">Top of the list</span>
-            <Link href="/tasks" className="text-xs text-muted transition-colors hover:text-accent">All tasks →</Link>
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs text-muted">Top of the list</p>
+            <Link href="/tasks" className="text-xs text-faint transition-colors hover:text-fg">All tasks</Link>
           </div>
-          <ul className="space-y-3">
+          <ul className="mt-4 divide-y divide-panel-border">
             {topTasks.map((t) => (
-              <li key={t.id} className="rounded-xl border border-panel-border bg-black/25 p-3">
-                <p className="font-medium leading-snug">
-                  <span className="mr-1.5 text-accent" aria-hidden>{KIND_ICON[t.kind] ?? "•"}</span>
-                  {t.title}
-                </p>
-                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                  <span className="rounded-md bg-white/5 px-1.5 py-0.5">{t.owner ?? "unassigned"}</span>
+              <li key={t.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-medium leading-snug">{t.title}</p>
+                  {t.priority === "high" ? <span className="pill pill-danger flex-none">high</span> : null}
+                </div>
+                <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-faint">
+                  <span>{t.owner ?? "unassigned"}</span>
                   {t.due ? <span className="text-warn">due {t.due}</span> : null}
-                  <span aria-hidden>·</span>
-                  <Link href={`/meetings/${t.meeting_id}`} className="truncate transition-colors hover:text-accent">
+                  <Link href={`/meetings/${t.meeting_id}`} className="truncate transition-colors hover:text-fg">
                     {t.meetings?.title ?? "meeting"}
                   </Link>
                 </p>
               </li>
             ))}
-            {topTasks.length === 0 ? <li className="text-sm text-muted">Nothing outstanding. Good place to be.</li> : null}
+            {topTasks.length === 0 ? <li className="py-3 text-sm text-muted">Nothing outstanding.</li> : null}
           </ul>
         </div>
 
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3">
           <div className="glass rise p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <span className="pill">Recent meetings</span>
-              <Link href="/notes" className="text-xs text-muted transition-colors hover:text-accent">All notes →</Link>
+            <div className="flex items-baseline justify-between">
+              <p className="text-xs text-muted">Recent meetings</p>
+              <Link href="/notes" className="text-xs text-faint transition-colors hover:text-fg">All notes</Link>
             </div>
-            <ul className="space-y-3">
+            <ul className="mt-4 divide-y divide-panel-border">
               {recent.map((m) => (
-                <li key={m.id} className="flex items-start justify-between gap-3">
-                  <Link href={`/meetings/${m.id}`} className="group min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium transition-colors group-hover:text-accent">{m.title}</span>
-                    <span className="mt-0.5 block text-xs text-muted">
+                <li key={m.id} className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                  <Link href={`/meetings/${m.id}`} className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium transition-colors hover:text-accent">{m.title}</span>
+                    <span className="mt-0.5 block text-xs text-faint">
                       {new Date(m.recorded_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
                       {m.duration_seconds ? ` · ${humanDuration(Number(m.duration_seconds))}` : ""}
                     </span>
@@ -212,21 +211,18 @@ export default async function DashboardPage() {
           </div>
 
           <div className="glass rise p-6">
-            <span className="pill">People to follow up with</span>
-            <ul className="mt-4 space-y-3 text-sm">
+            <p className="text-xs text-muted">People to follow up with</p>
+            <ul className="mt-4 divide-y divide-panel-border text-sm">
               {people.slice(0, 4).map((p) => (
-                <li key={p.name} className="flex gap-3">
-                  <span className="grid h-8 w-8 flex-none place-items-center rounded-full bg-gradient-to-br from-accent/25 to-accent-2/25 text-xs font-semibold">
-                    {p.name.trim().charAt(0).toUpperCase() || "?"}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="font-medium">{p.name}</span>
-                    {p.role ? <span className="text-muted"> · {p.role}</span> : null}
-                    <span className="line-clamp-2 text-muted">{p.why}</span>
-                  </span>
+                <li key={p.name} className="py-3 first:pt-0 last:pb-0">
+                  <p className="font-medium">
+                    {p.name}
+                    {p.role ? <span className="font-normal text-faint"> · {p.role}</span> : null}
+                  </p>
+                  <p className="mt-0.5 line-clamp-2 text-muted">{p.why}</p>
                 </li>
               ))}
-              {people.length === 0 ? <li className="text-muted">Nobody flagged yet.</li> : null}
+              {people.length === 0 ? <li className="py-3 text-muted">Nobody flagged yet.</li> : null}
             </ul>
           </div>
         </div>

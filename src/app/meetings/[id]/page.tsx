@@ -177,7 +177,7 @@ export default function MeetingPage() {
       </div>
 
       {working ? (
-        <div className="glass glass-lit rise p-6">
+        <div className="glass rise p-6">
           <p className="mb-4 text-sm font-medium">
             <span className="dots">{WORKING_COPY[meeting.status] ?? "Working"}</span>
           </p>

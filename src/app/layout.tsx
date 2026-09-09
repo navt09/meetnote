@@ -26,34 +26,25 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
-        <div className="aurora" aria-hidden>
-          <span className="a1" />
-          <span className="a2" />
-          <span className="a3" />
-        </div>
-
+      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
         <ToastProvider>
-          <header className="sticky top-0 z-40 border-b border-panel-border/60 bg-bg/60 backdrop-blur-xl">
-            <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-              <Link href={email ? "/dashboard" : "/"} className="group flex items-center gap-2.5 font-semibold tracking-tight">
-                <span className="relative inline-grid h-6 w-6 place-items-center">
-                  <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent to-accent-2 opacity-90 transition-transform duration-300 group-hover:rotate-12" />
-                  <span className="relative text-[0.7rem] font-black text-[#05060a]">M</span>
-                </span>
+          <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
+            <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
+              <Link href={email ? "/dashboard" : "/"} className="flex items-center gap-2 text-[0.9375rem] font-semibold tracking-tight">
+                <span className="grid h-5 w-5 place-items-center rounded bg-accent text-[0.625rem] font-bold text-[color:var(--accent-ink)]">M</span>
                 meetnote
               </Link>
-              <nav className="flex items-center gap-1 text-sm text-muted sm:gap-3">
+              <nav className="flex items-center gap-3 text-sm text-muted">
                 {email ? (
                   <>
                     <NavTabs />
-                    <form action="/auth/signout" method="post" className="ml-1 flex items-center gap-2">
-                      <span className="hidden max-w-[14ch] truncate text-xs sm:inline" title={email}>{email}</span>
-                      <button className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-white/5 hover:text-fg" type="submit">Sign out</button>
+                    <form action="/auth/signout" method="post" className="flex items-center gap-3 border-l border-panel-border pl-3">
+                      <span className="hidden max-w-[16ch] truncate text-xs text-faint sm:inline" title={email}>{email}</span>
+                      <button className="text-xs transition-colors hover:text-fg" type="submit">Sign out</button>
                     </form>
                   </>
                 ) : (
-                  <Link href="/login" className="btn btn-ghost !px-4 !py-1.5 text-sm">Sign in</Link>
+                  <Link href="/login" className="btn btn-ghost">Sign in</Link>
                 )}
               </nav>
             </div>
