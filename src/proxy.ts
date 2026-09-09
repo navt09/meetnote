@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/record", "/meetings", "/notes", "/tasks"];
+const PROTECTED = ["/record", "/meetings", "/notes", "/tasks", "/dashboard"];
 
 /**
  * Runs before every page request: refreshes the Supabase session cookie and
@@ -41,7 +41,7 @@ export async function proxy(request: NextRequest) {
   }
   if (user && path === "/login") {
     const home = request.nextUrl.clone();
-    home.pathname = "/notes";
+    home.pathname = "/dashboard";
     home.search = "";
     return NextResponse.redirect(home);
   }

@@ -36,7 +36,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToastProvider>
           <header className="sticky top-0 z-40 border-b border-panel-border/60 bg-bg/60 backdrop-blur-xl">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-              <Link href={email ? "/notes" : "/"} className="group flex items-center gap-2.5 font-semibold tracking-tight">
+              <Link href={email ? "/dashboard" : "/"} className="group flex items-center gap-2.5 font-semibold tracking-tight">
                 <span className="relative inline-grid h-6 w-6 place-items-center">
                   <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent to-accent-2 opacity-90 transition-transform duration-300 group-hover:rotate-12" />
                   <span className="relative text-[0.7rem] font-black text-[#05060a]">M</span>

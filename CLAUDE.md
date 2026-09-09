@@ -9,7 +9,13 @@ Meeting-notes SaaS. Read PLAN.md first for product, stack, phases, and the accou
 - Every API route checks auth via `getAuth(req)` (cookie session or `Authorization: Bearer`). Row Level Security on `meetings` is the real boundary; the service role is only used for storage signing and the post-response pipeline, always scoped by `user_id`.
 
 ## Navigation
-Three tabs when signed in: **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Record** (`/record`). `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/nav-tabs.tsx`.
+Four tabs when signed in: **Home** (`/dashboard`), **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Record** (`/record`). Signing in lands on `/dashboard`. `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/nav-tabs.tsx`.
+
+## Charts
+- Series colours are `--chart-1` / `--chart-2` in `globals.css`, in that fixed order, never cycled. They are the dark-mode steps of a validated categorical palette and all six checks pass against the panel surface. **The UI accents fail the lightness band; do not use them for chart marks.**
+- Before changing or adding a series colour, run the validator in the `dataviz` skill (`node scripts/validate_palette.js "<hex,...>" --mode dark --surface "#121520"`) and fix any FAIL. Don't eyeball it.
+- One axis only, never two y-scales. Bars: 4px rounded ends anchored to the baseline, 2px gap between adjacent bars, solid hairline gridlines (never dashed). Two or more series always get a legend. Every chart ships a hover tooltip and a "View as table" fallback.
+- Dashboard aggregation lives in `src/lib/stats.ts`, all pure and time-injectable so tests aren't date-dependent.
 
 ## Tasks
 Action items are mirrored from `meetings.notes` into a real `tasks` table by `syncTasks()` in `src/lib/pipeline.ts`, keyed on `(meeting_id, idx)`. Re-running extraction upserts the same rows, so a person's "done" tick survives; rows beyond the new count are pruned. Only `status` is editable through the API. Deleting a meeting cascades to its tasks.

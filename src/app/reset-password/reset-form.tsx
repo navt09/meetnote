@@ -48,7 +48,7 @@ export default function ResetForm() {
       if (error) throw error;
       setDone(true);
       setTimeout(() => {
-        router.push("/notes");
+        router.push("/dashboard");
         router.refresh();
       }, 1200);
     } catch (err) {
