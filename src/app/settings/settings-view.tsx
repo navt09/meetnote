@@ -113,39 +113,43 @@ export default function SettingsView({
         </p>
       ) : null}
 
-      <div className="flex flex-col gap-3">
+      <div className="glass divide-y divide-panel-border overflow-hidden">
+        <div className="px-5 py-3">
+          <p className="text-sm font-medium">Connections</p>
+          <p className="mt-0.5 text-xs text-muted">Where your approved notes, tickets and follow-ups go.</p>
+        </div>
         <LinearCard oauthReady={oauthReady.linear} connector={get("linear")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <JiraCard oauthReady={oauthReady.jira} connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
-
-        {get("linear") || get("jira") ? (
-          <div className="glass p-5">
-            <p className="text-sm font-medium">Where approved tickets go</p>
-            <p className="mt-1 text-xs text-muted">
-              Approving a ticket creates it here. Leave it off and approving just marks it ready to copy.
-            </p>
-            <div className="mt-3 flex gap-0.5 self-start rounded-lg border border-panel-border p-0.5">
-              {[
-                { key: null, label: "Copy only" },
-                ...(get("linear") ? [{ key: "linear" as const, label: "Linear" }] : []),
-                ...(get("jira") ? [{ key: "jira" as const, label: "Jira" }] : []),
-              ].map((o) => (
-                <button
-                  key={String(o.key)}
-                  onClick={() => chooseTicketProvider(o.key)}
-                  className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
-                    ticketProvider === o.key ? "bg-panel-hi font-medium text-fg" : "text-muted hover:text-fg"
-                  }`}
-                >
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : null}
-
         <SlackCard oauthReady={oauthReady.slack} connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <GoogleCard connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
       </div>
+
+      {get("linear") || get("jira") ? (
+        <div className="glass p-5">
+          <p className="text-sm font-medium">Where approved tickets go</p>
+          <p className="mt-1 text-xs text-muted">
+            Approving a ticket creates it here. Leave it off and approving just marks it ready to copy.
+          </p>
+          <div className="mt-3 flex gap-0.5 self-start rounded-lg border border-panel-border p-0.5">
+            {[
+              { key: null, label: "Copy only" },
+              ...(get("linear") ? [{ key: "linear" as const, label: "Linear" }] : []),
+              ...(get("jira") ? [{ key: "jira" as const, label: "Jira" }] : []),
+            ].map((o) => (
+              <button
+                key={String(o.key)}
+                onClick={() => chooseTicketProvider(o.key)}
+                className={`rounded-md px-2.5 py-1 text-xs transition-colors ${
+                  ticketProvider === o.key ? "bg-panel-hi font-medium text-fg" : "text-muted hover:text-fg"
+                }`}
+              >
+                {o.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
     </section>
   );
 }
@@ -160,43 +164,62 @@ type CardProps = {
   disconnect: (p: Provider, label: string) => Promise<void>;
 };
 
-function Shell({
+/** Brand marks. A monogram in the provider's own colour, so the list scans at a glance. */
+const MARK: Record<Provider, { letter: string; bg: string }> = {
+  linear: { letter: "L", bg: "#5E6AD2" },
+  jira: { letter: "J", bg: "#0052CC" },
+  slack: { letter: "S", bg: "#611F69" },
+  google: { letter: "G", bg: "#1A73E8" },
+};
+
+/**
+ * One integration, as a row rather than a card.
+ *
+ * The row always reads the same way: what it is, what it does, and one control
+ * on the right. Anything fiddly (an API key, a project picker) only appears
+ * once you ask for it, so the page is a short list instead of a wall of forms.
+ */
+function Row({
   provider,
   title,
   connected,
   detail,
   error,
+  action,
   children,
-  onDisconnect,
-  busy,
 }: {
   provider: Provider;
   title: string;
   connected: boolean;
   detail?: string;
   error?: string | null;
-  children: React.ReactNode;
-  onDisconnect?: () => void;
-  busy: boolean;
+  action: React.ReactNode;
+  children?: React.ReactNode;
 }) {
+  const mark = MARK[provider];
   return (
-    <div className="glass p-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="flex items-center gap-2 text-sm font-medium">
-            {title}
-            {connected ? <span className="pill pill-ok">connected</span> : null}
-          </p>
-          <p className="mt-1 text-xs text-muted">{detail ?? PROVIDER_PURPOSE[provider]}</p>
+    <div className="px-5 py-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            aria-hidden
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-semibold text-white"
+            style={{ background: mark.bg }}
+          >
+            {mark.letter}
+          </span>
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              {title}
+              {connected ? <span className="pill pill-ok">connected</span> : null}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-muted">{detail ?? PROVIDER_PURPOSE[provider]}</p>
+          </div>
         </div>
-        {connected && onDisconnect ? (
-          <button className="btn btn-ghost !py-1.5 text-xs text-muted hover:!text-danger" disabled={busy} onClick={onDisconnect}>
-            Disconnect
-          </button>
-        ) : null}
+        <div className="flex shrink-0 items-center gap-2">{action}</div>
       </div>
-      {error ? <p className="mt-3 text-xs text-danger">{error}</p> : null}
-      <div className="mt-4">{children}</div>
+      {error ? <p className="mt-2 pl-11 text-xs text-danger">{error}</p> : null}
+      {children ? <div className="mt-3 pl-11">{children}</div> : null}
     </div>
   );
 }
@@ -207,10 +230,40 @@ function Shell({
  */
 function ConnectButton({ href, label = "Connect" }: { href: string; label?: string }) {
   return (
-    <a className="btn btn-primary self-start" href={href}>
+    <a className="btn btn-primary !py-1.5 text-xs" href={href}>
       {label}
     </a>
   );
+}
+
+function DisconnectButton({ onClick, busy }: { onClick: () => void; busy: boolean }) {
+  return (
+    <button className="btn btn-ghost !py-1.5 text-xs text-muted hover:!text-danger" disabled={busy} onClick={onClick}>
+      Disconnect
+    </button>
+  );
+}
+
+/**
+ * The manual fallback, folded away. It only exists for the case where no OAuth
+ * app has been registered for this provider yet, and it should never be the
+ * first thing a customer sees.
+ */
+function Manual({ label, children }: { label: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button className="text-xs text-faint underline underline-offset-2 transition-colors hover:text-fg" onClick={() => setOpen(true)}>
+        {label}
+      </button>
+    );
+  }
+  return <div className="flex flex-col gap-2">{children}</div>;
+}
+
+/** Shown when the server has no OAuth app registered for a provider yet. */
+function NotSetUp({ what }: { what: string }) {
+  return <span className="text-xs text-faint">Needs {what} on the server</span>;
 }
 
 // ---- Linear -----------------------------------------------------------------
@@ -220,6 +273,7 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthRead
   const [apiKey, setApiKey] = useState("");
   const [teams, setTeams] = useState<Team[]>([]);
   const config = (connector?.config ?? {}) as { teamId?: string; teamName?: string };
+  const working = busy === "linear";
 
   async function connect() {
     setBusy("linear");
@@ -259,19 +313,37 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthRead
   }
 
   return (
-    <Shell
+    <Row
       provider="linear"
       title="Linear"
       connected={!!connector}
       error={connector?.lastError}
-      busy={busy === "linear"}
-      onDisconnect={() => disconnect("linear", "Linear")}
       detail={config.teamName ? `Issues go to the ${config.teamName} team.` : undefined}
-    >
-      {!connector ? (
-        oauthReady ? (
+      action={
+        connector ? (
+          <DisconnectButton busy={working} onClick={() => disconnect("linear", "Linear")} />
+        ) : oauthReady ? (
           <ConnectButton href="/api/connectors/linear/start" />
         ) : (
+          <NotSetUp what="LINEAR_CLIENT_ID" />
+        )
+      }
+    >
+      {connector ? (
+        teams.length > 0 ? (
+          <select value={config.teamId ?? ""} onChange={(e) => pickTeam(e.target.value)} className="field max-w-xs text-sm" aria-label="Linear team">
+            <option value="" disabled>Pick a team</option>
+            {teams.map((t) => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
+          </select>
+        ) : (
+          <button className="btn btn-ghost !py-1.5 text-xs" onClick={loadTeams}>
+            {config.teamName ? "Change team" : "Choose a team"}
+          </button>
+        )
+      ) : !oauthReady ? (
+        <Manual label="Use an API key instead">
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
               type="password"
@@ -281,36 +353,14 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthRead
               className="field text-sm"
               aria-label="Linear API key"
             />
-            <button className="btn btn-primary" disabled={busy === "linear" || !apiKey.trim()} onClick={connect}>
-              {busy === "linear" ? "Checking…" : "Connect"}
+            <button className="btn btn-primary" disabled={working || !apiKey.trim()} onClick={connect}>
+              {working ? "Checking…" : "Connect"}
             </button>
           </div>
-        )
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          {teams.length > 0 ? (
-            <select
-              value={config.teamId ?? ""}
-              onChange={(e) => pickTeam(e.target.value)}
-              className="field max-w-xs text-sm"
-              aria-label="Linear team"
-            >
-              <option value="" disabled>Pick a team</option>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>{t.name}</option>
-              ))}
-            </select>
-          ) : (
-            <button className="btn btn-ghost !py-1.5 text-xs" onClick={loadTeams}>
-              {config.teamName ? "Change team" : "Choose a team"}
-            </button>
-          )}
-        </div>
-      )}
-      {!connector && !oauthReady ? (
-        <p className="mt-2 text-xs text-faint">Linear → Settings → Account → Security &amp; access → API.</p>
+          <p className="text-xs text-faint">Linear &rarr; Settings &rarr; Account &rarr; Security &amp; access &rarr; API.</p>
+        </Manual>
       ) : null}
-    </Shell>
+    </Row>
   );
 }
 
@@ -321,6 +371,7 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady 
   const [form, setForm] = useState({ siteUrl: "", email: "", apiToken: "" });
   const [projects, setProjects] = useState<Project[]>([]);
   const config = (connector?.config ?? {}) as { projectKey?: string; projectName?: string; issueType?: string };
+  const working = busy === "jira";
 
   async function connect() {
     setBusy("jira");
@@ -360,40 +411,47 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady 
   }
 
   return (
-    <Shell
+    <Row
       provider="jira"
       title="Jira"
       connected={!!connector}
       error={connector?.lastError}
-      busy={busy === "jira"}
-      onDisconnect={() => disconnect("jira", "Jira")}
       detail={config.projectKey ? `Issues go to ${config.projectName ?? config.projectKey} as ${config.issueType ?? "Task"}.` : undefined}
+      action={
+        connector ? (
+          <DisconnectButton busy={working} onClick={() => disconnect("jira", "Jira")} />
+        ) : oauthReady ? (
+          <ConnectButton href="/api/connectors/jira/start" />
+        ) : (
+          <NotSetUp what="JIRA_CLIENT_ID" />
+        )
+      }
     >
-      {!connector && oauthReady ? (
-        <ConnectButton href="/api/connectors/jira/start" />
-      ) : !connector ? (
-        <div className="flex flex-col gap-2">
+      {connector ? (
+        projects.length > 0 ? (
+          <select value={config.projectKey ?? ""} onChange={(e) => pickProject(e.target.value)} className="field max-w-xs text-sm" aria-label="Jira project">
+            <option value="" disabled>Pick a project</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.key}>{p.name} ({p.key})</option>
+            ))}
+          </select>
+        ) : (
+          <button className="btn btn-ghost !py-1.5 text-xs" onClick={loadProjects}>
+            {config.projectKey ? "Change project" : "Choose a project"}
+          </button>
+        )
+      ) : !oauthReady ? (
+        <Manual label="Use an API token instead">
           <input value={form.siteUrl} onChange={(e) => setForm({ ...form, siteUrl: e.target.value })} placeholder="acme.atlassian.net" className="field text-sm" aria-label="Jira site" />
           <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@company.com" className="field text-sm" aria-label="Jira email" />
           <input type="password" value={form.apiToken} onChange={(e) => setForm({ ...form, apiToken: e.target.value })} placeholder="API token" className="field text-sm" aria-label="Jira API token" />
-          <button className="btn btn-primary self-start" disabled={busy === "jira"} onClick={connect}>
-            {busy === "jira" ? "Checking…" : "Connect"}
+          <button className="btn btn-primary self-start" disabled={working} onClick={connect}>
+            {working ? "Checking…" : "Connect"}
           </button>
-          <p className="text-xs text-faint">Create a token at id.atlassian.com → Security → API tokens.</p>
-        </div>
-      ) : projects.length > 0 ? (
-        <select value={config.projectKey ?? ""} onChange={(e) => pickProject(e.target.value)} className="field max-w-xs text-sm" aria-label="Jira project">
-          <option value="" disabled>Pick a project</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.key}>{p.name} ({p.key})</option>
-          ))}
-        </select>
-      ) : (
-        <button className="btn btn-ghost !py-1.5 text-xs" onClick={loadProjects}>
-          {config.projectKey ? "Change project" : "Choose a project"}
-        </button>
-      )}
-    </Shell>
+          <p className="text-xs text-faint">Create a token at id.atlassian.com &rarr; Security &rarr; API tokens.</p>
+        </Manual>
+      ) : null}
+    </Row>
   );
 }
 
@@ -402,6 +460,7 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady 
 function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady }: CardProps & { oauthReady: boolean }) {
   const toast = useToast();
   const [webhookUrl, setWebhookUrl] = useState("");
+  const working = busy === "slack";
 
   async function connect() {
     setBusy("slack");
@@ -418,28 +477,36 @@ function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady
   }
 
   return (
-    <Shell provider="slack" title="Slack" connected={!!connector} error={connector?.lastError} busy={busy === "slack"} onDisconnect={() => disconnect("slack", "Slack")}>
-      {!connector && oauthReady ? (
-        <div className="flex flex-col gap-2">
+    <Row
+      provider="slack"
+      title="Slack"
+      connected={!!connector}
+      error={connector?.lastError}
+      detail={connector ? "Posting to the channel this connection was made for." : undefined}
+      action={
+        connector ? (
+          <DisconnectButton busy={working} onClick={() => disconnect("slack", "Slack")} />
+        ) : oauthReady ? (
           <ConnectButton href="/api/connectors/slack/start" />
-          <p className="text-xs text-faint">Slack asks which channel to post to during the install.</p>
-        </div>
-      ) : !connector ? (
-        <div className="flex flex-col gap-2">
+        ) : (
+          <NotSetUp what="SLACK_CLIENT_ID" />
+        )
+      }
+    >
+      {!connector && !oauthReady ? (
+        <Manual label="Use a webhook URL instead">
           <div className="flex flex-col gap-2 sm:flex-row">
             <input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.slack.com/services/…" className="field text-sm" aria-label="Slack webhook URL" />
-            <button className="btn btn-primary" disabled={busy === "slack" || !webhookUrl.trim()} onClick={connect}>
-              {busy === "slack" ? "Testing…" : "Connect"}
+            <button className="btn btn-primary" disabled={working || !webhookUrl.trim()} onClick={connect}>
+              {working ? "Testing…" : "Connect"}
             </button>
           </div>
           <p className="text-xs text-faint">
-            Slack → your app → Incoming Webhooks → Add New Webhook. The channel is chosen there. We post a test message to confirm it works.
+            Slack &rarr; your app &rarr; Incoming Webhooks &rarr; Add New Webhook. You pick the channel there. We post a test message to confirm it works.
           </p>
-        </div>
-      ) : (
-        <p className="text-xs text-muted">Posting to the channel this webhook was created for.</p>
-      )}
-    </Shell>
+        </Manual>
+      ) : null}
+    </Row>
   );
 }
 
@@ -464,41 +531,37 @@ function GoogleCard({
   const stale = !!connector && !canWriteCalendar;
 
   return (
-    <Shell
+    <Row
       provider="google"
       title="Google"
       connected={!!connector}
       error={connector?.lastError}
-      busy={busy === "google"}
-      onDisconnect={() => disconnect("google", "Google")}
       detail={
         connector
           ? `${canSend ? "Can send email" : "Cannot send email"} · ${canWriteCalendar ? "can add calendar events" : "cannot add calendar events"}.`
           : undefined
       }
+      action={
+        !googleReady ? (
+          <NotSetUp what="GOOGLE_CLIENT_ID" />
+        ) : !connector ? (
+          <ConnectButton href="/api/connectors/google/start" />
+        ) : (
+          <>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a className={`btn ${stale ? "btn-primary" : "btn-ghost"} !py-1.5 text-xs`} href="/api/connectors/google/start">
+              Reconnect
+            </a>
+            <DisconnectButton busy={busy === "google"} onClick={() => disconnect("google", "Google")} />
+          </>
+        )
+      }
     >
-      {!googleReady ? (
-        <p className="text-xs text-muted">
-          Google isn&apos;t set up on this server yet. It needs a Google Cloud OAuth client, then GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.
+      {stale ? (
+        <p className="text-xs text-warn">
+          This connection was made before calendar writing was added. Reconnect to let Meetnote block tasks out on your calendar.
         </p>
-      ) : !connector ? (
-        // A real navigation, not a client-side route: this endpoint redirects
-        // out to Google's consent screen, which next/link cannot do.
-        // eslint-disable-next-line @next/next/no-html-link-for-pages
-        <a className="btn btn-primary" href="/api/connectors/google/start">Connect Google</a>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {stale ? (
-            <p className="text-xs text-warn">
-              This connection was made before calendar writing was added. Reconnect to let Meetnote block tasks out on your calendar.
-            </p>
-          ) : null}
-          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-          <a className={`btn ${stale ? "btn-primary" : "btn-ghost"} self-start !py-1.5 text-xs`} href="/api/connectors/google/start">
-            Reconnect
-          </a>
-        </div>
-      )}
-    </Shell>
+      ) : null}
+    </Row>
   );
 }

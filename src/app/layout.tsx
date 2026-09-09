@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
+import { tierFor } from "@/lib/account-store";
 import { ToastProvider } from "@/components/toast";
 import NavTabs from "@/components/nav-tabs";
 import "./globals.css";
@@ -16,10 +17,14 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let email: string | null = null;
+  let isOwner = false;
   try {
     const db = await supabaseServer();
     const { data } = await db.auth.getUser();
     email = data.user?.email ?? null;
+    // The Owner tab is only rendered for the owner, so nobody else is shown a
+    // door they cannot open. The route guards itself regardless.
+    if (data.user) isOwner = (await tierFor(data.user.id, data.user.email)) === "owner";
   } catch {
     email = null; // Not configured yet; render signed-out.
   }
@@ -37,7 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <nav className="flex items-center gap-3 text-sm text-muted">
                 {email ? (
                   <>
-                    <NavTabs />
+                    <NavTabs isOwner={isOwner} />
                     <form action="/auth/signout" method="post" className="flex items-center gap-3 border-l border-panel-border pl-3">
                       <span className="hidden max-w-[16ch] truncate text-xs text-faint sm:inline" title={email}>{email}</span>
                       <button className="text-xs transition-colors hover:text-fg" type="submit">Sign out</button>

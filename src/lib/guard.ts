@@ -33,3 +33,18 @@ export async function requirePaid(req: Request): Promise<Allowed | NextResponse>
 export function isBlocked(value: Allowed | NextResponse): value is NextResponse {
   return value instanceof NextResponse;
 }
+
+/**
+ * Owner-only routes. Kept separate from requirePaid because the two answer
+ * different questions: one is about money, this one is about who runs the
+ * product. Owner comes from OWNER_EMAILS, so a database row can never grant it.
+ */
+export async function requireOwner(req: Request): Promise<Allowed | NextResponse> {
+  const result = await requireSignedIn(req);
+  if (result instanceof NextResponse) return result;
+  if (result.tier !== "owner") {
+    // 404 rather than 403: a non-owner has no reason to learn this route exists.
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  return result;
+}

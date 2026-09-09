@@ -12,11 +12,14 @@ const TABS = [
   { href: "/record", label: "Record", match: (p: string) => p.startsWith("/record") },
 ];
 
-export default function NavTabs() {
+const OWNER_TAB = { href: "/owner", label: "Owner", match: (p: string) => p.startsWith("/owner") };
+
+export default function NavTabs({ isOwner = false }: { isOwner?: boolean }) {
   const pathname = usePathname() ?? "";
+  const tabs = isOwner ? [...TABS, OWNER_TAB] : TABS;
   return (
     <div className="flex items-center gap-0.5">
-      {TABS.map((t) => {
+      {tabs.map((t) => {
         const active = t.match(pathname);
         return (
           <Link
