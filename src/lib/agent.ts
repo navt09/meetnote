@@ -63,7 +63,7 @@ async function run<T>(system: string, prompt: string, schema: Parameters<typeof 
     cache_read_input_tokens: response.usage.cache_read_input_tokens,
     cache_creation_input_tokens: response.usage.cache_creation_input_tokens,
   };
-  const costUsd = llmCostUsd(usage);
+  const costUsd = llmCostUsd(usage, DRAFT_MODEL);
   console.log(JSON.stringify({ event: "draft", model: DRAFT_MODEL, usage, costUsd }));
   return { draft: response.parsed_output as T, usage, costUsd, model: DRAFT_MODEL };
 }

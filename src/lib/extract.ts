@@ -4,7 +4,7 @@ import { MeetingNotes, type TranscriptSegment } from "./schema";
 import { formatTimestamp } from "./transcript";
 import { llmCostUsd, type LlmUsage } from "./cost";
 
-export const EXTRACT_MODEL = "claude-opus-5";
+export const EXTRACT_MODEL = "claude-sonnet-5";
 
 const SYSTEM = `You turn meeting transcripts into structured notes for an engineering team.
 Be concrete. Every action item must be something a person can actually do; write titles the way a good engineer writes a ticket title.
@@ -85,7 +85,7 @@ export async function extractNotes(segments: TranscriptSegment[], opts: { name?:
     cache_read_input_tokens: message.usage.cache_read_input_tokens,
     cache_creation_input_tokens: message.usage.cache_creation_input_tokens,
   };
-  const costUsd = llmCostUsd(usage);
+  const costUsd = llmCostUsd(usage, EXTRACT_MODEL);
 
   console.log(JSON.stringify({ event: "extract", model: EXTRACT_MODEL, segments: segments.length, usage, costUsd }));
 

@@ -55,7 +55,7 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 - `npm run seed:demo` creates a demo account with a finished meeting for looking at the UI; `npm run seed:demo -- --clean` removes them and their audio.
 
 ## Conventions
-- Anthropic SDK only for LLM calls; default model `claude-opus-5`; structured output via `zodOutputFormat` and Zod validation of the parsed JSON.
+- Anthropic SDK only for LLM calls; structured output via `zodOutputFormat` and Zod validation of the parsed JSON. Extraction (`src/lib/extract.ts`) runs `claude-sonnet-5`, chosen for extraction/classification-shaped judgment at a fifth of Opus's cost; drafting (`src/lib/agent.ts`) stays on `claude-opus-5`, since a draft is text that may be sent to a real person or a real tracker. `src/lib/cost.ts` prices each call by the exact model it used (`MODEL_PRICING`, keyed by model string), so the two never cost themselves at the other's rate.
 - Every vendor call logs one JSON line (`event`, sizes, usage, `costUsd`) so spend is visible in Vercel logs.
 
 - Storage bucket is `recordings` (private). Object paths are `<user_id>/<yyyy-mm>/<meeting_id>.<ext>`; ownership is checked with `pathBelongsTo()`.
