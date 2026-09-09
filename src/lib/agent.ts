@@ -33,7 +33,7 @@ const EMAIL_SYSTEM = `${SHARED_RULES}
 Write one short follow-up email to the named person about what the meeting said to raise with them.
 The subject is specific and under 70 characters.
 The body is plain text, no Markdown, three short paragraphs at most: why you are writing, what you need from them, and what happens next.
-Open with their first name. Sign off with "Thanks," on its own line followed by [Your name].
+Open with their first name. End the body with "Thanks," as the final line and nothing after it — the sign-off name is added afterward, not by you.
 Under 120 words.`;
 
 export type DraftResult<T> = { draft: T; usage: LlmUsage; costUsd: number; model: string };
@@ -98,12 +98,21 @@ export async function draftTicket(
   return run<TicketDraft>(TICKET_SYSTEM, prompt, TicketDraft);
 }
 
-/** Turns a "person to contact" into a follow-up email. */
+/**
+ * Turns a "person to contact" into a follow-up email.
+ *
+ * The sign-off name is not the model's to invent: it doesn't know who is
+ * sending this. The prompt has it stop after "Thanks," and this function
+ * appends the real name in code, from the account's own display name — the
+ * same one self-speech labelling uses. With no name set, the email is left
+ * signed with just "Thanks," rather than a guessed or placeholder name.
+ */
 export async function draftEmail(
   person: { name: string; role: string | null; why: string },
   notes: MeetingNotes | null,
   transcript: TranscriptSegment[] | null,
   meetingTitle: string,
+  senderName: string | null,
 ): Promise<DraftResult<EmailDraft>> {
   const prompt = [
     `<meeting title="${meetingTitle}">`,
@@ -122,5 +131,9 @@ export async function draftEmail(
     .filter(Boolean)
     .join("\n");
 
-  return run<EmailDraft>(EMAIL_SYSTEM, prompt, EmailDraft);
+  const result = await run<EmailDraft>(EMAIL_SYSTEM, prompt, EmailDraft);
+  if (senderName) {
+    result.draft.body = `${result.draft.body.trimEnd()}\n${senderName}`;
+  }
+  return result;
 }

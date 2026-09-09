@@ -4,6 +4,7 @@ import { draftEmail } from "@/lib/agent";
 import { toPublicDraft, type DraftRow } from "@/lib/draft";
 import { publicErrorMessage } from "@/lib/public-error";
 import type { Meeting } from "@/lib/meeting";
+import { getDisplayName } from "@/lib/settings-store";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -48,7 +49,8 @@ export async function POST(req: Request, ctx: Ctx) {
 
   let result;
   try {
-    result = await draftEmail(person, meeting.notes, meeting.transcript, meeting.title);
+    const senderName = await getDisplayName(auth.user.id);
+    result = await draftEmail(person, meeting.notes, meeting.transcript, meeting.title, senderName);
   } catch (err) {
     console.error(JSON.stringify({ event: "draft_email_error", id, raw: err instanceof Error ? err.message : String(err) }));
     return NextResponse.json({ error: publicErrorMessage(err) }, { status: 502 });
