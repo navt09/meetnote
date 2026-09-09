@@ -42,7 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 href={email ? "/dashboard" : "/"}
                 className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[0.9375rem] font-semibold tracking-tight"
               >
-                <Logo size={22} />
+                <Logo size={27} />
                 <span className={email ? "hidden lg:inline" : "inline"}>From the Call</span>
               </Link>
               <nav className="flex min-w-0 items-center gap-3 text-sm text-muted">

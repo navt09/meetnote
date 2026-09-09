@@ -44,12 +44,12 @@ export function BrandMark({ provider }: { provider: Provider }) {
   const mark = MARKS[provider];
   return (
     <span
-      className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border"
+      className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border"
       // Brand hues are not design tokens, so they are set inline rather than
       // polluting globals.css with four colours used in one place.
       style={{ background: `${mark.hex}1f`, borderColor: `${mark.hex}3d` }}
     >
-      <svg viewBox="0 0 24 24" width="17" height="17" role="img" aria-label={mark.label} fill={mark.hex}>
+      <svg viewBox="0 0 24 24" width="24" height="24" role="img" aria-label={mark.label} fill={mark.hex}>
         <path d={mark.path} />
       </svg>
     </span>

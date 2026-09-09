@@ -204,8 +204,8 @@ function Row({
         </div>
         <div className="flex shrink-0 items-center gap-2">{action}</div>
       </div>
-      {error ? <p className="mt-2 pl-11 text-xs text-danger">{error}</p> : null}
-      {children ? <div className="mt-3 pl-11">{children}</div> : null}
+      {error ? <p className="mt-2 pl-14 text-xs text-danger">{error}</p> : null}
+      {children ? <div className="mt-3 pl-14">{children}</div> : null}
     </div>
   );
 }
