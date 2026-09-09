@@ -251,7 +251,7 @@ function DangerZone({ email }: { email: string | null }) {
       </p>
 
       {!open ? (
-        <button className="btn btn-ghost mt-3 !py-1.5 text-xs text-muted hover:!text-danger" onClick={() => setOpen(true)}>
+        <button className="btn btn-danger mt-3" onClick={() => setOpen(true)}>
           Delete account
         </button>
       ) : (
