@@ -119,7 +119,7 @@ export default function ActivityChart({ weeks }: { weeks: ActivityWeek[] }) {
         ) : null}
       </div>
 
-      {empty ? <p className="mt-3 text-center text-xs text-muted">Nothing recorded yet in this period.</p> : null}
+      {empty ? <p className="mt-3 text-center text-xs text-muted">No activity in this period yet.</p> : null}
 
       {/* Same numbers as a table, so the chart is never the only way to read them. */}
       <details className="mt-4">

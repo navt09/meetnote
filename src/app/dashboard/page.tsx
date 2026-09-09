@@ -7,7 +7,7 @@ import type { TaskPriority, TaskKind } from "@/lib/task";
 import { countByWeek, delta, deltaLabel, humanDuration, sumByWeek, weekBuckets } from "@/lib/stats";
 import ActivityChart, { type ActivityWeek } from "@/components/activity-chart";
 import { HeroFigure, StatTile } from "@/components/stat-tile";
-import { EmptyState, StatusPill } from "@/components/ui";
+import { StatusPill } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Dashboard · Meetnote" };
@@ -99,33 +99,21 @@ export default async function DashboardPage() {
 
   const totalSpend = meetings.reduce((n, m) => n + Number(m.transcription_cost_usd ?? 0) + Number(m.llm_cost_usd ?? 0), 0);
 
-  if (meetings.length === 0) {
-    return (
-      <section className="flex flex-col gap-6 pt-10">
-        <h1 className="rise text-3xl font-semibold tracking-tight">Dashboard</h1>
-        <EmptyState
-          title="Nothing to show yet"
-          body="Record your first meeting. Your notes, tasks and weekly activity will all show up here."
-          action={<Link href="/record" className="btn btn-primary">Record a meeting</Link>}
-        />
-      </section>
-    );
-  }
+  // The layout is the same whether or not there is anything yet; each section
+  // says its own "nothing here". A first-time user sees the shape of the app.
+  const firstRun = meetings.length === 0;
+  const heroSub = firstRun
+    ? "Record a meeting and the tasks people agree to will land here."
+    : openTasks.length === 0
+      ? "Everything from your meetings is done."
+      : `${highPriorityOpen > 0 ? `${highPriorityOpen} high priority · ` : ""}across ${meetings.length} meeting${meetings.length === 1 ? "" : "s"}`;
 
   return (
     <section className="flex flex-col gap-6 pt-10">
       <div className="rise flex flex-wrap items-end justify-between gap-6">
-        <HeroFigure
-          label="Still to do"
-          value={String(openTasks.length)}
-          sub={
-            openTasks.length === 0
-              ? "Everything from your meetings is done."
-              : `${highPriorityOpen > 0 ? `${highPriorityOpen} high priority · ` : ""}across ${meetings.length} meeting${meetings.length === 1 ? "" : "s"}`
-          }
-        />
+        <HeroFigure label="Still to do" value={String(openTasks.length)} sub={heroSub} />
         <div className="flex gap-2">
-          <Link href="/tasks" className="btn btn-ghost">View tasks</Link>
+          {firstRun ? null : <Link href="/tasks" className="btn btn-ghost">View tasks</Link>}
           <Link href="/record" className="btn btn-primary">New meeting</Link>
         </div>
       </div>
@@ -207,6 +195,11 @@ export default async function DashboardPage() {
                   {m.status !== "done" ? <StatusPill status={m.status} /> : null}
                 </li>
               ))}
+              {recent.length === 0 ? (
+                <li className="py-3 text-sm text-muted">
+                  Nothing recorded yet. <Link href="/record" className="text-accent hover:underline">Record your first meeting</Link>.
+                </li>
+              ) : null}
             </ul>
           </div>
 
