@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { tierFor } from "@/lib/account-store";
@@ -8,8 +8,13 @@ import NavTabs from "@/components/nav-tabs";
 import { Logo } from "@/components/logo";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Three faces, one voice. Bricolage carries the headlines and the wordmark: its
+// optical-size axis means the display cut kicks in on its own at large sizes.
+// Hanken is the quiet body face. Plex Mono is for transcripts, where it has to
+// look like something a machine wrote down.
+const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], axes: ["opsz", "wdth"] });
+const body = Hanken_Grotesk({ variable: "--font-hanken", subsets: ["latin"] });
+const mono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"] });
 
 export const metadata: Metadata = {
   title: "From the Call",
@@ -32,7 +37,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col font-sans`}>
+      <body className={`${display.variable} ${body.variable} ${mono.variable} flex min-h-screen flex-col font-sans`}>
         <ToastProvider>
           <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
@@ -40,7 +45,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   way to the mark alone once the nav needs the room. */}
               <Link
                 href={email ? "/dashboard" : "/"}
-                className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[0.9375rem] font-semibold tracking-tight"
+                className="font-display flex shrink-0 items-center gap-2 whitespace-nowrap text-[1.0625rem] font-semibold tracking-tight"
               >
                 <Logo size={27} />
                 <span className={email ? "hidden lg:inline" : "inline"}>From the Call</span>

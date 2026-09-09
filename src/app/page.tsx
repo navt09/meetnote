@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-marks";
+import { HeroDemo } from "@/components/hero-demo";
+import { Tilt } from "@/components/tilt";
 import { CONTACT_EMAIL, PLANS, WORKS_WITH } from "@/lib/site";
 
 export const metadata = {
@@ -61,70 +63,98 @@ const CONNECTS = [
   { provider: "google" as const, name: "Google", body: "Send follow-ups from your Gmail, block tasks out on your calendar." },
 ];
 
+/** A still waveform, used as a rule between sections. Fixed heights: nothing on this page is random. */
+const RULE = [3, 6, 11, 18, 9, 14, 22, 12, 7, 16, 25, 10, 5, 13, 20, 8, 15, 24, 11, 6, 17, 9, 21, 12, 4, 14, 19, 7, 10, 23, 13, 5, 16, 8, 20, 11, 6, 15, 9, 12];
+
+function WaveRule() {
+  return (
+    <div aria-hidden className="wave-rule my-20">
+      {RULE.map((h, i) => (
+        <i key={i} style={{ height: `${h}px` }} />
+      ))}
+    </div>
+  );
+}
+
+function Heading({ children }: { children: React.ReactNode }) {
+  return <h2 className="font-display text-3xl font-semibold tracking-[-0.02em] text-balance sm:text-4xl">{children}</h2>;
+}
+
 export default function Home() {
   return (
     <>
-      {/* ---------- hero ---------- */}
-      <section className="flex max-w-3xl flex-col items-start gap-6 pt-20 sm:pt-28">
-        <span className="pill">No bot joins your call</span>
+      {/* ---------- hero: the pitch on the left, the product running on the right ---------- */}
+      <section className="grid gap-10 pt-14 sm:pt-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:gap-12">
+        <div className="flex flex-col items-start gap-6">
+          <span className="pill">No bot joins your call</span>
 
-        <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight sm:text-6xl">
-          Record the meeting.
-          <br />
-          <span className="text-muted">Get the work done.</span>
-        </h1>
+          <h1 className="font-display text-5xl font-semibold leading-[0.98] tracking-[-0.035em] text-balance sm:text-6xl lg:text-[4.5rem]">
+            Record the meeting.
+            <br />
+            <span className="text-muted">Get the work done.</span>
+          </h1>
 
-        <p className="max-w-xl text-lg leading-relaxed text-muted">
-          From the Call records any meeting, writes the notes, pulls out every task and decision, then
-          drafts the tickets and emails so all that is left for you is to read them and say yes.
-        </p>
+          <p className="max-w-lg text-lg leading-relaxed text-muted">
+            It listens to the call, writes the notes, pulls out every task and decision, then drafts the
+            tickets and emails. All that is left for you is to read them and say yes.
+          </p>
 
-        <div className="mt-1 flex flex-wrap items-center gap-3">
-          <Link href="/login" className="btn btn-primary">Try it on your next call</Link>
-          <a href="#how" className="btn btn-ghost">See how it works</a>
+          <div className="mt-1 flex flex-wrap items-center gap-3">
+            <Link href="/login" className="btn btn-primary">Try it on your next call</Link>
+            <a href="#how" className="btn btn-ghost">See how it works</a>
+          </div>
+
+          <p className="text-sm text-faint">Free for your first three meetings. No card, no install.</p>
         </div>
 
-        <p className="text-sm text-faint">Free for your first three meetings. No card, no install.</p>
+        <div className="flex flex-col gap-2">
+          <HeroDemo />
+          <p className="text-xs text-faint">
+            That is a real loop of what happens. Press <span className="text-muted">Approve</span> if you can&apos;t wait.
+          </p>
+        </div>
       </section>
 
+      <WaveRule />
+
       {/* ---------- works with ---------- */}
-      <section className="mt-20">
+      <section>
         <p className="text-sm text-faint">Works on whatever you already use</p>
-        <ul className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+        <ul className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
           {WORKS_WITH.map((w) => (
-            <li key={w} className="text-base font-medium">{w}</li>
+            <li key={w} className="font-display text-xl font-medium">{w}</li>
           ))}
         </ul>
-        <p className="mt-4 max-w-2xl text-sm leading-relaxed text-muted">
-          There is no integration to set up, because there is nothing to integrate with. If the sound comes
-          out of your computer, it can be recorded. Runs in Chrome and Edge, with nothing to install.
+        <p className="mt-4 max-w-2xl leading-relaxed text-muted">
+          There is no integration to set up, because there is nothing to integrate with. If the sound comes out
+          of your computer, it can be recorded. Runs in Chrome and Edge, with nothing to install.
         </p>
       </section>
 
       {/* ---------- steps ---------- */}
       <section id="how" className="mt-24 scroll-mt-20">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Four steps, then it is someone else&apos;s turn</h2>
-        <ol className="mt-8 flex flex-col gap-px overflow-hidden rounded-xl border border-panel-border bg-panel-border">
+        <Heading>Four steps, then it is someone else&apos;s turn</Heading>
+        <ol className="mt-8 grid gap-px overflow-hidden rounded-xl border border-panel-border bg-panel-border sm:grid-cols-2">
           {STEPS.map((s, i) => (
             <li key={s.title} className="flex gap-4 bg-panel p-6">
-              <span className="step-dot mt-0.5 shrink-0">{i + 1}</span>
+              <span className="font-display text-3xl font-semibold leading-none text-faint">{i + 1}</span>
               <div>
                 <h3 className="font-semibold">{s.title}</h3>
-                <p className="mt-1.5 max-w-2xl leading-relaxed text-muted">{s.body}</p>
+                <p className="mt-1.5 leading-relaxed text-muted">{s.body}</p>
               </div>
             </li>
           ))}
         </ol>
       </section>
 
-      {/* ---------- features ---------- */}
+      {/* ---------- features: a list, not a wall of cards ---------- */}
       <section id="features" className="mt-24 scroll-mt-20">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">What it actually does</h2>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
+        <Heading>What it actually does</Heading>
+        <div className="mt-6 grid gap-x-12 sm:grid-cols-2">
           {FEATURES.map((f) => (
-            <div key={f.title} className="glass p-5">
-              <h3 className="font-semibold">{f.title}</h3>
-              <p className="mt-1.5 leading-relaxed text-muted">{f.body}</p>
+            <div key={f.title} className="border-t border-panel-border py-6">
+              <h3 className="font-display text-xl font-semibold tracking-tight">{f.title}</h3>
+              <p className="mt-2 leading-relaxed text-muted">{f.body}</p>
             </div>
           ))}
         </div>
@@ -132,14 +162,14 @@ export default function Home() {
 
       {/* ---------- connects to ---------- */}
       <section className="mt-24">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Where the work ends up</h2>
-        <p className="mt-2 max-w-2xl leading-relaxed text-muted">
+        <Heading>Where the work ends up</Heading>
+        <p className="mt-3 max-w-2xl leading-relaxed text-muted">
           Connect what your team already uses. Each one takes a single click and asks for the narrowest
           permission that does the job.
         </p>
         <div className="mt-8 grid gap-3 sm:grid-cols-2">
           {CONNECTS.map((c) => (
-            <div key={c.provider} className="glass flex items-center gap-4 p-5">
+            <div key={c.provider} className="glass glass-hover flex items-center gap-4 p-5">
               <BrandMark provider={c.provider} />
               <div className="min-w-0">
                 <h3 className="font-semibold">{c.name}</h3>
@@ -150,100 +180,96 @@ export default function Home() {
         </div>
       </section>
 
+      <WaveRule />
+
       {/* ---------- pricing ---------- */}
-      <section id="pricing" className="mt-24 scroll-mt-20">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Pricing</h2>
-        <p className="mt-2 max-w-2xl leading-relaxed text-muted">
+      <section id="pricing" className="scroll-mt-20">
+        <Heading>Pricing</Heading>
+        <p className="mt-3 max-w-2xl leading-relaxed text-muted">
           One price, everything included. No per-integration upsell and no seat minimum.
         </p>
 
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.id}
-              className={`glass flex flex-col p-6 ${plan.highlight ? "border-accent/50" : ""}`}
-            >
-              <div className="flex items-center gap-2">
-                <h3 className="text-lg font-semibold">{plan.name}</h3>
-                {plan.highlight ? <span className="pill pill-ok">Most teams</span> : null}
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:items-start">
+          {PLANS.map((plan) => {
+            const card = (
+              <div className={`glass flex h-full flex-col p-6 ${plan.highlight ? "border-accent/50" : ""}`}>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display text-2xl font-semibold tracking-tight">{plan.name}</h3>
+                  {plan.highlight ? <span className="pill pill-live">Most teams</span> : null}
+                </div>
+                <p className="mt-1 text-sm text-muted">{plan.tagline}</p>
+
+                <p className="mt-5 flex items-baseline gap-1.5">
+                  <span className="font-display text-5xl font-semibold tracking-tight">{plan.price}</span>
+                  <span className="text-sm text-faint">{plan.cadence}</span>
+                </p>
+
+                <ul className="mt-5 flex flex-1 flex-col gap-2">
+                  {plan.features.map((f) => (
+                    <li key={f} className="flex gap-2.5 text-sm leading-relaxed">
+                      <span aria-hidden className={`mt-[0.45rem] h-1.5 w-1.5 shrink-0 rounded-full ${plan.highlight ? "bg-work" : "bg-faint"}`} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+
+                <Link href="/login" className={`btn mt-6 justify-center ${plan.highlight ? "btn-primary" : "btn-ghost"}`}>
+                  {plan.cta}
+                </Link>
               </div>
-              <p className="mt-1 text-sm text-muted">{plan.tagline}</p>
-
-              <p className="mt-5 flex items-baseline gap-1.5">
-                <span className="text-4xl font-semibold tracking-tight">{plan.price}</span>
-                <span className="text-sm text-faint">{plan.cadence}</span>
-              </p>
-
-              <ul className="mt-5 flex flex-1 flex-col gap-2">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex gap-2.5 text-sm leading-relaxed">
-                    <span aria-hidden className="mt-[0.4rem] h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                href="/login"
-                className={`btn mt-6 ${plan.highlight ? "btn-primary" : "btn-ghost"} justify-center`}
-              >
-                {plan.cta}
-              </Link>
-            </div>
-          ))}
+            );
+            return plan.highlight ? <Tilt key={plan.id} max={5}>{card}</Tilt> : <div key={plan.id}>{card}</div>;
+          })}
         </div>
       </section>
 
       {/* ---------- about ---------- */}
       <section id="about" className="mt-24 scroll-mt-20">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">About</h2>
-        <div className="mt-6 flex max-w-2xl flex-col gap-4 leading-relaxed text-muted">
+        <Heading>About</Heading>
+        <div className="mt-6 flex max-w-2xl flex-col gap-4 text-[1.0625rem] leading-relaxed text-muted">
           <p>
             Every team has the same meeting. Somebody agrees to do a thing, everybody nods, and three weeks
             later nobody can remember who said it or whether it was ever written down.
           </p>
           <p>
-            Plenty of tools will transcribe that meeting for you. Fewer will turn what was said into work
-            that exists somewhere your team actually looks. The ones that do tend to either send a bot into
-            your call, or file tickets automatically and leave you cleaning up after a model that misheard
-            a name.
+            Plenty of tools will transcribe that meeting for you. Fewer will turn what was said into work that
+            exists somewhere your team actually looks. The ones that do tend to either send a bot into your
+            call, or file tickets automatically and leave you cleaning up after a model that misheard a name.
           </p>
           <p>
-            From the Call is built around the opposite trade. Nothing joins your meeting, and nothing is
-            sent, filed or emailed until a person has read it and said yes. The drafting is done by a model
-            because understanding language is what models are for. Everything else is ordinary code that
-            behaves the same way every time.
+            From the Call is built around the opposite trade. Nothing joins your meeting, and nothing is sent,
+            filed or emailed until a person has read it and said yes. The drafting is done by a model because
+            understanding language is what models are for. Everything else is ordinary code that behaves the
+            same way every time.
           </p>
           <p className="text-fg">
-            It is built and run by one person, which is why you can email and get a reply from someone who
-            can actually change the product.
+            It is built and run by one person, which is why you can email and get a reply from someone who can
+            actually change the product.
           </p>
         </div>
       </section>
 
       {/* ---------- contact ---------- */}
       <section id="contact" className="mt-24 scroll-mt-20">
-        <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Contact</h2>
+        <Heading>Contact</Heading>
         <div className="glass mt-6 flex flex-wrap items-center justify-between gap-4 p-6">
           <div>
             <p className="font-medium">Questions, problems, or something you wish it did</p>
-            <p className="mt-1 text-sm text-muted">
-              Feature requests from early users are the ones that get built.
-            </p>
+            <p className="mt-1 text-sm text-muted">Feature requests from early users are the ones that get built.</p>
           </div>
           <a className="btn btn-ghost" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
         </div>
       </section>
 
-      {/* ---------- final call to action ---------- */}
+      {/* ---------- last word ---------- */}
       <section className="mt-24">
         <div className="glass flex flex-col items-start gap-4 p-8 sm:p-10">
-          <h2 className="max-w-xl text-2xl font-semibold leading-tight tracking-tight sm:text-3xl">
+          <h2 className="font-display max-w-xl text-3xl font-semibold leading-[1.05] tracking-[-0.02em] text-balance sm:text-4xl">
             You have a call today. Try it on that one.
           </h2>
           <p className="max-w-lg leading-relaxed text-muted">
-            Three meetings free, no card. If the notes are not better than what you would have written
-            yourself, you have lost ten minutes.
+            Three meetings free, no card. If the notes are not better than what you would have written yourself,
+            you have lost ten minutes.
           </p>
           <Link href="/login" className="btn btn-primary">Try it on your next call</Link>
         </div>

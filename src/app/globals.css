@@ -17,6 +17,9 @@
 
   --accent: #629bff;
   --accent-ink: #0a0a0b; /* text on an accent fill */
+  /* The second colour, and the only one with a job: blue is sound, this is the
+     work pulled out of it. Used on the landing page's demo and nowhere else. */
+  --work: #e8824e;
   --danger: #f2557a;
   --ok: #43c07d;
   --warn: #d99a2b;
@@ -42,10 +45,12 @@
   --color-danger: var(--danger);
   --color-ok: var(--ok);
   --color-warn: var(--warn);
+  --color-work: var(--work);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-hanken);
+  --font-display: var(--font-bricolage);
+  --font-mono: var(--font-plex-mono);
 
   /* Text scale, one step up from the Tailwind defaults. text-xs and text-sm do
      nearly all the work in this UI and 12/14px read as cramped. Spacing tokens
@@ -273,3 +278,33 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ---------- landing page ---------- */
+/* The hero demo. Everything below is entry-only or loops only while the demo
+   says it is "recording"; all of it collapses under prefers-reduced-motion via
+   the rule above. */
+
+.wave { display: flex; align-items: center; gap: 2px; height: 18px; }
+.wave > i { display: block; width: 3px; height: 100%; border-radius: 2px; background: var(--accent); transform: scaleY(0.2); transform-origin: center; transition: transform 300ms ease; }
+@keyframes wave { from { transform: scaleY(0.2); } to { transform: scaleY(1); } }
+.wave.is-live > i { animation: wave 620ms ease-in-out infinite alternate; animation-delay: calc(var(--i) * 47ms); }
+
+/* A still waveform used as a section rule. */
+.wave-rule { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
+.wave-rule > i { flex: 1; border-radius: 2px 2px 0 0; background: var(--panel-border-hi); }
+
+@keyframes taskIn { from { opacity: 0; transform: translateX(-10px) scale(0.98); } to { opacity: 1; transform: none; } }
+.task-in { animation: taskIn 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+@keyframes ticketIn { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
+.ticket-in { animation: ticketIn 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* "Press me": a ring that grows out of the Approve button while a draft waits. */
+@keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(98, 155, 255, 0.5); } 100% { box-shadow: 0 0 0 12px rgba(98, 155, 255, 0); } }
+.pulse-ring { animation: pulseRing 1.4s ease-out infinite; }
+
+.type-cursor::after { content: ""; display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--fg); animation: blink 900ms steps(1) infinite; }
+
+/* Mouse-following tilt. The transform is written straight to the element by
+   tilt.tsx; this is just the ease back to flat. */
+.tilt { transition: transform 160ms ease; transform-style: preserve-3d; will-change: transform; }
