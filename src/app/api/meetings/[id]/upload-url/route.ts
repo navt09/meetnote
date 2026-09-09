@@ -15,15 +15,21 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const { data, error } = await auth.db.from("meetings").select("storage_path,mime_type,status").eq("id", id).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error(JSON.stringify({ event: "upload_url_lookup_error", id, message: error.message }));
+    return NextResponse.json({ error: "Couldn't prepare the upload." }, { status: 500 });
+  }
   if (!data) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   const row = data as { storage_path: string | null; mime_type: string | null; status: string };
-  if (!row.storage_path) return NextResponse.json({ error: "Meeting has no storage path" }, { status: 409 });
+  if (!row.storage_path) return NextResponse.json({ error: "This meeting has no audio slot." }, { status: 409 });
   if (row.status !== "recorded" && row.status !== "error") {
-    return NextResponse.json({ error: "This meeting already has its audio" }, { status: 409 });
+    return NextResponse.json({ error: "This meeting already has its audio." }, { status: 409 });
   }
 
   const ticket = await mintUploadUrl(row.storage_path);
-  if ("error" in ticket) return NextResponse.json({ error: ticket.error }, { status: 502 });
+  if ("error" in ticket) {
+    console.error(JSON.stringify({ event: "upload_url_error", id, message: ticket.error }));
+    return NextResponse.json({ error: "Couldn't prepare the upload. Try again in a minute." }, { status: 502 });
+  }
   return NextResponse.json({ signedUrl: ticket.signedUrl, contentType: row.mime_type ?? "audio/webm" });
 }

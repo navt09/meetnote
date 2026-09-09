@@ -22,26 +22,28 @@ export async function POST(req: Request, ctx: Ctx) {
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const { data, error } = await auth.db.from("meetings").select("*").eq("id", id).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error(JSON.stringify({ event: "process_lookup_error", id, message: error.message }));
+    return NextResponse.json({ error: "Could not start processing." }, { status: 500 });
+  }
   if (!data) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
   const m = data as Meeting;
 
   if (isInProgress(m.status) && Date.now() - new Date(m.updated_at).getTime() < 6 * 60 * 1000) {
-    return NextResponse.json({ status: m.status, message: "Already processing" }, { status: 202 });
+    return NextResponse.json({ status: m.status }, { status: 202 });
   }
-  if (nextStep(m) === "none" && m.notes) {
-    return NextResponse.json({ status: "done", message: "Already done" }, { status: 200 });
-  }
-  if (!m.storage_path) return NextResponse.json({ error: "No recording uploaded" }, { status: 409 });
+  if (nextStep(m) === "none" && m.notes) return NextResponse.json({ status: "done" }, { status: 200 });
+  if (!m.storage_path) return NextResponse.json({ error: "This meeting has no audio." }, { status: 409 });
 
   // Make sure the upload actually landed before we spend money on it.
   let size: number | null;
   try {
     size = await storedObjectSize(m.storage_path);
   } catch (err) {
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Storage check failed" }, { status: 502 });
+    console.error(JSON.stringify({ event: "storage_check_error", id, message: err instanceof Error ? err.message : String(err) }));
+    return NextResponse.json({ error: "Couldn't reach the stored audio. Try again in a minute." }, { status: 502 });
   }
-  if (size === null) return NextResponse.json({ error: "The audio file hasn't finished uploading." }, { status: 409 });
+  if (size === null) return NextResponse.json({ error: "The audio didn't finish uploading." }, { status: 409 });
 
   await auth.db
     .from("meetings")

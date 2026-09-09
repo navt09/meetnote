@@ -11,7 +11,8 @@
     "test:watch": "vitest",
     "migrate": "node scripts/migrate.mjs",
     "e2e": "node scripts/e2e.mjs",
-    "auth:config": "node scripts/supabase-auth-config.mjs"
+    "auth:config": "node scripts/supabase-auth-config.mjs",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",

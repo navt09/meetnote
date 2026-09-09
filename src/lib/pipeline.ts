@@ -5,6 +5,7 @@ import { transcriptionCostUsd } from "./cost";
 import { HttpError, withRetry } from "./retry";
 import { extractNotes } from "./extract";
 import { nextStep, type Meeting } from "./meeting";
+import { toPublicFailure } from "./public-error";
 import type { TranscriptSegment } from "./schema";
 
 export type TranscribeResult = { segments: TranscriptSegment[]; durationSeconds: number; costUsd: number };
@@ -122,8 +123,10 @@ export async function runPipeline(meetingId: string, userId: string): Promise<vo
       });
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Processing failed";
-    console.error(JSON.stringify({ event: "pipeline_error", meetingId, step, message }));
-    await patch({ status: "error", error: message }).catch(() => {});
+    // Full detail to the server log; only a safe summary onto the row.
+    const raw = err instanceof Error ? err.message : String(err);
+    const failure = toPublicFailure(err);
+    console.error(JSON.stringify({ event: "pipeline_error", meetingId, step, code: failure.code, raw }));
+    await patch({ status: "error", error: failure.message }).catch(() => {});
   }
 }

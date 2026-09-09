@@ -3,180 +3,210 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CostLine, NotesView, TranscriptView } from "@/components/notes";
-import { isInProgress, statusLabel, type Meeting } from "@/lib/meeting";
+import { NotesView, TranscriptView } from "@/components/notes";
+import { NotesSkeleton, ProcessingStepper, StatusPill } from "@/components/ui";
+import { useToast } from "@/components/toast";
+import { isSettling, type PublicMeeting } from "@/lib/meeting";
 import { notesToMarkdown } from "@/lib/markdown";
-import { fetchMeeting, startProcessing } from "@/lib/upload";
+import { formatTimestamp } from "@/lib/transcript";
+import { formatUsd } from "@/lib/cost";
+import { fetchMeeting, patchJson, startProcessing } from "@/lib/upload";
 import DeleteMeetingButton from "../delete-button";
 
-const POLL_MS = 3000;
+const POLL_MS = 2500;
+
+const WORKING_COPY: Record<string, string> = {
+  uploaded: "Queued, starting shortly",
+  transcribing: "Turning the audio into text",
+  transcribed: "Transcript ready, writing the notes",
+  extracting: "Pulling out tasks, decisions and people",
+};
 
 export default function MeetingPage() {
   const { id } = useParams<{ id: string }>();
-  const [meeting, setMeeting] = useState<Meeting | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
+  const [meeting, setMeeting] = useState<PublicMeeting | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [editingTitle, setEditingTitle] = useState(false);
-  const [titleDraft, setTitleDraft] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
   const timerRef = useRef(0);
+  const wasWorking = useRef(false);
 
   const load = useCallback(async () => {
     try {
       const m = await fetchMeeting(id);
       setMeeting(m);
-      setError(null);
+      setLoadError(null);
       return m;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load meeting");
+      setLoadError(err instanceof Error ? err.message : "Could not load this meeting.");
       return null;
     }
   }, [id]);
 
-  // Poll while the pipeline is working; stop as soon as it settles.
+  // Poll while the pipeline is working; stop the moment it settles.
   useEffect(() => {
     let cancelled = false;
     const tick = async () => {
       const m = await load();
       if (cancelled) return;
-      const busy = !m || isInProgress(m.status) || m.status === "uploaded" || m.status === "transcribed";
-      if (busy) timerRef.current = window.setTimeout(tick, POLL_MS);
+      const working = !m || isSettling(m.status);
+      if (working) {
+        wasWorking.current = true;
+        timerRef.current = window.setTimeout(tick, POLL_MS);
+      } else if (wasWorking.current && m?.status === "done") {
+        wasWorking.current = false;
+        toast("Your notes are ready", "ok");
+      }
     };
     tick();
     return () => {
       cancelled = true;
       window.clearTimeout(timerRef.current);
     };
-  }, [load]);
+  }, [load, toast]);
 
   async function retry() {
-    setError(null);
     try {
       await startProcessing(id);
+      toast("Processing restarted", "ok");
       const m = await load();
-      if (m && (isInProgress(m.status) || m.status === "uploaded" || m.status === "transcribed")) {
+      if (m && isSettling(m.status)) {
+        wasWorking.current = true;
         timerRef.current = window.setTimeout(async function tick() {
           const mm = await load();
-          if (mm && (isInProgress(mm.status) || mm.status === "uploaded" || mm.status === "transcribed")) {
-            timerRef.current = window.setTimeout(tick, POLL_MS);
-          }
+          if (mm && isSettling(mm.status)) timerRef.current = window.setTimeout(tick, POLL_MS);
+          else if (mm?.status === "done") toast("Your notes are ready", "ok");
         }, POLL_MS);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not restart processing");
+      toast(err instanceof Error ? err.message : "Could not restart processing", "error");
     }
   }
 
   async function saveTitle() {
-    const title = titleDraft.trim();
-    setEditingTitle(false);
+    const title = draft.trim();
+    setEditing(false);
     if (!meeting || !title || title === meeting.title) return;
+    const previous = meeting.title;
+    setMeeting({ ...meeting, title });
     try {
-      await postJsonPatch(`/api/meetings/${id}`, { title });
-      setMeeting({ ...meeting, title });
+      await patchJson(`/api/meetings/${id}`, { title });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Rename failed");
+      setMeeting((m) => (m ? { ...m, title: previous } : m));
+      toast(err instanceof Error ? err.message : "Rename failed", "error");
     }
   }
 
   async function copyMarkdown() {
     if (!meeting?.notes) return;
     try {
-      await navigator.clipboard.writeText(notesToMarkdown({ ...meeting.notes, title: meeting.title }, new Date(meeting.recorded_at)));
+      await navigator.clipboard.writeText(notesToMarkdown({ ...meeting.notes, title: meeting.title }, new Date(meeting.recordedAt)));
       setCopied(true);
+      toast("Notes copied as Markdown", "ok");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Couldn't access the clipboard.");
+      toast("Couldn't access the clipboard", "error");
     }
   }
 
-  if (!meeting && !error) return <p className="pt-10 text-sm text-muted">Loading…</p>;
-  if (!meeting) {
+  if (!meeting && !loadError) {
     return (
-      <section className="pt-10">
-        <p className="text-sm text-danger">{error}</p>
-        <Link href="/meetings" className="btn btn-ghost mt-4">Back to meetings</Link>
+      <section className="flex flex-col gap-6 pt-10">
+        <div className="skeleton h-9 w-2/3 max-w-md" />
+        <NotesSkeleton />
       </section>
     );
   }
 
-  const working = isInProgress(meeting.status) || meeting.status === "uploaded" || meeting.status === "transcribed";
+  if (!meeting) {
+    return (
+      <section className="pt-10">
+        <div className="glass pop p-8 text-center">
+          <p className="text-sm text-danger">{loadError}</p>
+          <Link href="/meetings" className="btn btn-ghost mt-4">Back to meetings</Link>
+        </div>
+      </section>
+    );
+  }
+
+  const working = isSettling(meeting.status);
 
   return (
     <section className="flex flex-col gap-6 pt-10">
-      <div>
-        <Link href="/meetings" className="text-xs text-muted hover:text-fg">← All meetings</Link>
-        <div className="mt-2 flex flex-wrap items-start justify-between gap-3">
-          {editingTitle ? (
+      <div className="rise">
+        <Link href="/meetings" className="inline-flex items-center gap-1.5 text-xs text-muted transition-colors hover:text-fg">
+          <span aria-hidden>←</span> All meetings
+        </Link>
+
+        <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
+          {editing ? (
             <input
               autoFocus
-              value={titleDraft}
-              onChange={(e) => setTitleDraft(e.target.value)}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
               onBlur={saveTitle}
               onKeyDown={(e) => {
                 if (e.key === "Enter") saveTitle();
-                if (e.key === "Escape") setEditingTitle(false);
+                if (e.key === "Escape") setEditing(false);
               }}
-              className="min-w-0 flex-1 rounded-lg border border-panel-border bg-black/30 px-3 py-1.5 text-2xl font-semibold outline-none focus:border-accent"
+              className="field min-w-0 flex-1 !py-1.5 text-2xl font-semibold"
             />
           ) : (
             <h1
-              className="cursor-text text-2xl font-semibold hover:text-accent"
+              className="group cursor-text text-3xl font-semibold leading-tight tracking-tight"
               title="Click to rename"
               onClick={() => {
-                setTitleDraft(meeting.title);
-                setEditingTitle(true);
+                setDraft(meeting.title);
+                setEditing(true);
               }}
             >
               {meeting.title}
+              <span className="ml-2 align-middle text-xs text-muted opacity-0 transition-opacity group-hover:opacity-100">edit</span>
             </h1>
           )}
-          <span className={`pill ${meeting.status === "error" ? "text-danger" : meeting.status === "done" ? "text-ok" : ""}`}>
-            {working ? <span className="rec-dot !bg-accent" /> : null}
-            {statusLabel(meeting.status)}
-          </span>
+          <StatusPill status={meeting.status} />
         </div>
-        <p className="mt-1 text-xs text-muted">{new Date(meeting.recorded_at).toLocaleString()}</p>
+
+        <p className="mt-2 text-xs text-muted">
+          {new Date(meeting.recordedAt).toLocaleString(undefined, { dateStyle: "full", timeStyle: "short" })}
+          {meeting.durationSeconds ? ` · ${formatTimestamp(meeting.durationSeconds)}` : ""}
+          {meeting.internal ? ` · ${formatUsd(meeting.internal.costUsd)} · ${meeting.internal.inputTokens}/${meeting.internal.outputTokens} tokens` : ""}
+        </p>
       </div>
 
       {working ? (
-        <div className="glass p-5 text-sm text-muted">
-          {meeting.status === "transcribing" ? "Turning the audio into text…" : meeting.status === "extracting" ? "Pulling out the notes and tasks…" : "Queued…"}
-          {" "}You can close this tab; it keeps going.
+        <div className="glass glass-lit rise p-6">
+          <p className="mb-4 text-sm font-medium">
+            <span className="dots">{WORKING_COPY[meeting.status] ?? "Working"}</span>
+          </p>
+          <ProcessingStepper status={meeting.status} />
+          <p className="mt-4 text-xs text-muted">You can close this tab. It keeps going and will be here when you come back.</p>
         </div>
       ) : null}
 
       {meeting.status === "error" ? (
-        <div className="glass border-danger/40 p-5">
-          <p className="text-sm text-danger">{meeting.error ?? "Processing failed."}</p>
-          <button className="btn btn-primary mt-3 !px-4 !py-2 text-sm" onClick={retry}>Try again</button>
+        <div className="glass pop border-danger/40 p-6">
+          <p className="text-sm text-danger">{meeting.error ?? "Processing didn't finish."}</p>
+          <button className="btn btn-primary mt-4 !px-4 !py-2 text-sm" onClick={retry}>Try again</button>
         </div>
       ) : null}
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {meeting.status === "done" ? (
-          <CostLine
-            durationSeconds={Number(meeting.duration_seconds ?? 0)}
-            transcriptionUsd={Number(meeting.transcription_cost_usd)}
-            llmUsd={Number(meeting.llm_cost_usd)}
-          />
-        ) : <span />}
-        <div className="flex flex-wrap gap-2">
-          {meeting.notes ? <button className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={copyMarkdown}>{copied ? "Copied" : "Copy as Markdown"}</button> : null}
-          {meeting.storage_path ? <a className="btn btn-ghost !px-3 !py-1.5 text-xs" href={`/api/meetings/${id}/audio`}>Download audio</a> : null}
+      {meeting.notes || meeting.hasAudio ? (
+        <div className="rise flex flex-wrap justify-end gap-2">
+          {meeting.notes ? (
+            <button className="btn btn-ghost !px-3 !py-1.5 text-xs" onClick={copyMarkdown}>{copied ? "Copied ✓" : "Copy as Markdown"}</button>
+          ) : null}
+          {meeting.hasAudio ? (
+            <a className="btn btn-ghost !px-3 !py-1.5 text-xs" href={`/api/meetings/${id}/audio`}>Download audio</a>
+          ) : null}
           <DeleteMeetingButton id={id} afterDelete="list" />
         </div>
-      </div>
+      ) : null}
 
-      {meeting.notes ? <NotesView notes={meeting.notes} /> : null}
+      {meeting.notes ? <NotesView notes={meeting.notes} /> : working ? <NotesSkeleton /> : null}
       {meeting.transcript?.length ? <TranscriptView segments={meeting.transcript} /> : null}
     </section>
   );
-}
-
-async function postJsonPatch(url: string, body: unknown) {
-  const res = await fetch(url, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error ?? `Request failed (${res.status})`);
-  return json;
 }

@@ -30,6 +30,19 @@ Meeting-notes SaaS. Read PLAN.md first for product, stack, phases, and the accou
 - `npm run build` — must pass before pushing
 - `npm run lint`
 
+## Keeping internals out of the browser
+- API routes return `PublicMeeting` / `PublicMeetingSummary` (`src/lib/meeting.ts`), never the raw row. No `user_id`, `storage_path`, token counts or costs unless the caller is an owner (`OWNER_EMAILS`, checked by `src/lib/admin.ts`).
+- Failures are translated by `src/lib/public-error.ts` before they reach a response or the `meetings.error` column. Vendor names, status codes and paths go to `console.error` only. There is a test asserting nothing leaks.
+- Security headers and `poweredByHeader: false` are set in `next.config.ts`; `/api/*` is `no-store`.
+- Deleting a user does NOT delete their audio: storage has no cascade. Any account-deletion feature must clear `<user_id>/` in the bucket first (see `--clean` in `scripts/seed-demo.mjs`).
+
+## UI
+- Design tokens and every animation live in `src/app/globals.css`. Reuse the classes rather than adding one-off keyframes: `.glass`, `.glass-lit`, `.glass-hover`, `.btn`, `.pill`, `.rise`, `.pop`, `.stagger`, `.skeleton`, `.bar-track`, `.record-btn`, `.step-dot`, `.field`.
+- Everything is disabled under `prefers-reduced-motion`; keep it that way.
+- Card backgrounds must stay legible without `backdrop-filter`; some browsers drop the blur mid-scroll.
+- Shared pieces: `src/components/ui.tsx` (skeletons, status pill, stepper, empty state), `src/components/toast.tsx` (`useToast()`), `src/components/notes.tsx`. Use a toast, never `alert()`.
+- `npm run seed:demo` creates a demo account with a finished meeting for looking at the UI; `npm run seed:demo -- --clean` removes them and their audio.
+
 ## Conventions
 - Anthropic SDK only for LLM calls; default model `claude-opus-5`; structured output via `zodOutputFormat` and Zod validation of the parsed JSON.
 - Every vendor call logs one JSON line (`event`, sizes, usage, `costUsd`) so spend is visible in Vercel logs.

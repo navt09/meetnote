@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { getAuth } from "@/lib/supabase/server";
 import { MAX_UPLOAD_BYTES, mintUploadUrl } from "@/lib/storage";
 import { baseMime, buildStoragePath, extForMime } from "@/lib/paths";
-import { defaultTitle, type MeetingSummary } from "@/lib/meeting";
+import { isOwnerEmail } from "@/lib/admin";
+import { defaultTitle, toPublicSummary, type Meeting } from "@/lib/meeting";
 
 export const runtime = "nodejs";
 
-/** List the caller's meetings, newest first (summary columns only). */
+/** List the caller's meetings, newest first. */
 export async function GET(req: Request) {
   const auth = await getAuth(req);
   if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
@@ -16,8 +17,13 @@ export async function GET(req: Request) {
     .select("id,title,status,error,duration_seconds,recorded_at,transcription_cost_usd,llm_cost_usd")
     .order("recorded_at", { ascending: false })
     .limit(200);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ meetings: (data ?? []) as MeetingSummary[] });
+  if (error) {
+    console.error(JSON.stringify({ event: "meetings_list_error", message: error.message }));
+    return NextResponse.json({ error: "Could not load your meetings." }, { status: 500 });
+  }
+  const owner = isOwnerEmail(auth.user.email);
+  const rows = (data ?? []) as Array<Parameters<typeof toPublicSummary>[0]>;
+  return NextResponse.json({ meetings: rows.map((r) => toPublicSummary(r, owner)) });
 }
 
 /**
@@ -36,11 +42,11 @@ export async function POST(req: Request) {
   }
 
   const mime = baseMime(body.mimeType);
-  if (!extForMime(mime)) return NextResponse.json({ error: `Unsupported audio type: ${body.mimeType ?? "unknown"}` }, { status: 400 });
+  if (!extForMime(mime)) return NextResponse.json({ error: "That audio format isn't supported." }, { status: 400 });
   const bytes = Number(body.bytes);
   if (!Number.isFinite(bytes) || bytes <= 0) return NextResponse.json({ error: "Missing file size" }, { status: 400 });
   if (bytes > MAX_UPLOAD_BYTES) {
-    return NextResponse.json({ error: `Recording is ${(bytes / 1048576).toFixed(0)} MB; the limit is ${MAX_UPLOAD_BYTES / 1048576} MB.` }, { status: 413 });
+    return NextResponse.json({ error: `That recording is ${(bytes / 1048576).toFixed(0)} MB. The limit is ${MAX_UPLOAD_BYTES / 1048576} MB.` }, { status: 413 });
   }
   const recordedAt = body.recordedAt && !Number.isNaN(Date.parse(body.recordedAt)) ? new Date(body.recordedAt) : new Date();
   const duration = Number(body.durationSeconds);
@@ -58,11 +64,18 @@ export async function POST(req: Request) {
     bytes,
     duration_seconds: Number.isFinite(duration) && duration > 0 ? duration : null,
     recorded_at: recordedAt.toISOString(),
-  });
-  if (insertError) return NextResponse.json({ error: `Could not save meeting: ${insertError.message}` }, { status: 500 });
+  } satisfies Partial<Meeting>);
+  if (insertError) {
+    console.error(JSON.stringify({ event: "meeting_create_error", message: insertError.message }));
+    return NextResponse.json({ error: "Could not save this meeting. Try again." }, { status: 500 });
+  }
 
   const ticket = await mintUploadUrl(storagePath);
-  if ("error" in ticket) return NextResponse.json({ error: ticket.error }, { status: 502 });
+  if ("error" in ticket) {
+    console.error(JSON.stringify({ event: "upload_url_error", message: ticket.error }));
+    return NextResponse.json({ error: "Couldn't prepare the upload. Try again in a minute." }, { status: 502 });
+  }
 
-  return NextResponse.json({ meetingId: id, storagePath, signedUrl: ticket.signedUrl, contentType: mime }, { status: 201 });
+  // storagePath is deliberately not returned; the browser only needs the URL.
+  return NextResponse.json({ meetingId: id, signedUrl: ticket.signedUrl, contentType: mime }, { status: 201 });
 }

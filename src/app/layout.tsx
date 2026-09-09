@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
+import { ToastProvider } from "@/components/toast";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -19,33 +20,47 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     const { data } = await db.auth.getUser();
     email = data.user?.email ?? null;
   } catch {
-    email = null; // Supabase not configured yet; render signed-out.
+    email = null; // Not configured yet; render signed-out.
   }
 
   return (
     <html lang="en">
       <body className={`${geistSans.variable} ${geistMono.variable} font-sans antialiased`}>
-        <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-5">
-          <Link href="/" className="flex items-center gap-2 font-semibold tracking-tight">
-            <span className="inline-block h-2.5 w-2.5 rounded-full bg-accent shadow-[0_0_12px_var(--accent)]" />
-            meetnote
-          </Link>
-          <nav className="flex items-center gap-4 text-sm text-muted">
-            {email ? (
-              <>
-                <Link href="/meetings" className="hover:text-fg">Meetings</Link>
-                <Link href="/record" className="hover:text-fg">Record</Link>
-                <form action="/auth/signout" method="post" className="flex items-center gap-3">
-                  <span className="hidden sm:inline">{email}</span>
-                  <button className="hover:text-fg" type="submit">Sign out</button>
-                </form>
-              </>
-            ) : (
-              <Link href="/login" className="hover:text-fg">Sign in</Link>
-            )}
-          </nav>
-        </header>
-        <main className="mx-auto w-full max-w-5xl px-6 pb-24">{children}</main>
+        <div className="aurora" aria-hidden>
+          <span className="a1" />
+          <span className="a2" />
+          <span className="a3" />
+        </div>
+
+        <ToastProvider>
+          <header className="sticky top-0 z-40 border-b border-panel-border/60 bg-bg/60 backdrop-blur-xl">
+            <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
+              <Link href={email ? "/meetings" : "/"} className="group flex items-center gap-2.5 font-semibold tracking-tight">
+                <span className="relative inline-grid h-6 w-6 place-items-center">
+                  <span className="absolute inset-0 rounded-lg bg-gradient-to-br from-accent to-accent-2 opacity-90 transition-transform duration-300 group-hover:rotate-12" />
+                  <span className="relative text-[0.7rem] font-black text-[#05060a]">M</span>
+                </span>
+                meetnote
+              </Link>
+              <nav className="flex items-center gap-1 text-sm text-muted sm:gap-3">
+                {email ? (
+                  <>
+                    <Link href="/meetings" className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-white/5 hover:text-fg">Meetings</Link>
+                    <Link href="/record" className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-white/5 hover:text-fg">Record</Link>
+                    <form action="/auth/signout" method="post" className="ml-1 flex items-center gap-2">
+                      <span className="hidden max-w-[14ch] truncate text-xs sm:inline" title={email}>{email}</span>
+                      <button className="rounded-lg px-2.5 py-1.5 transition-colors hover:bg-white/5 hover:text-fg" type="submit">Sign out</button>
+                    </form>
+                  </>
+                ) : (
+                  <Link href="/login" className="btn btn-ghost !px-4 !py-1.5 text-sm">Sign in</Link>
+                )}
+              </nav>
+            </div>
+          </header>
+
+          <main className="mx-auto w-full max-w-5xl px-6 pb-24">{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );

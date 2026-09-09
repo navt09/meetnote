@@ -3,6 +3,7 @@ import type { LlmUsage } from "./cost";
 
 export type MeetingStatus = "recorded" | "uploaded" | "transcribing" | "transcribed" | "extracting" | "done" | "error";
 
+/** The full database row. Server-side only: it holds internal fields. */
 export type Meeting = {
   id: string;
   user_id: string;
@@ -23,11 +24,62 @@ export type Meeting = {
   updated_at: string;
 };
 
-/** Row shape the list page needs; keeps the big JSON columns out of the query. */
-export type MeetingSummary = Pick<
-  Meeting,
-  "id" | "title" | "status" | "error" | "duration_seconds" | "recorded_at" | "transcription_cost_usd" | "llm_cost_usd"
->;
+/** What the browser is allowed to see. No storage paths, ids, or vendor economics. */
+export type PublicMeeting = {
+  id: string;
+  title: string;
+  status: MeetingStatus;
+  error: string | null;
+  hasAudio: boolean;
+  durationSeconds: number | null;
+  recordedAt: string;
+  transcript: TranscriptSegment[] | null;
+  notes: MeetingNotes | null;
+  /** Present only for owner accounts. */
+  internal?: { costUsd: number; inputTokens: number; outputTokens: number };
+};
+
+export type PublicMeetingSummary = Pick<PublicMeeting, "id" | "title" | "status" | "error" | "durationSeconds" | "recordedAt"> & {
+  internal?: { costUsd: number };
+};
+
+export function toPublicMeeting(m: Meeting, includeInternal = false): PublicMeeting {
+  const out: PublicMeeting = {
+    id: m.id,
+    title: m.title,
+    status: m.status,
+    error: m.error,
+    hasAudio: !!m.storage_path,
+    durationSeconds: m.duration_seconds === null ? null : Number(m.duration_seconds),
+    recordedAt: m.recorded_at,
+    transcript: m.transcript,
+    notes: m.notes,
+  };
+  if (includeInternal) {
+    out.internal = {
+      costUsd: Number(m.transcription_cost_usd ?? 0) + Number(m.llm_cost_usd ?? 0),
+      inputTokens: m.usage?.input_tokens ?? 0,
+      outputTokens: m.usage?.output_tokens ?? 0,
+    };
+  }
+  return out;
+}
+
+export function toPublicSummary(
+  m: Pick<Meeting, "id" | "title" | "status" | "error" | "duration_seconds" | "recorded_at" | "transcription_cost_usd" | "llm_cost_usd">,
+  includeInternal = false,
+): PublicMeetingSummary {
+  const out: PublicMeetingSummary = {
+    id: m.id,
+    title: m.title,
+    status: m.status,
+    error: m.error,
+    durationSeconds: m.duration_seconds === null ? null : Number(m.duration_seconds),
+    recordedAt: m.recorded_at,
+  };
+  if (includeInternal) out.internal = { costUsd: Number(m.transcription_cost_usd ?? 0) + Number(m.llm_cost_usd ?? 0) };
+  return out;
+}
 
 export const IN_PROGRESS: ReadonlySet<MeetingStatus> = new Set(["transcribing", "extracting"]);
 
@@ -35,12 +87,14 @@ export function isInProgress(status: MeetingStatus): boolean {
   return IN_PROGRESS.has(status);
 }
 
+/** True while the pipeline still has work to do, so the page should keep polling. */
+export function isSettling(status: MeetingStatus): boolean {
+  return isInProgress(status) || status === "uploaded" || status === "transcribed";
+}
+
 /**
  * Where to (re)start the pipeline from, given what the row already has.
- * Plain rules, so a retry never redoes finished work:
- *  - no transcript yet  -> transcribe
- *  - transcript, no notes -> extract
- *  - notes present -> nothing to do
+ * Plain rules, so a retry never redoes finished work.
  */
 export function nextStep(m: Pick<Meeting, "storage_path" | "transcript" | "notes">): "transcribe" | "extract" | "none" {
   if (m.notes) return "none";
@@ -62,9 +116,29 @@ export function statusLabel(s: MeetingStatus): string {
     case "extracting":
       return "Writing notes";
     case "done":
-      return "Done";
+      return "Ready";
     case "error":
       return "Needs attention";
+  }
+}
+
+/** 0 to 1, for the progress bar while a meeting is processing. */
+export function statusProgress(s: MeetingStatus): number {
+  switch (s) {
+    case "recorded":
+      return 0;
+    case "uploaded":
+      return 0.2;
+    case "transcribing":
+      return 0.45;
+    case "transcribed":
+      return 0.7;
+    case "extracting":
+      return 0.85;
+    case "done":
+      return 1;
+    case "error":
+      return 1;
   }
 }
 
