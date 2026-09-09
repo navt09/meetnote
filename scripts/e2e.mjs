@@ -62,7 +62,7 @@ try {
   // password sign-in is the primary path users take
   const { data: pw, error: pwErr } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
   if (pwErr || !pw.session) throw new Error(`signInWithPassword: ${pwErr?.message ?? "no session"}`);
-  const token = pw.session.access_token;
+  let token = pw.session.access_token;
   log(`password sign-in ok for ${email}`);
 
   // a wrong password must be refused
@@ -84,9 +84,12 @@ try {
   if (recVerifyErr || !recSess.session) throw new Error(`recovery verify: ${recVerifyErr?.message ?? "no session"}`);
   const { error: updErr } = await anon.auth.updateUser({ password: `${PASSWORD}-new` });
   if (updErr) throw new Error(`password update: ${updErr.message}`);
-  const { error: reErr } = await anon.auth.signInWithPassword({ email, password: `${PASSWORD}-new` });
-  if (reErr) throw new Error(`sign-in with new password: ${reErr.message}`);
-  log("password reset flow ok");
+  // Changing the password revokes other sessions, so the old token is dead now.
+  const stale = await fetch(`${BASE}/api/meetings`, { headers: { Authorization: `Bearer ${token}` } });
+  const { data: re, error: reErr } = await anon.auth.signInWithPassword({ email, password: `${PASSWORD}-new` });
+  if (reErr || !re.session) throw new Error(`sign-in with new password: ${reErr?.message ?? "no session"}`);
+  token = re.session.access_token;
+  log(`password reset flow ok (old token now returns ${stale.status})`);
 
   // 2. unauthenticated requests must be rejected
   const noAuth = await fetch(`${BASE}/api/meetings`);
