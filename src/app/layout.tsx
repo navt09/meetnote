@@ -55,7 +55,28 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                     </form>
                   </>
                 ) : (
-                  <Link href="/login" className="btn btn-ghost">Sign in</Link>
+                  <>
+                    {/* Marketing nav. Anchors rather than routes: the landing
+                        page is one document, and a visitor should never lose
+                        their place in it. */}
+                    <div className="hidden items-center gap-1 md:flex">
+                      {[
+                        ["Features", "/#features"],
+                        ["Pricing", "/#pricing"],
+                        ["About", "/#about"],
+                        ["Contact", "/#contact"],
+                      ].map(([label, href]) => (
+                        <Link
+                          key={href}
+                          href={href}
+                          className="rounded-md px-2.5 py-1.5 text-sm transition-colors hover:text-fg"
+                        >
+                          {label}
+                        </Link>
+                      ))}
+                    </div>
+                    <Link href="/login" className="btn btn-ghost whitespace-nowrap">Sign in</Link>
+                  </>
                 )}
               </nav>
             </div>

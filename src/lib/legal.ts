@@ -1,12 +1,11 @@
 /**
  * Shared facts for the public legal pages.
  *
- * CONTACT_EMAIL appears in the privacy policy and the terms, and is submitted to
- * Google as the app's support contact. It must be an address that is actually
- * monitored: a bounced deletion request is both a failed Google review and a
- * real obligation missed.
+ * The contact address lives in site.ts because the landing page quotes it too,
+ * and a privacy policy whose contact bounces is both a failed Google review and
+ * a real obligation missed.
  */
-export const CONTACT_EMAIL = "privacy@fromthecall.com";
+export { CONTACT_EMAIL } from "./site";
 
 /** Bump whenever either page changes in a way that affects a reader. */
 export const LEGAL_UPDATED = "9 September 2026";
