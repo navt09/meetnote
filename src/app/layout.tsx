@@ -31,7 +31,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable} font-sans`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col font-sans`}>
         <ToastProvider>
           <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
@@ -55,7 +55,19 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-5xl px-6 pb-24">{children}</main>
+          <main className="mx-auto w-full max-w-5xl px-6 pb-16">{children}</main>
+
+          {/* Public and reachable from every page: Google's OAuth review fetches
+              the privacy policy and terms from the home page before approving. */}
+          <footer className="mt-auto border-t border-panel-border">
+            <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-faint">
+              <span>&copy; {new Date().getFullYear()} From the Call</span>
+              <nav className="flex items-center gap-4">
+                <Link className="transition-colors hover:text-fg" href="/privacy">Privacy</Link>
+                <Link className="transition-colors hover:text-fg" href="/terms">Terms</Link>
+              </nav>
+            </div>
+          </footer>
         </ToastProvider>
       </body>
     </html>
