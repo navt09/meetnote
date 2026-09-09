@@ -10,6 +10,7 @@
 export const MODEL_PRICING = {
   "claude-opus-5": { inputPerM: 5, outputPerM: 25, cacheReadPerM: 0.5, cacheWritePerM: 6.25 },
   "claude-sonnet-5": { inputPerM: 2, outputPerM: 10, cacheReadPerM: 0.2, cacheWritePerM: 2.5 },
+  "claude-haiku-4-5": { inputPerM: 1, outputPerM: 5, cacheReadPerM: 0.1, cacheWritePerM: 1.25 },
 } as const;
 
 export type PricedModel = keyof typeof MODEL_PRICING;

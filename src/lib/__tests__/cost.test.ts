@@ -19,6 +19,14 @@ describe("llmCostUsd", () => {
     expect(opus).toBeCloseTo(0.5 + 6.25, 6);
     const sonnet = llmCostUsd({ input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 1_000_000 }, "claude-sonnet-5");
     expect(sonnet).toBeCloseTo(0.2 + 2.5, 6);
+    const haiku = llmCostUsd({ input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 1_000_000, cache_creation_input_tokens: 1_000_000 }, "claude-haiku-4-5");
+    expect(haiku).toBeCloseTo(0.1 + 1.25, 6);
+  });
+
+  it("prices input and output tokens at Haiku 4.5 rates, the drafting model", () => {
+    // 1M input = $1, 1M output = $5
+    expect(llmCostUsd({ input_tokens: 1_000_000, output_tokens: 0 }, "claude-haiku-4-5")).toBeCloseTo(1, 6);
+    expect(llmCostUsd({ input_tokens: 0, output_tokens: 1_000_000 }, "claude-haiku-4-5")).toBeCloseTo(5, 6);
   });
 
   it("treats null cache fields as zero", () => {

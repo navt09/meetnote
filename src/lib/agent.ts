@@ -5,7 +5,7 @@ import { formatTimestamp } from "./transcript";
 import { llmCostUsd, type LlmUsage } from "./cost";
 import type { ActionItem, MeetingNotes, TranscriptSegment } from "./schema";
 
-export const DRAFT_MODEL = "claude-opus-5";
+export const DRAFT_MODEL = "claude-haiku-4-5";
 
 /**
  * The one place the model writes something a person might send. It only
