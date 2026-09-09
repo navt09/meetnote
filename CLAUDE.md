@@ -9,7 +9,7 @@ Meeting-notes SaaS. Read PLAN.md first for product, stack, phases, and the accou
 - Every API route checks auth via `getAuth(req)` (cookie session or `Authorization: Bearer`). Row Level Security on `meetings` is the real boundary; the service role is only used for storage signing and the post-response pipeline, always scoped by `user_id`.
 
 ## Navigation
-Four tabs when signed in: **Home** (`/dashboard`), **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Record** (`/record`). Signing in lands on `/dashboard`. `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/nav-tabs.tsx`.
+Tabs when signed in, in order: **Home** (`/dashboard`), **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Approvals** (`/approvals`), **Record** (`/record`), **Settings** (`/settings`), and **Owner** (`/owner`) for owner accounts only. Record sits before Settings because it is what people come to do. Signing in lands on `/dashboard`. `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/nav-tabs.tsx`.
 
 ## Charts
 - Series colours are `--chart-1` / `--chart-2` in `globals.css`, in that fixed order, never cycled. They are the dark-mode steps of a validated categorical palette and all six checks pass against the panel surface. **The UI accents fail the lightness band; do not use them for chart marks.**

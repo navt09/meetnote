@@ -8,8 +8,8 @@ const TABS = [
   { href: "/notes", label: "Notes", match: (p: string) => p === "/notes" || p.startsWith("/meetings") },
   { href: "/tasks", label: "Tasks", match: (p: string) => p.startsWith("/tasks") },
   { href: "/approvals", label: "Approvals", match: (p: string) => p.startsWith("/approvals") },
-  { href: "/settings", label: "Settings", match: (p: string) => p.startsWith("/settings") },
   { href: "/record", label: "Record", match: (p: string) => p.startsWith("/record") },
+  { href: "/settings", label: "Settings", match: (p: string) => p.startsWith("/settings") },
 ];
 
 const OWNER_TAB = { href: "/owner", label: "Owner", match: (p: string) => p.startsWith("/owner") };

@@ -197,7 +197,7 @@ function DisplayNameField({ initial }: { initial: string | null }) {
           id="display-name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="e.g. Naveen"
+          placeholder="Your first name"
           maxLength={60}
           className="field text-sm sm:max-w-xs"
         />
