@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { tierFor } from "@/lib/account-store";
 import { ToastProvider } from "@/components/toast";
 import NavTabs from "@/components/nav-tabs";
+import { Logo } from "@/components/logo";
 import "./globals.css";
 
 const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
@@ -35,17 +36,22 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <ToastProvider>
           <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
             <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
-              <Link href={email ? "/dashboard" : "/"} className="flex items-center gap-2 text-[0.9375rem] font-semibold tracking-tight">
-                <span className="grid h-5 w-5 place-items-center rounded bg-accent text-[0.625rem] font-bold text-[color:var(--accent-ink)]">F</span>
-                fromthecall
+              {/* The wordmark is three words, so it must not wrap, and it gives
+                  way to the mark alone once the nav needs the room. */}
+              <Link
+                href={email ? "/dashboard" : "/"}
+                className="flex shrink-0 items-center gap-2 whitespace-nowrap text-[0.9375rem] font-semibold tracking-tight"
+              >
+                <Logo size={22} />
+                <span className={email ? "hidden lg:inline" : "inline"}>From the Call</span>
               </Link>
-              <nav className="flex items-center gap-3 text-sm text-muted">
+              <nav className="flex min-w-0 items-center gap-3 text-sm text-muted">
                 {email ? (
                   <>
                     <NavTabs isOwner={isOwner} />
                     <form action="/auth/signout" method="post" className="flex items-center gap-3 border-l border-panel-border pl-3">
                       <span className="hidden max-w-[16ch] truncate text-xs text-faint sm:inline" title={email}>{email}</span>
-                      <button className="text-xs transition-colors hover:text-fg" type="submit">Sign out</button>
+                      <button className="whitespace-nowrap text-xs transition-colors hover:text-fg" type="submit">Sign out</button>
                     </form>
                   </>
                 ) : (

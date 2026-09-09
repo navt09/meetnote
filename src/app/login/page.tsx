@@ -7,7 +7,6 @@ export default function LoginPage() {
   return (
     <section className="mx-auto mt-16 max-w-md">
       <div className="glass p-8">
-        <span className="pill">From the Call</span>
         <Suspense fallback={<p className="mt-6 text-sm text-muted">Loading…</p>}>
           <LoginForm />
         </Suspense>

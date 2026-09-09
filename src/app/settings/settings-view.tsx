@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { deleteJson, getJson, patchJson, postJson, putJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
+import { BrandMark } from "@/components/brand-marks";
 import { canUseAi, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
 
 type Team = { id: string; name: string };
@@ -164,14 +165,6 @@ type CardProps = {
   disconnect: (p: Provider, label: string) => Promise<void>;
 };
 
-/** Brand marks. A monogram in the provider's own colour, so the list scans at a glance. */
-const MARK: Record<Provider, { letter: string; bg: string }> = {
-  linear: { letter: "L", bg: "#5E6AD2" },
-  jira: { letter: "J", bg: "#0052CC" },
-  slack: { letter: "S", bg: "#611F69" },
-  google: { letter: "G", bg: "#1A73E8" },
-};
-
 /**
  * One integration, as a row rather than a card.
  *
@@ -196,18 +189,11 @@ function Row({
   action: React.ReactNode;
   children?: React.ReactNode;
 }) {
-  const mark = MARK[provider];
   return (
     <div className="px-5 py-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span
-            aria-hidden
-            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-semibold text-white"
-            style={{ background: mark.bg }}
-          >
-            {mark.letter}
-          </span>
+          <BrandMark provider={provider} />
           <div className="min-w-0">
             <p className="flex items-center gap-2 text-sm font-medium">
               {title}
