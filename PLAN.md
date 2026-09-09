@@ -67,8 +67,16 @@ Put the keys in `.env.local` (copy `.env.example`). Never commit that file; it i
 **Phase 1 (done 2026-09-08): record → transcript → structured notes, single user, no login.**
 Recorder with crash recovery, direct-to-storage upload, transcription, extraction, results view with Markdown export and per-meeting cost. Unit tests for the pure helpers. Deployed on Vercel Hobby.
 
-**Phase 2: accounts and persistence.**
-Supabase login, meetings table, meeting list and detail pages, delete recording, background job (Inngest) so very long meetings don't depend on one HTTP request.
+**Phase 2 (built 2026-09-08, needs the two dashboard steps below): accounts and persistence.**
+Magic-link login (Supabase Auth), `meetings` table with Row Level Security, audio stored per user, meetings list and detail pages, rename, delete (audio + row), Markdown export. Processing runs on the server after the upload and keeps going if the tab closes; the detail page polls until it's done and offers "Try again" on failure without redoing finished steps. Signed-in end-to-end test script (`npm run e2e`) that needs no inbox.
+
+Deferred from Phase 2: a real job queue (Inngest). Vercel's `after()` gives us up to 5 minutes of background work per request, which covers meetings up to roughly 2–3 hours. Add a queue when longer meetings or higher volume make that a problem.
+
+Dashboard steps for Phase 2 (once):
+1. Apply the schema: put the database connection string in `.env.local` as `SUPABASE_DB_URL` and run `npm run migrate`, or paste `supabase/migrations/0001_meetings.sql` into Supabase's SQL Editor and run it.
+2. Supabase → Authentication → URL Configuration: Site URL `https://meetnote-navt1.vercel.app`, and add `https://meetnote-navt1.vercel.app/**` and `http://localhost:3000/**` to Redirect URLs.
+
+Email limits: Supabase's built-in mailer sends at most 2 auth emails an hour and only to your project's team members. That is fine for you now. Before inviting anyone else, configure custom SMTP (Resend has a free tier) under Authentication → SMTP Settings.
 
 **Phase 3: the agent.**
 Approval queue, Linear and Jira connectors (create tickets), Gmail draft follow-ups, Slack summary post. Bring-your-own-LLM setting.

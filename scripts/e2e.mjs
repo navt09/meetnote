@@ -1,0 +1,133 @@
+// End-to-end check of the signed-in pipeline without needing an email inbox.
+//
+//   node scripts/e2e.mjs [baseUrl] [audioFile]
+//
+// Creates a throwaway user with the service role key, signs it in by minting a
+// magic-link token server-side, then drives the real API: create meeting,
+// upload audio straight to storage, start processing, poll until done, print
+// the notes, delete the meeting, delete the user.
+
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createClient } from "@supabase/supabase-js";
+
+const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+for (const line of existsSync(join(root, ".env.local")) ? readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/) : []) {
+  const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
+  if (m && !process.env[m[1]]) process.env[m[1]] = m[2];
+}
+
+const BASE = (process.argv[2] ?? "http://localhost:3000").replace(/\/$/, "");
+const AUDIO = process.argv[3] ?? "C:/Users/navee/AppData/Local/Temp/mn/standup.wav";
+const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!URL_ || !ANON || !SERVICE) {
+  console.error("Missing Supabase env vars in .env.local");
+  process.exit(1);
+}
+
+const admin = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+const anon = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
+const email = `e2e-${Date.now()}@meetnote.invalid`;
+let userId = null;
+let meetingId = null;
+const t0 = Date.now();
+const log = (msg) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${msg}`);
+
+async function api(path, init = {}, token) {
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...(init.headers ?? {}) },
+  });
+  const text = await res.text();
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch {
+    json = { raw: text.slice(0, 200) };
+  }
+  return { status: res.status, json };
+}
+
+try {
+  // 1. throwaway user + session (no email involved)
+  const { data: cu, error: cuErr } = await admin.auth.admin.createUser({ email, email_confirm: true });
+  if (cuErr) throw new Error(`createUser: ${cuErr.message}`);
+  userId = cu.user.id;
+  const { data: link, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
+  if (linkErr) throw new Error(`generateLink: ${linkErr.message}`);
+  const { data: sess, error: otpErr } = await anon.auth.verifyOtp({ token_hash: link.properties.hashed_token, type: "magiclink" });
+  if (otpErr || !sess.session) throw new Error(`verifyOtp: ${otpErr?.message ?? "no session"}`);
+  const token = sess.session.access_token;
+  log(`signed in as ${email}`);
+
+  // 2. unauthenticated requests must be rejected
+  const noAuth = await fetch(`${BASE}/api/meetings`);
+  if (noAuth.status !== 401) throw new Error(`expected 401 without auth, got ${noAuth.status}`);
+  log("unauthenticated request correctly rejected (401)");
+
+  // 3. create meeting + upload
+  const audio = readFileSync(AUDIO);
+  const mime = AUDIO.endsWith(".wav") ? "audio/wav" : "audio/webm";
+  const created = await api("/api/meetings", { method: "POST", body: JSON.stringify({ mimeType: mime, bytes: audio.length, durationSeconds: 40, recordedAt: new Date().toISOString() }) }, token);
+  if (created.status !== 201) throw new Error(`create meeting: ${created.status} ${JSON.stringify(created.json)}`);
+  meetingId = created.json.meetingId;
+  log(`meeting created ${meetingId} -> ${created.json.storagePath}`);
+
+  const put = await fetch(created.json.signedUrl, { method: "PUT", headers: { "Content-Type": mime, "x-upsert": "true" }, body: audio });
+  if (!put.ok) throw new Error(`upload: ${put.status} ${await put.text()}`);
+  log(`uploaded ${(audio.length / 1024).toFixed(0)} KB straight to storage`);
+
+  // 4. process + poll
+  const proc = await api(`/api/meetings/${meetingId}/process`, { method: "POST", body: "{}" }, token);
+  if (proc.status !== 202) throw new Error(`process: ${proc.status} ${JSON.stringify(proc.json)}`);
+  log(`processing queued (${proc.json.status})`);
+
+  let m = null;
+  for (let i = 0; i < 100; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const got = await api(`/api/meetings/${meetingId}`, {}, token);
+    if (got.status !== 200) throw new Error(`get: ${got.status} ${JSON.stringify(got.json)}`);
+    m = got.json.meeting;
+    if (i % 3 === 0) log(`status: ${m.status}`);
+    if (m.status === "done" || m.status === "error") break;
+  }
+  if (!m || m.status !== "done") throw new Error(`pipeline ended with ${m?.status}: ${m?.error}`);
+  log(`done: "${m.title}" | ${m.transcript.length} segments | ${m.notes.action_items.length} actions | ${m.notes.decisions.length} decisions | ${m.notes.people_to_contact.length} people`);
+  log(`cost: transcription $${Number(m.transcription_cost_usd).toFixed(4)} + notes $${Number(m.llm_cost_usd).toFixed(4)}`);
+
+  // 5. list, rename, another user can't see it, audio link, delete
+  const list = await api("/api/meetings", {}, token);
+  if (!list.json.meetings?.some((x) => x.id === meetingId)) throw new Error("meeting missing from list");
+  const renamed = await api(`/api/meetings/${meetingId}`, { method: "PATCH", body: JSON.stringify({ title: "Renamed by e2e" }) }, token);
+  if (renamed.status !== 200 || renamed.json.meeting.title !== "Renamed by e2e") throw new Error(`rename failed: ${renamed.status}`);
+  log("list + rename ok");
+
+  const audioRes = await fetch(`${BASE}/api/meetings/${meetingId}/audio`, { headers: { Authorization: `Bearer ${token}` }, redirect: "manual" });
+  if (audioRes.status !== 302) throw new Error(`audio link: expected 302, got ${audioRes.status}`);
+  log("audio download link ok (302 to signed URL)");
+
+  // isolation: a second user must get 404 for this meeting
+  const other = `e2e-other-${Date.now()}@meetnote.invalid`;
+  const { data: ou } = await admin.auth.admin.createUser({ email: other, email_confirm: true });
+  const { data: olink } = await admin.auth.admin.generateLink({ type: "magiclink", email: other });
+  const { data: osess } = await anon.auth.verifyOtp({ token_hash: olink.properties.hashed_token, type: "magiclink" });
+  const peek = await api(`/api/meetings/${meetingId}`, {}, osess.session.access_token);
+  await admin.auth.admin.deleteUser(ou.user.id);
+  if (peek.status !== 404) throw new Error(`isolation broken: other user got ${peek.status}`);
+  log("row level security ok (other user gets 404)");
+
+  const del = await api(`/api/meetings/${meetingId}`, { method: "DELETE" }, token);
+  if (del.status !== 200) throw new Error(`delete: ${del.status} ${JSON.stringify(del.json)}`);
+  meetingId = null;
+  log("deleted meeting + audio");
+  console.log("\nE2E PASSED");
+} catch (err) {
+  console.error("\nE2E FAILED:", err.message);
+  process.exitCode = 1;
+} finally {
+  if (meetingId) await admin.from("meetings").delete().eq("id", meetingId);
+  if (userId) await admin.auth.admin.deleteUser(userId).catch(() => {});
+}

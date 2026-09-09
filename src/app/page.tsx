@@ -24,7 +24,7 @@ export default function Home() {
         {[
           ["1. Choose a window", "Click Record, pick your Zoom, Teams, or Meet window, tick “Share audio”."],
           ["2. We listen", "Your mic and the meeting audio are mixed and recorded locally in the browser."],
-          ["3. Notes and tasks", "Stop, and get a summary, action items with owners, decisions, and people to follow up with."],
+          ["3. Notes and tasks", "Stop, and get a summary, action items with owners, decisions, and people to follow up with. Every meeting is saved to your account."],
         ].map(([title, body]) => (
           <div key={title} className="glass p-5">
             <h3 className="mb-2 font-semibold">{title}</h3>

@@ -1,19 +1,34 @@
-// Browser-only. Uploads a recording straight to storage using a one-time URL
-// from our server, with progress and retries.
+// Browser-only. Creates the meeting, uploads its audio straight to storage
+// with progress and retries, then asks the server to process it.
 
 import { HttpError, withRetry } from "./retry";
+import type { Meeting } from "./meeting";
 
-export type UploadTicket = { path: string; signedUrl: string; token: string; contentType: string };
-
-export async function requestUploadTicket(blob: Blob): Promise<UploadTicket> {
-  const res = await fetch("/api/upload-url", {
+export async function postJson<T>(url: string, body: unknown, timeoutMs = 60_000): Promise<T> {
+  const res = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mimeType: blob.type, bytes: blob.size }),
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new HttpError(res.status, json.error ?? `Upload setup failed (${res.status})`);
-  return json as UploadTicket;
+  if (!res.ok) throw new HttpError(res.status, json.error ?? `Request failed (${res.status})`);
+  return json as T;
+}
+
+export async function getJson<T>(url: string, timeoutMs = 30_000): Promise<T> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs), cache: "no-store" });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new HttpError(res.status, json.error ?? `Request failed (${res.status})`);
+  return json as T;
+}
+
+export async function deleteJson(url: string): Promise<void> {
+  const res = await fetch(url, { method: "DELETE" });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new HttpError(res.status, json.error ?? `Delete failed (${res.status})`);
+  }
 }
 
 function putWithProgress(url: string, blob: Blob, contentType: string, onProgress: (frac: number) => void): Promise<void> {
@@ -21,7 +36,7 @@ function putWithProgress(url: string, blob: Blob, contentType: string, onProgres
     const xhr = new XMLHttpRequest();
     xhr.open("PUT", url, true);
     xhr.setRequestHeader("Content-Type", contentType);
-    xhr.setRequestHeader("x-upsert", "false");
+    xhr.setRequestHeader("x-upsert", "true");
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(e.loaded / e.total);
     };
@@ -40,31 +55,39 @@ function putWithProgress(url: string, blob: Blob, contentType: string, onProgres
   });
 }
 
-/**
- * Full upload: get a ticket, PUT the file, return the storage path.
- * Retries the PUT (with a fresh ticket) on network blips or 5xx.
- */
-export async function uploadRecording(blob: Blob, onProgress: (frac: number) => void): Promise<string> {
-  return withRetry(
-    async () => {
-      const ticket = await requestUploadTicket(blob);
+export type CreatedMeeting = { meetingId: string; storagePath: string; signedUrl: string; contentType: string };
+
+export async function createMeeting(blob: Blob, durationSeconds: number, recordedAt: Date): Promise<CreatedMeeting> {
+  return postJson<CreatedMeeting>("/api/meetings", {
+    mimeType: blob.type,
+    bytes: blob.size,
+    durationSeconds,
+    recordedAt: recordedAt.toISOString(),
+  });
+}
+
+/** Uploads the audio for a meeting. On retry it asks for a fresh upload URL. */
+export async function uploadMeetingAudio(created: CreatedMeeting, blob: Blob, onProgress: (frac: number) => void): Promise<void> {
+  let signedUrl = created.signedUrl;
+  await withRetry(
+    async (attempt) => {
+      if (attempt > 1) {
+        const fresh = await postJson<{ signedUrl: string }>(`/api/meetings/${created.meetingId}/upload-url`, {});
+        signedUrl = fresh.signedUrl;
+      }
       onProgress(0);
-      await putWithProgress(ticket.signedUrl, blob, ticket.contentType, onProgress);
+      await putWithProgress(signedUrl, blob, created.contentType, onProgress);
       onProgress(1);
-      return ticket.path;
     },
     { attempts: 4, baseMs: 1500 },
   );
 }
 
-export async function postJson<T>(url: string, body: unknown, timeoutMs = 290_000): Promise<T> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(timeoutMs),
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new HttpError(res.status, json.error ?? `Request failed (${res.status})`);
-  return json as T;
+export async function startProcessing(meetingId: string): Promise<void> {
+  await withRetry(() => postJson(`/api/meetings/${meetingId}/process`, {}), { attempts: 3, baseMs: 1000 });
+}
+
+export async function fetchMeeting(meetingId: string): Promise<Meeting> {
+  const { meeting } = await getJson<{ meeting: Meeting }>(`/api/meetings/${meetingId}`);
+  return meeting;
 }
