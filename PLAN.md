@@ -84,6 +84,22 @@ Approval queue, Linear and Jira connectors (create tickets), Gmail draft follow-
 **Phase 4: money and polish.**
 Stripe plans, team workspaces, search across meetings, desktop recorder, consent notice and retention settings.
 
+## Decisions and deferred work
+
+Decided 2026-09-08:
+
+- **No usage cap for now.** Nothing limits how much audio one account can process. Accepted knowingly. Revisit before the app is open to strangers; the natural shape is a monthly minutes allowance per account checked before transcription, plus a hard ceiling on total spend.
+- **Custom SMTP (Resend) deferred.** Sign-in email still goes through Supabase's built-in mailer: 2 per hour, and only to addresses on the Supabase account's team.
+- **Email verification stays on, revisit later.** Not turned off.
+
+These three interact, and the order matters:
+
+Because verification is on and the built-in mailer only reaches your own team, **nobody outside that team can finish signing up today**. Signup creates an unconfirmed account, the confirmation email never arrives, and without confirmation there is no session and therefore no access to any API route. That is currently what keeps the public URL from costing money, not anything we built.
+
+So the day Resend is connected, signup genuinely opens to the world. **Add the usage cap in the same change**, or turn signups off (`disable_signup`) until the cap exists. Connecting Resend on its own, with no cap, is the one combination to avoid.
+
+Resend also needs a domain you own (about $10-15/year); its free tier covers 3,000 emails a month, 100 a day, one domain.
+
 ## Legal notes
 
 Recording consent laws vary (all-party consent in several US states and most of Europe). The app must show a consent reminder before recording and let users delete recordings. Store audio encrypted at rest (Supabase does), never train on customer data, say so publicly.
