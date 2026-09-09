@@ -103,6 +103,36 @@ So the day Resend is connected, signup genuinely opens to the world. **Add the u
 
 Resend also needs a domain you own (about $10-15/year); its free tier covers 3,000 emails a month, 100 a day, one domain.
 
+## Google setup, and why connections expire
+
+Meetnote asks Google for exactly two permissions:
+
+- `gmail.send` — send an approved email as you. Send only; it cannot read your mail.
+- `calendar.events` — read your calendar and add events. Replaces the old read-only scope so tasks can be blocked out.
+
+Both are **sensitive** scopes in Google's classification. Neither is **restricted**, and no Google Calendar scope is restricted at all, so none of this triggers the annual paid third-party security assessment. That assessment is the expensive one, and every broader Gmail scope (`compose`, `modify`, `readonly`) does trigger it. Do not widen these.
+
+### The 7-day expiry, and how to stop it
+
+A Google connection dies after 7 days when the OAuth app's **publishing status is "Testing"** and its user type is External. It is that setting, not verification, that causes it.
+
+The fix is one button: Google Cloud Console → Google Auth Platform → Audience → **Publish app**, moving it from Testing to In production. The 7-day expiry stops.
+
+What publishing costs while still unverified:
+
+- Users see a "Google hasn't verified this app" screen and must click Advanced → Continue.
+- A cap of **100 new users for the lifetime of the project**. It cannot be reset or raised, and it counts anyone who saw that warning screen. Do not burn it on test accounts.
+
+Submitting for sensitive-scope verification (about 10 business days by Google's own estimate) removes both the warning and the cap. Publish first, verify in parallel.
+
+If every user were inside one Google Workspace organisation, switching the user type to **Internal** avoids verification, the warning and the cap entirely. That is not an option for a public product, since only accounts in that one organisation could ever connect.
+
+One caveat worth knowing: Google documents the 7-day rule as applying to Testing apps, but never states the converse outright. It is a sound inference and matches how the API behaves. Confirm it after publishing by checking whether the token response carries `refresh_token_expires_in`.
+
+### Other reasons a Google connection dies
+
+Design for reconnection rather than assuming a token is forever: the user revokes access, the token goes unused for six months, they change their Google password (this one kills Gmail scopes specifically), or a Workspace admin restricts the service. Meetnote treats all of these as "reconnect" rather than retrying.
+
 ## Legal notes
 
 Recording consent laws vary (all-party consent in several US states and most of Europe). The app must show a consent reminder before recording and let users delete recordings. Store audio encrypted at rest (Supabase does), never train on customer data, say so publicly.

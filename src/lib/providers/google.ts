@@ -6,10 +6,16 @@ import type { GoogleConfig, GoogleCredentials } from "../connectors";
  * Google OAuth for two narrow jobs: send an email as the user, and read their
  * upcoming calendar events.
  *
- * Scope choice matters commercially. `gmail.send` is a *sensitive* scope, which
- * needs Google's app verification before more than 100 users, but not the annual
- * third-party security assessment. Every broader Gmail scope (compose, modify,
- * readonly) is *restricted* and does trigger that assessment. Do not widen these.
+ * Scope choice matters commercially. Both scopes here are *sensitive*: they need
+ * Google's app verification before more than 100 people can connect, but not the
+ * annual paid third-party security assessment.
+ *
+ * Every broader Gmail scope (compose, modify, readonly) is *restricted* and does
+ * trigger that assessment. No Calendar scope is restricted, so calendar.events
+ * costs nothing extra. Do not widen the Gmail one.
+ *
+ * Connections expiring after 7 days is not a bug: it is what Google does to OAuth
+ * apps left in "Testing" publishing status. See PLAN.md for the fix.
  */
 
 export const SCOPE_GMAIL_SEND = "https://www.googleapis.com/auth/gmail.send";

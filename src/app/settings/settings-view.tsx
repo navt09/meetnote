@@ -411,7 +411,10 @@ function GoogleCard({
 }) {
   const scopes = ((connector?.config ?? {}) as { scopes?: string[] }).scopes ?? [];
   const canSend = scopes.some((s) => s.includes("gmail.send"));
-  const canRead = scopes.some((s) => s.includes("calendar"));
+  // The read-only calendar scope was what earlier connections got; adding events
+  // needs the read-write one, so an old connection has to be reconnected.
+  const canWriteCalendar = scopes.some((s) => s.endsWith("/auth/calendar.events") || s.endsWith("/auth/calendar"));
+  const stale = !!connector && !canWriteCalendar;
 
   return (
     <Shell
@@ -421,7 +424,11 @@ function GoogleCard({
       error={connector?.lastError}
       busy={busy === "google"}
       onDisconnect={() => disconnect("google", "Google")}
-      detail={connector ? `${canSend ? "Can send email" : "Cannot send email"} · ${canRead ? "can read calendar" : "cannot read calendar"}.` : undefined}
+      detail={
+        connector
+          ? `${canSend ? "Can send email" : "Cannot send email"} · ${canWriteCalendar ? "can add calendar events" : "cannot add calendar events"}.`
+          : undefined
+      }
     >
       {!googleReady ? (
         <p className="text-xs text-muted">
@@ -433,8 +440,17 @@ function GoogleCard({
         // eslint-disable-next-line @next/next/no-html-link-for-pages
         <a className="btn btn-primary" href="/api/connectors/google/start">Connect Google</a>
       ) : (
-        // eslint-disable-next-line @next/next/no-html-link-for-pages
-        <a className="btn btn-ghost !py-1.5 text-xs" href="/api/connectors/google/start">Reconnect</a>
+        <div className="flex flex-col gap-2">
+          {stale ? (
+            <p className="text-xs text-warn">
+              This connection was made before calendar writing was added. Reconnect to let Meetnote block tasks out on your calendar.
+            </p>
+          ) : null}
+          {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+          <a className={`btn ${stale ? "btn-primary" : "btn-ghost"} self-start !py-1.5 text-xs`} href="/api/connectors/google/start">
+            Reconnect
+          </a>
+        </div>
       )}
     </Shell>
   );
