@@ -24,7 +24,12 @@ const REDIRECTS = [
   "http://localhost:3000/**",
 ];
 
-const wanted = { site_url: SITE_URL, uri_allow_list: REDIRECTS.join(",") };
+const wanted = {
+  site_url: SITE_URL,
+  uri_allow_list: REDIRECTS.join(","),
+  // Match the client-side rule in src/lib/auth-errors.ts.
+  password_min_length: 8,
+};
 
 const token = process.env.SUPABASE_ACCESS_TOKEN;
 const ref = (process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").match(/https:\/\/([^.]+)\./)?.[1];

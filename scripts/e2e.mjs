@@ -51,17 +51,42 @@ async function api(path, init = {}, token) {
   return { status: res.status, json };
 }
 
+const PASSWORD = `Tr0ub4dour-${Math.random().toString(36).slice(2, 10)}`;
+
 try {
-  // 1. throwaway user + session (no email involved)
-  const { data: cu, error: cuErr } = await admin.auth.admin.createUser({ email, email_confirm: true });
+  // 1. throwaway user with a password (no email involved)
+  const { data: cu, error: cuErr } = await admin.auth.admin.createUser({ email, password: PASSWORD, email_confirm: true });
   if (cuErr) throw new Error(`createUser: ${cuErr.message}`);
   userId = cu.user.id;
+
+  // password sign-in is the primary path users take
+  const { data: pw, error: pwErr } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
+  if (pwErr || !pw.session) throw new Error(`signInWithPassword: ${pwErr?.message ?? "no session"}`);
+  const token = pw.session.access_token;
+  log(`password sign-in ok for ${email}`);
+
+  // a wrong password must be refused
+  const bad = await anon.auth.signInWithPassword({ email, password: "wrong-password-entirely" });
+  if (!bad.error) throw new Error("wrong password was accepted");
+  log(`wrong password refused ("${bad.error.message}")`);
+
+  // the email-link path must still work as a fallback
   const { data: link, error: linkErr } = await admin.auth.admin.generateLink({ type: "magiclink", email });
   if (linkErr) throw new Error(`generateLink: ${linkErr.message}`);
   const { data: sess, error: otpErr } = await anon.auth.verifyOtp({ token_hash: link.properties.hashed_token, type: "magiclink" });
-  if (otpErr || !sess.session) throw new Error(`verifyOtp: ${otpErr?.message ?? "no session"}`);
-  const token = sess.session.access_token;
-  log(`signed in as ${email}`);
+  if (otpErr || !sess.session) throw new Error(`magic link fallback: ${otpErr?.message ?? "no session"}`);
+  log("email-link fallback ok");
+
+  // password reset link must produce a usable session
+  const { data: rec, error: recErr } = await admin.auth.admin.generateLink({ type: "recovery", email });
+  if (recErr) throw new Error(`recovery link: ${recErr.message}`);
+  const { data: recSess, error: recVerifyErr } = await anon.auth.verifyOtp({ token_hash: rec.properties.hashed_token, type: "recovery" });
+  if (recVerifyErr || !recSess.session) throw new Error(`recovery verify: ${recVerifyErr?.message ?? "no session"}`);
+  const { error: updErr } = await anon.auth.updateUser({ password: `${PASSWORD}-new` });
+  if (updErr) throw new Error(`password update: ${updErr.message}`);
+  const { error: reErr } = await anon.auth.signInWithPassword({ email, password: `${PASSWORD}-new` });
+  if (reErr) throw new Error(`sign-in with new password: ${reErr.message}`);
+  log("password reset flow ok");
 
   // 2. unauthenticated requests must be rejected
   const noAuth = await fetch(`${BASE}/api/meetings`);
