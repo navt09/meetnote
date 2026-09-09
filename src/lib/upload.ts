@@ -98,3 +98,10 @@ export async function fetchMeeting(meetingId: string): Promise<PublicMeeting> {
   const { meeting } = await getJson<{ meeting: PublicMeeting }>(`/api/meetings/${meetingId}`);
   return meeting;
 }
+
+export async function putJson<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new HttpError(res.status, json.error ?? `Request failed (${res.status})`);
+  return json as T;
+}

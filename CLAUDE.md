@@ -67,3 +67,12 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 - An email can only be drafted for a person already in that meeting's `people_to_contact`; free-text targets are refused.
 - One live ticket draft per task (unique index on `drafts.task_id`; upsert replaces). Drafts cascade away with their meeting.
 - Draft bodies keep their Markdown, because that is what Linear and Jira expect on paste. `src/lib/markdown-lite.ts` renders a preview as React elements, never HTML, so model output cannot inject markup.
+
+## Connectors (Phase 3)
+- Third-party credentials are encrypted with AES-256-GCM (`src/lib/crypto.ts`) before being stored, keyed by `CREDENTIALS_KEY`. They are **never** returned to the browser: `/api/connectors` selects only `provider,config,last_error,created_at`. `config` holds non-secret settings only (chosen team, project key, masked key hint).
+- `src/lib/providers/{linear,jira,slack,google}.ts` are the API clients; `src/lib/deliver.ts` is the only place an approved draft is sent anywhere. It is reached solely from the approve branch of `PATCH /api/drafts/[id]`, and only when `external_url` is still null, so nothing is ever sent twice.
+- A failed send does not undo the approval; the route returns 200 with a `warning` and `needsReconnect` so the UI can explain rather than silently lose the approval.
+- Provider gotchas already handled, each verified against current docs: Linear takes the API key raw with **no** `Bearer` prefix and returns errors in a 200 body; Jira v3 needs Atlassian Document Format, not Markdown (`markdownToAdf`); Slack mrkdwn uses single asterisks for bold and must escape `&`, `<`, `>` or transcript text can forge `<!channel>`; Google needs `access_type=offline` **and** `prompt=consent` or no refresh token is issued.
+- Slack uses an incoming webhook (paste a URL, no OAuth app). The tradeoff: one fixed channel, and messages cannot be edited later. Moving to an OAuth app with `chat.postMessage` is the upgrade path.
+- **Google scope discipline matters commercially.** `gmail.send` and `calendar.events.readonly` are *sensitive* scopes: app verification is needed past 100 users, but not the annual third-party security assessment. Every broader Gmail scope (`compose`, `modify`, `readonly`) is *restricted* and does trigger that assessment. Do not widen them.
+- Bring-your-own-LLM currently means the customer's own Anthropic key plus a model choice (`src/lib/llm.ts`). A broken stored key falls back to ours rather than breaking the pipeline.
