@@ -69,6 +69,7 @@ export async function createMeeting(
   durationSeconds: number,
   recordedAt: Date,
   selfSpeech: [number, number][] = [],
+  sources: { system: boolean; mic: boolean } | null = null,
 ): Promise<CreatedMeeting> {
   return postJson<CreatedMeeting>("/api/meetings", {
     mimeType: blob.type,
@@ -76,6 +77,7 @@ export async function createMeeting(
     durationSeconds,
     recordedAt: recordedAt.toISOString(),
     selfSpeech,
+    sources,
   });
 }
 

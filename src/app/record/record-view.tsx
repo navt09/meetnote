@@ -222,7 +222,7 @@ export default function RecordView() {
       let c = created;
       if (!c) {
         setSaveStep("create");
-        c = await createMeeting(blob, elapsed, recordedAt ?? new Date(), selfSpeechRef.current);
+        c = await createMeeting(blob, elapsed, recordedAt ?? new Date(), selfSpeechRef.current, sources);
         setCreated(c);
       }
       step = "upload";
@@ -360,9 +360,20 @@ export default function RecordView() {
           )}
 
           {phase === "idle" ? <p className="text-sm text-muted">Click to pick a window and start</p> : null}
-          {phase === "recording" && sources ? (
+          {/* Missing meeting audio is not a footnote: it means the other side of
+              the call is not being recorded at all, and it is worth losing ten
+              seconds to fix rather than finding out after the meeting. */}
+          {phase === "recording" && sources && !sources.system ? (
+            <div className="max-w-sm rounded-lg border border-warn/50 bg-warn/10 px-4 py-3 text-center">
+              <p className="text-sm font-medium text-warn">Only your microphone is being recorded</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                Nobody else on the call is being captured. Stop, start again, and tick “Share audio” in the picker.
+              </p>
+            </div>
+          ) : null}
+          {phase === "recording" && sources && sources.system ? (
             <p className="text-xs text-muted">
-              Capturing {sources.system ? "meeting audio" : ""}{sources.system && sources.mic ? " and " : ""}{sources.mic ? "your mic" : ""}
+              Capturing meeting audio{sources.mic ? " and your mic" : " only, no microphone"}
             </p>
           ) : null}
 

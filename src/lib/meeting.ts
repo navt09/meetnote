@@ -19,6 +19,8 @@ export type Meeting = {
   notes: MeetingNotes | null;
   /** When the recorder's mic was the loud one: [start, end] seconds. Internal. */
   self_speech: [number, number][] | null;
+  /** Which audio the browser actually captured. Diagnostic; internal. */
+  sources: { system: boolean; mic: boolean } | null;
   usage: LlmUsage | null;
   transcription_cost_usd: number;
   llm_cost_usd: number;

@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   if (isBlocked(gate)) return gate;
   const { auth } = gate;
 
-  let body: { mimeType?: string; bytes?: number; durationSeconds?: number; recordedAt?: string; selfSpeech?: unknown };
+  let body: { mimeType?: string; bytes?: number; durationSeconds?: number; recordedAt?: string; selfSpeech?: unknown; sources?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -70,6 +70,15 @@ export async function POST(req: Request) {
     // Malformed windows are dropped, never rejected: a bad timeline should
     // cost the "for you" notes, not the recording.
     self_speech: parseSelfSpeech(body.selfSpeech, duration),
+    // Coerced rather than trusted: it is a diagnostic, so a malformed value
+    // should record "we don't know" instead of failing the recording.
+    sources:
+      body.sources && typeof body.sources === "object"
+        ? {
+            system: (body.sources as { system?: unknown }).system === true,
+            mic: (body.sources as { mic?: unknown }).mic === true,
+          }
+        : null,
   } satisfies Partial<Meeting>);
   if (insertError) {
     console.error(JSON.stringify({ event: "meeting_create_error", message: insertError.message }));
