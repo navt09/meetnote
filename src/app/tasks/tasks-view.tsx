@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
-import { patchJson } from "@/lib/upload";
+import { patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState } from "@/components/ui";
 import { filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
@@ -13,12 +14,29 @@ const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
-export default function TasksView({ initial, loadError }: { initial: PublicTask[]; loadError: string | null }) {
+export default function TasksView({ initial, loadError, drafted }: { initial: PublicTask[]; loadError: string | null; drafted: string[] }) {
   const toast = useToast();
+  const router = useRouter();
   const [tasks, setTasks] = useState<PublicTask[]>(initial);
   const [filter, setFilter] = useState<TaskFilter>("open");
   const [owner, setOwner] = useState<string | null>(null);
+  const [hasDraft, setHasDraft] = useState<Set<string>>(new Set(drafted));
+  const [drafting, setDrafting] = useState<string | null>(null);
   const error = loadError;
+
+  async function draft(task: PublicTask) {
+    setDrafting(task.id);
+    try {
+      await postJson(`/api/tasks/${task.id}/draft`, {});
+      setHasDraft((s) => new Set(s).add(task.id));
+      toast("Ticket drafted. Check it in Approvals.", "ok");
+      router.refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not draft that ticket", "error");
+    } finally {
+      setDrafting(null);
+    }
+  }
 
   const owners = useMemo(() => ownersOf(tasks), [tasks]);
   const visible = useMemo(() => sortTasks(filterTasks(tasks, filter, owner)), [tasks, filter, owner]);
@@ -124,6 +142,17 @@ export default function TasksView({ initial, loadError }: { initial: PublicTask[
                   <Link href={`/meetings/${t.meetingId}`} className="truncate transition-colors hover:text-fg">
                     {t.meetingTitle}
                   </Link>
+                  {hasDraft.has(t.id) ? (
+                    <Link href="/approvals" className="text-accent transition-colors hover:underline">ticket drafted</Link>
+                  ) : (
+                    <button
+                      onClick={() => draft(t)}
+                      disabled={drafting === t.id}
+                      className="text-muted transition-colors hover:text-fg disabled:opacity-50"
+                    >
+                      {drafting === t.id ? "drafting…" : "draft ticket"}
+                    </button>
+                  )}
                 </p>
               </div>
 

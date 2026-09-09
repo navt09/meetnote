@@ -205,7 +205,7 @@ export default function MeetingPage() {
         </div>
       ) : null}
 
-      {meeting.notes ? <NotesView notes={meeting.notes} /> : working ? <NotesSkeleton /> : null}
+      {meeting.notes ? <NotesView notes={meeting.notes} meetingId={id} /> : working ? <NotesSkeleton /> : null}
       {meeting.transcript?.length ? <TranscriptView segments={meeting.transcript} /> : null}
     </section>
   );

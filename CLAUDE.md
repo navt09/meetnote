@@ -60,3 +60,10 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 
 - Storage bucket is `recordings` (private). Object paths are `<user_id>/<yyyy-mm>/<meeting_id>.<ext>`; ownership is checked with `pathBelongsTo()`.
 - Meeting status machine: recorded → uploaded → transcribing → transcribed → extracting → done, or error (retryable; finished steps are skipped).
+
+## The agent (Phase 3)
+- `src/lib/agent.ts` is the only place the model writes text a person might send. It drafts a ticket from a task, or a follow-up email for someone the notes named. It rephrases the transcript and never invents facts; when something is missing it says so in the draft.
+- Drafts land in the `drafts` table as `pending` and show on `/approvals`. A person edits, approves or dismisses. **Nothing is ever sent from Meetnote without an explicit approval**, and there is no code path that sends without one.
+- An email can only be drafted for a person already in that meeting's `people_to_contact`; free-text targets are refused.
+- One live ticket draft per task (unique index on `drafts.task_id`; upsert replaces). Drafts cascade away with their meeting.
+- Draft bodies keep their Markdown, because that is what Linear and Jira expect on paste. `src/lib/markdown-lite.ts` renders a preview as React elements, never HTML, so model output cannot inject markup.

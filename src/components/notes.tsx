@@ -1,8 +1,9 @@
 import type { MeetingNotes, TranscriptSegment } from "@/lib/schema";
 import { formatTimestamp } from "@/lib/transcript";
 import { kindLabel, type TaskKind } from "@/lib/task";
+import { PeopleToContact } from "./people-actions";
 
-export function NotesView({ notes }: { notes: MeetingNotes }) {
+export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId?: string }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
       <div className="glass p-6 md:col-span-2">
@@ -58,21 +59,25 @@ export function NotesView({ notes }: { notes: MeetingNotes }) {
           </ul>
         </div>
 
-        <div className="glass p-6">
-          <p className="text-xs text-muted">People to contact</p>
-          <ul className="mt-4 space-y-3 text-sm">
-            {notes.people_to_contact.map((p, i) => (
-              <li key={i}>
-                <p className="font-medium">
-                  {p.name}
-                  {p.role ? <span className="font-normal text-faint"> · {p.role}</span> : null}
-                </p>
-                <p className="mt-0.5 text-muted">{p.why}</p>
-              </li>
-            ))}
-            {notes.people_to_contact.length === 0 ? <li className="text-muted">Nobody flagged.</li> : null}
-          </ul>
-        </div>
+        {meetingId ? (
+          <PeopleToContact meetingId={meetingId} people={notes.people_to_contact} />
+        ) : (
+          <div className="glass p-6">
+            <p className="text-xs text-muted">People to contact</p>
+            <ul className="mt-4 divide-y divide-panel-border text-sm">
+              {notes.people_to_contact.map((p, i) => (
+                <li key={i} className="py-3 first:pt-0 last:pb-0">
+                  <p className="font-medium">
+                    {p.name}
+                    {p.role ? <span className="font-normal text-faint"> · {p.role}</span> : null}
+                  </p>
+                  <p className="mt-0.5 text-muted">{p.why}</p>
+                </li>
+              ))}
+              {notes.people_to_contact.length === 0 ? <li className="py-3 text-muted">Nobody flagged.</li> : null}
+            </ul>
+          </div>
+        )}
 
         <div className="glass p-6">
           <p className="text-xs text-muted">Open questions</p>

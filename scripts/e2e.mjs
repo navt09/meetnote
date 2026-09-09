@@ -158,7 +158,48 @@ try {
   if (badStatus.status !== 400) throw new Error(`invalid status accepted: ${badStatus.status}`);
   log("task ticked off and an invalid status refused");
 
-  // 6. list, rename, another user can't see it, audio link, delete
+  // 6. the agent drafts a ticket, and nothing leaves without approval
+  const drafted = await api(`/api/tasks/${tasks[1].id}/draft`, { method: "POST", body: "{}" }, token);
+  if (drafted.status !== 201) throw new Error(`draft ticket: ${drafted.status} ${JSON.stringify(drafted.json)}`);
+  const d = drafted.json.draft;
+  if (d.status !== "pending") throw new Error(`a new draft must start pending, got ${d.status}`);
+  for (const leakedField of ["user_id", "usage", "cost_usd", "model", "updated_at"]) {
+    if (leakedField in d) throw new Error(`draft response leaked ${leakedField}`);
+  }
+  if (!d.subject || !d.body) throw new Error("draft came back empty");
+  log(`ticket drafted: "${d.subject}" (${d.body.length} chars, pending)`);
+
+  // Drafting the same task again replaces rather than duplicates.
+  const again = await api(`/api/tasks/${tasks[1].id}/draft`, { method: "POST", body: "{}" }, token);
+  if (again.status !== 201) throw new Error(`re-draft: ${again.status}`);
+  const allDrafts = await api("/api/drafts", {}, token);
+  if ((allDrafts.json.drafts ?? []).length !== 1) throw new Error(`re-drafting duplicated: ${allDrafts.json.drafts?.length} drafts`);
+  log("re-drafting the same task replaces the old one");
+
+  // Edit the wording, then approve.
+  const edited = await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ subject: "Edited by e2e" }) }, token);
+  if (edited.status !== 200 || edited.json.draft.subject !== "Edited by e2e") throw new Error(`edit draft: ${edited.status}`);
+  const blank = await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ subject: "   " }) }, token);
+  if (blank.status !== 400) throw new Error(`empty subject accepted: ${blank.status}`);
+  const approved = await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ status: "approved" }) }, token);
+  if (approved.status !== 200 || approved.json.draft.status !== "approved" || !approved.json.draft.approvedAt) {
+    throw new Error(`approve draft: ${approved.status} ${JSON.stringify(approved.json)}`);
+  }
+  log("draft edited and approved");
+
+  // An email can only be drafted for someone the notes actually named.
+  const person = m.notes.people_to_contact[0];
+  if (person) {
+    const mail = await api(`/api/meetings/${meetingId}/draft-email`, { method: "POST", body: JSON.stringify({ name: person.name }) }, token);
+    if (mail.status !== 201 || mail.json.draft.kind !== "email") throw new Error(`draft email: ${mail.status} ${JSON.stringify(mail.json)}`);
+    if (mail.json.draft.recipient !== person.name) throw new Error("email drafted for the wrong person");
+    log(`email drafted to ${person.name}: "${mail.json.draft.subject}"`);
+  }
+  const madeUp = await api(`/api/meetings/${meetingId}/draft-email`, { method: "POST", body: JSON.stringify({ name: "Nobody McInvented" }) }, token);
+  if (madeUp.status !== 400) throw new Error(`email drafted for someone not in the notes: ${madeUp.status}`);
+  log("refused to draft an email for someone the notes never mentioned");
+
+  // 7. list, rename, another user can't see it, audio link, delete
   const list = await api("/api/meetings", {}, token);
   if (!list.json.meetings?.some((x) => x.id === meetingId)) throw new Error("meeting missing from list");
   const renamed = await api(`/api/meetings/${meetingId}`, { method: "PATCH", body: JSON.stringify({ title: "Renamed by e2e" }) }, token);
@@ -176,6 +217,8 @@ try {
   const { data: osess } = await anon.auth.verifyOtp({ token_hash: olink.properties.hashed_token, type: "magiclink" });
   const peek = await api(`/api/meetings/${meetingId}`, {}, osess.session.access_token);
   const peekTasks = await api("/api/tasks", {}, osess.session.access_token);
+  const peekDrafts = await api("/api/drafts", {}, osess.session.access_token);
+  if ((peekDrafts.json.drafts ?? []).length !== 0) throw new Error("isolation broken: other user saw the drafts");
   const peekTick = await api(`/api/tasks/${tasks[1].id}`, { method: "PATCH", body: JSON.stringify({ status: "done" }) }, osess.session.access_token);
   await admin.auth.admin.deleteUser(ou.user.id);
   if (peek.status !== 404) throw new Error(`isolation broken: other user read the meeting (${peek.status})`);
@@ -187,8 +230,10 @@ try {
   if (del.status !== 200) throw new Error(`delete: ${del.status} ${JSON.stringify(del.json)}`);
   const afterDelete = await api("/api/tasks", {}, token);
   if ((afterDelete.json.tasks ?? []).length !== 0) throw new Error("tasks outlived their meeting");
+  const draftsAfter = await api("/api/drafts", {}, token);
+  if ((draftsAfter.json.drafts ?? []).length !== 0) throw new Error("drafts outlived their meeting");
   meetingId = null;
-  log("deleted meeting + audio, and its tasks went with it");
+  log("deleted meeting + audio; tasks and drafts went with it");
   console.log("\nE2E PASSED");
 } catch (err) {
   console.error("\nE2E FAILED:", err.message);

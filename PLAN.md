@@ -78,8 +78,11 @@ Dashboard steps for Phase 2 (once):
 
 Email limits: Supabase's built-in mailer sends at most 2 auth emails an hour and only to your project's team members. That is fine for you now. Before inviting anyone else, configure custom SMTP (Resend has a free tier) under Authentication → SMTP Settings.
 
-**Phase 3: the agent.**
-Approval queue, Linear and Jira connectors (create tickets), Gmail draft follow-ups, Slack summary post. Bring-your-own-LLM setting.
+**Phase 3 (started 2026-09-08): the agent.**
+
+Done: drafting and approval. Pressing "draft ticket" on a task writes a real engineering ticket from the meeting transcript; "draft email" on a flagged person writes the follow-up. Everything lands in **Approvals**, where it can be edited, approved, dismissed or copied out. Nothing leaves Meetnote without a person approving it, and the model can only draft for people the notes actually named.
+
+Still to do in Phase 3: push an approved draft straight into Linear or Jira (needs the customer's API key and a settings page), send an approved email through Gmail, post a summary to Slack, and bring-your-own-LLM.
 
 **Phase 4: money and polish.**
 Stripe plans, team workspaces, search across meetings, desktop recorder, consent notice and retention settings.
