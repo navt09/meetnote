@@ -1,49 +1,132 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { MeetingNotes, TranscriptSegment } from "@/lib/schema";
+import { MeetingRecorder, checkSupport, MAX_RECORDING_SECONDS, WARN_RECORDING_SECONDS, type SupportCheck } from "@/lib/recorder";
+import {
+  appendChunk,
+  createRecording,
+  deleteRecording,
+  getRecordingBlob,
+  hasIndexedDb,
+  listRecordings,
+  updateRecording,
+  type RecordingMeta,
+} from "@/lib/recording-store";
+import { postJson, uploadRecording } from "@/lib/upload";
+import { formatTimestamp } from "@/lib/transcript";
+import { formatUsd } from "@/lib/cost";
+import { notesToMarkdown } from "@/lib/markdown";
+import { makeDownloadLink, revokeDownloadLink, type DownloadLink } from "@/lib/download";
 
-type Phase = "idle" | "recording" | "recorded" | "transcribing" | "extracting" | "done";
+type Phase = "idle" | "recording" | "stopped" | "uploading" | "transcribing" | "extracting" | "done";
+type Step = "upload" | "transcribe" | "extract";
+
+type Costs = { durationSeconds: number; transcriptionUsd: number; llmUsd: number; inputTokens: number; outputTokens: number };
+
+const PHASE_LABEL: Record<Phase, string> = {
+  idle: "Ready to record",
+  recording: "Recording",
+  stopped: "Recording finished",
+  uploading: "Uploading recording…",
+  transcribing: "Transcribing…",
+  extracting: "Pulling out notes and tasks…",
+  done: "Done",
+};
+
+// Browser capability is a fixed fact of the environment, read once on the
+// client. On the server it is unknown (null), which avoids hydration mismatches.
+let cachedSupport: SupportCheck | null = null;
+const getSupport = () => (cachedSupport ??= checkSupport());
+const noSubscribe = () => () => {};
 
 export default function RecordPage() {
+  const support = useSyncExternalStore(noSubscribe, getSupport, () => null);
   const [phase, setPhase] = useState<Phase>("idle");
   const [elapsed, setElapsed] = useState(0);
-  const [hasSystemAudio, setHasSystemAudio] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [warning, setWarning] = useState<string | null>(null);
+  const [failedStep, setFailedStep] = useState<Step | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  const [recordingId, setRecordingId] = useState<string | null>(null);
   const [blob, setBlob] = useState<Blob | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
   const [segments, setSegments] = useState<TranscriptSegment[] | null>(null);
   const [notes, setNotes] = useState<MeetingNotes | null>(null);
+  const [costs, setCosts] = useState<Costs | null>(null);
+  const [sources, setSources] = useState<{ system: boolean; mic: boolean } | null>(null);
+  const [recoverable, setRecoverable] = useState<RecordingMeta[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [download, setDownload] = useState<DownloadLink | null>(null);
+  const downloadRef = useRef<DownloadLink | null>(null);
 
-  const recorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamsRef = useRef<MediaStream[]>([]);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
+  const recorderRef = useRef<MeetingRecorder | null>(null);
+  const memChunksRef = useRef<Blob[]>([]);
+  const idbOkRef = useRef(true);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const rafRef = useRef<number>(0);
-  const timerRef = useRef<number>(0);
+  const rafRef = useRef(0);
+  const timerRef = useRef(0);
 
-  const cleanup = useCallback(() => {
-    cancelAnimationFrame(rafRef.current);
-    window.clearInterval(timerRef.current);
-    streamsRef.current.forEach((s) => s.getTracks().forEach((t) => t.stop()));
-    streamsRef.current = [];
-    audioCtxRef.current?.close().catch(() => {});
-    audioCtxRef.current = null;
-    analyserRef.current = null;
+  // ---- setup / teardown -------------------------------------------------
+
+  useEffect(() => {
+    if (hasIndexedDb()) {
+      listRecordings()
+        .then((all) => setRecoverable(all.filter((r) => r.status !== "uploaded" && r.chunkCount > 0)))
+        .catch(() => {});
+    } else {
+      idbOkRef.current = false;
+    }
   }, []);
 
-  useEffect(() => cleanup, [cleanup]);
+  useEffect(() => {
+    const busy = phase === "recording" || phase === "uploading" || phase === "transcribing" || phase === "extracting";
+    if (!busy) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [phase]);
+
+  // One object URL per recording, revoked when replaced, so memory isn't leaked.
+  function assignBlob(b: Blob | null) {
+    revokeDownloadLink(downloadRef.current);
+    const link = b ? makeDownloadLink(b) : null;
+    downloadRef.current = link;
+    setBlob(b);
+    setDownload(link);
+  }
+
+  const stopTimers = useCallback(() => {
+    cancelAnimationFrame(rafRef.current);
+    window.clearInterval(timerRef.current);
+  }, []);
+
+  useEffect(
+    () => () => {
+      stopTimers();
+      recorderRef.current?.dispose();
+      revokeDownloadLink(downloadRef.current);
+    },
+    [stopTimers],
+  );
+
+  // ---- waveform ----------------------------------------------------------
 
   const drawWave = useCallback(() => {
     const canvas = canvasRef.current;
-    const analyser = analyserRef.current;
+    const analyser = recorderRef.current?.analyser;
     if (!canvas || !analyser) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     const data = new Uint8Array(analyser.fftSize);
     const render = () => {
-      analyser.getByteTimeDomainData(data);
+      const a = recorderRef.current?.analyser;
+      if (!a) return;
+      a.getByteTimeDomainData(data);
       const { width, height } = canvas;
       ctx.clearRect(0, 0, width, height);
       ctx.lineWidth = 2;
@@ -61,189 +144,285 @@ export default function RecordPage() {
     render();
   }, []);
 
-  async function start() {
+  // ---- recording -----------------------------------------------------------
+
+  function resetForNewRecording() {
     setError(null);
-    setNotes(null);
+    setWarning(null);
+    setFailedStep(null);
+    assignBlob(null);
+    setStoragePath(null);
     setSegments(null);
-    setBlob(null);
+    setNotes(null);
+    setCosts(null);
     setElapsed(0);
-    chunksRef.current = [];
+    setUploadProgress(0);
+    setCopied(false);
+    memChunksRef.current = [];
+  }
 
-    if (!navigator.mediaDevices?.getDisplayMedia) {
-      setError("This browser can't capture screen audio. Use Chrome or Edge on desktop.");
-      return;
-    }
+  async function start() {
+    resetForNewRecording();
+    const id = crypto.randomUUID();
+    setRecordingId(id);
 
-    let display: MediaStream;
-    try {
-      display = await navigator.mediaDevices.getDisplayMedia({
-        video: true,
-        audio: { echoCancellation: false, noiseSuppression: false },
-      });
-    } catch {
-      setError("Screen selection was cancelled.");
-      return;
-    }
-    streamsRef.current.push(display);
-
-    let mic: MediaStream | null = null;
-    try {
-      mic = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamsRef.current.push(mic);
-    } catch {
-      // Mic is optional; system audio alone still works.
-    }
-
-    const sysTracks = display.getAudioTracks();
-    setHasSystemAudio(sysTracks.length > 0);
-    if (sysTracks.length === 0 && !mic) {
-      cleanup();
-      setError("No audio at all. Tick “Share audio” when choosing the window, or allow the microphone.");
-      return;
-    }
-
-    const audioCtx = new AudioContext();
-    audioCtxRef.current = audioCtx;
-    const dest = audioCtx.createMediaStreamDestination();
-    const analyser = audioCtx.createAnalyser();
-    analyser.fftSize = 1024;
-    analyserRef.current = analyser;
-
-    if (sysTracks.length > 0) {
-      const src = audioCtx.createMediaStreamSource(new MediaStream(sysTracks));
-      src.connect(dest);
-      src.connect(analyser);
-    }
-    if (mic) {
-      const src = audioCtx.createMediaStreamSource(mic);
-      src.connect(dest);
-      src.connect(analyser);
-    }
-
-    const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-      ? "audio/webm;codecs=opus"
-      : "audio/webm";
-    const recorder = new MediaRecorder(dest.stream, { mimeType });
+    const recorder = new MeetingRecorder({
+      onChunk: (chunk, index) => {
+        memChunksRef.current.push(chunk);
+        if (idbOkRef.current) {
+          appendChunk(id, index, chunk).catch(() => {
+            idbOkRef.current = false;
+            setWarning("Couldn't save a backup copy to this browser's storage. The recording is still in memory; don't close this tab.");
+          });
+        }
+      },
+      onStop: () => {
+        stopTimers();
+        const out = new Blob(memChunksRef.current, { type: recorder.mimeType });
+        assignBlob(out);
+        setPhase("stopped");
+        if (idbOkRef.current) updateRecording(id, { status: "stopped" }).catch(() => {});
+        if (out.size < 2048) setError("The recording is empty. Nothing was captured.");
+      },
+      onSourceEnded: () => setWarning("Screen sharing was ended from the browser, so the recording stopped."),
+      onError: (msg) => setError(msg),
+    });
     recorderRef.current = recorder;
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
-    recorder.onstop = () => {
-      const out = new Blob(chunksRef.current, { type: mimeType });
-      setBlob(out);
-      setPhase("recorded");
-      cleanup();
-    };
-    recorder.start(1000);
 
-    // If the user clicks the browser's own "Stop sharing" button, end the recording.
-    display.getVideoTracks()[0]?.addEventListener("ended", () => stop());
+    try {
+      await recorder.start();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not start recording.");
+      recorderRef.current = null;
+      return;
+    }
 
-    timerRef.current = window.setInterval(() => setElapsed((s) => s + 1), 1000);
+    setSources({ system: recorder.hasSystemAudio, mic: recorder.hasMic });
+    if (!recorder.hasSystemAudio) {
+      setWarning("Only your microphone is being recorded. Next time, tick “Share audio” in the picker to capture the other participants.");
+    }
+
+    if (idbOkRef.current) {
+      createRecording({ id, mimeType: recorder.mimeType }).catch(() => {
+        idbOkRef.current = false;
+      });
+    }
+
     setPhase("recording");
+    timerRef.current = window.setInterval(() => {
+      setElapsed((s) => {
+        const next = s + 1;
+        if (next === WARN_RECORDING_SECONDS) setWarning("This recording is getting long. It will stop automatically at 3.5 hours.");
+        if (next >= MAX_RECORDING_SECONDS) recorderRef.current?.stop();
+        return next;
+      });
+    }, 1000);
     drawWave();
   }
 
   function stop() {
-    const r = recorderRef.current;
-    if (r && r.state !== "inactive") r.stop();
-    else cleanup();
+    recorderRef.current?.stop();
   }
 
-  async function process() {
+  // ---- pipeline: upload -> transcribe -> extract ---------------------------
+
+  async function runPipeline(from: Step) {
     if (!blob) return;
     setError(null);
+    setFailedStep(null);
+    let step: Step = from;
     try {
-      setPhase("transcribing");
-      const fd = new FormData();
-      fd.append("audio", blob, "meeting.webm");
-      const t = await fetch("/api/transcribe", { method: "POST", body: fd });
-      const tj = await t.json();
-      if (!t.ok) throw new Error(tj.error ?? "Transcription failed");
-      const segs: TranscriptSegment[] = tj.segments;
-      setSegments(segs);
-      if (segs.length === 0) throw new Error("No speech was detected in the recording.");
+      let path = storagePath;
+      if (step === "upload") {
+        setPhase("uploading");
+        setUploadProgress(0);
+        path = await uploadRecording(blob, setUploadProgress);
+        setStoragePath(path);
+        if (recordingId && idbOkRef.current) updateRecording(recordingId, { status: "uploaded", storagePath: path }).catch(() => {});
+        step = "transcribe";
+      }
 
+      let segs = segments;
+      if (step === "transcribe") {
+        if (!path) throw new Error("No uploaded recording to transcribe.");
+        setPhase("transcribing");
+        const r = await postJson<{ segments: TranscriptSegment[]; durationSeconds: number; costUsd: number }>("/api/transcribe", { path });
+        segs = r.segments;
+        setSegments(segs);
+        setCosts({ durationSeconds: r.durationSeconds, transcriptionUsd: r.costUsd, llmUsd: 0, inputTokens: 0, outputTokens: 0 });
+        if (segs.length === 0) throw new Error("No speech was detected in the recording.");
+        step = "extract";
+      }
+
+      if (!segs || segs.length === 0) throw new Error("No transcript to extract from.");
       setPhase("extracting");
-      const e = await fetch("/api/extract", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ segments: segs }),
-      });
-      const ej = await e.json();
-      if (!e.ok) throw new Error(ej.error ?? "Extraction failed");
-      setNotes(ej.notes);
+      const e = await postJson<{ notes: MeetingNotes; usage: { input_tokens: number; output_tokens: number }; costUsd: number }>(
+        "/api/extract",
+        { segments: segs },
+      );
+      setNotes(e.notes);
+      setCosts((c) => ({
+        durationSeconds: c?.durationSeconds ?? 0,
+        transcriptionUsd: c?.transcriptionUsd ?? 0,
+        llmUsd: e.costUsd,
+        inputTokens: e.usage.input_tokens,
+        outputTokens: e.usage.output_tokens,
+      }));
       setPhase("done");
+      // The audio is safely in storage now; free the local backup.
+      if (recordingId && idbOkRef.current) deleteRecording(recordingId).catch(() => {});
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
-      setPhase("recorded");
+      setFailedStep(step);
+      setPhase("stopped");
     }
   }
 
-  const mm = Math.floor(elapsed / 60).toString().padStart(2, "0");
-  const ss = (elapsed % 60).toString().padStart(2, "0");
+  // ---- recovery ------------------------------------------------------------
+
+  async function recover(meta: RecordingMeta) {
+    resetForNewRecording();
+    try {
+      const r = await getRecordingBlob(meta.id);
+      if (!r) throw new Error("That recording's data is gone.");
+      setRecordingId(meta.id);
+      assignBlob(r.blob);
+      setElapsed(Math.round((meta.updatedAt - meta.startedAt) / 1000));
+      if (r.meta.storagePath) setStoragePath(r.meta.storagePath);
+      setRecoverable((list) => list.filter((x) => x.id !== meta.id));
+      setPhase("stopped");
+      setWarning("Recovered from this browser's backup. Check the length looks right before transcribing.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not recover the recording.");
+    }
+  }
+
+  async function discard(meta: RecordingMeta) {
+    await deleteRecording(meta.id).catch(() => {});
+    setRecoverable((list) => list.filter((x) => x.id !== meta.id));
+  }
+
+  async function copyMarkdown() {
+    if (!notes) return;
+    try {
+      await navigator.clipboard.writeText(notesToMarkdown(notes, new Date()));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("Couldn't access the clipboard.");
+    }
+  }
+
+  // ---- render --------------------------------------------------------------
+
+  const busy = phase === "uploading" || phase === "transcribing" || phase === "extracting";
+  const retryLabel = failedStep === "upload" ? "Retry upload" : failedStep === "transcribe" ? "Retry transcription" : failedStep === "extract" ? "Retry extraction" : "Transcribe and extract";
 
   return (
     <section className="flex flex-col gap-6 pt-10">
+      {support && !support.ok ? (
+        <div className="glass border-danger/40 p-4 text-sm text-danger">{support.reason}</div>
+      ) : null}
+      {support?.ok && !support.chromium ? (
+        <div className="glass p-4 text-sm text-muted">
+          This browser can share a screen but not its audio. You would only get your own microphone. Chrome or Edge capture both sides.
+        </div>
+      ) : null}
+
+      {recoverable.length > 0 && phase === "idle" ? (
+        <div className="glass p-4">
+          <p className="mb-2 text-sm font-semibold">Unfinished recordings found in this browser</p>
+          <ul className="space-y-2 text-sm">
+            {recoverable.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-muted">
+                  {new Date(r.startedAt).toLocaleString()} · about {formatTimestamp((r.updatedAt - r.startedAt) / 1000)} · {(r.bytes / 1048576).toFixed(1)} MB
+                </span>
+                <span className="flex gap-2">
+                  <button className="btn btn-ghost !py-1.5 !px-3 text-xs" onClick={() => recover(r)}>Recover</button>
+                  <button className="btn btn-ghost !py-1.5 !px-3 text-xs text-danger" onClick={() => discard(r)}>Discard</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="glass p-6">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {phase === "recording" ? <span className="rec-dot" /> : null}
-            <h2 className="text-xl font-semibold">
-              {phase === "idle" && "Ready to record"}
-              {phase === "recording" && "Recording"}
-              {phase === "recorded" && "Recording finished"}
-              {phase === "transcribing" && "Transcribing…"}
-              {phase === "extracting" && "Pulling out notes and tasks…"}
-              {phase === "done" && "Done"}
-            </h2>
+            <h2 className="text-xl font-semibold">{PHASE_LABEL[phase]}</h2>
           </div>
-          <span className="font-mono text-2xl tabular-nums text-muted">{mm}:{ss}</span>
+          <span className="font-mono text-2xl tabular-nums text-muted">{formatTimestamp(elapsed)}</span>
         </div>
 
-        <canvas
-          ref={canvasRef}
-          width={1000}
-          height={120}
-          className="mb-4 h-[120px] w-full rounded-xl bg-black/30"
-        />
+        <canvas ref={canvasRef} width={1000} height={120} className="mb-4 h-[120px] w-full rounded-xl bg-black/30" />
 
-        {hasSystemAudio === false && phase === "recording" ? (
-          <p className="mb-3 text-sm text-danger">
-            Only your microphone is being recorded. Next time, tick “Share audio” in the picker to capture the other participants.
+        {phase === "uploading" ? (
+          <div className="mb-4">
+            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+              <div className="h-full bg-gradient-to-r from-accent to-accent-2 transition-[width]" style={{ width: `${Math.round(uploadProgress * 100)}%` }} />
+            </div>
+            <p className="mt-1 text-xs text-muted">{Math.round(uploadProgress * 100)}% · {blob ? (blob.size / 1048576).toFixed(1) : "0"} MB</p>
+          </div>
+        ) : null}
+
+        {sources && phase === "recording" ? (
+          <p className="mb-2 text-xs text-muted">
+            Capturing: {sources.system ? "meeting audio" : null}{sources.system && sources.mic ? " + " : null}{sources.mic ? "your mic" : null}
           </p>
         ) : null}
+        {warning ? <p className="mb-3 text-sm text-accent">{warning}</p> : null}
         {error ? <p className="mb-3 text-sm text-danger">{error}</p> : null}
 
         <div className="flex flex-wrap gap-3">
-          {phase === "idle" || phase === "done" ? (
-            <button className="btn btn-primary" onClick={start}>
-              Choose window and record
-            </button>
+          {(phase === "idle" || phase === "done") && support?.ok ? (
+            <button className="btn btn-primary" onClick={start}>Choose window and record</button>
           ) : null}
-          {phase === "recording" ? (
-            <button className="btn btn-danger" onClick={stop}>Stop</button>
-          ) : null}
-          {phase === "recorded" && blob ? (
+          {phase === "recording" ? <button className="btn btn-danger" onClick={stop}>Stop</button> : null}
+          {phase === "stopped" && blob && blob.size >= 2048 ? (
             <>
-              <button className="btn btn-primary" onClick={process}>Transcribe and extract</button>
-              <a className="btn btn-ghost" href={URL.createObjectURL(blob)} download="meeting.webm">
-                Download audio
-              </a>
+              <button className="btn btn-primary" onClick={() => runPipeline(failedStep ?? (storagePath ? "transcribe" : "upload"))}>{retryLabel}</button>
+              {download ? <a className="btn btn-ghost" href={download.url} download={download.name}>Download audio</a> : null}
               <button className="btn btn-ghost" onClick={start}>Record again</button>
             </>
           ) : null}
+          {phase === "stopped" && (!blob || blob.size < 2048) ? <button className="btn btn-ghost" onClick={start}>Record again</button> : null}
+          {busy ? <span className="text-sm text-muted">This can take a minute for long meetings. Keep this tab open.</span> : null}
         </div>
 
         <p className="mt-4 text-xs text-muted">
-          Before recording, make sure everyone on the call knows and agrees. Audio stays in your browser until you click
-          “Transcribe and extract”.
+          Make sure everyone on the call knows they are being recorded. Audio is saved in this browser as you go and only uploaded when you click transcribe.
         </p>
       </div>
 
-      {notes ? <NotesView notes={notes} /> : null}
+      {notes ? (
+        <>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <CostLine costs={costs} />
+            <div className="flex gap-2">
+              <button className="btn btn-ghost !py-1.5 !px-3 text-xs" onClick={copyMarkdown}>{copied ? "Copied" : "Copy as Markdown"}</button>
+              {download ? (
+                <a className="btn btn-ghost !py-1.5 !px-3 text-xs" href={download.url} download={download.name}>Download audio</a>
+              ) : null}
+            </div>
+          </div>
+          <NotesView notes={notes} />
+        </>
+      ) : null}
       {segments ? <TranscriptView segments={segments} /> : null}
     </section>
+  );
+}
+
+function CostLine({ costs }: { costs: Costs | null }) {
+  if (!costs) return null;
+  const total = costs.transcriptionUsd + costs.llmUsd;
+  return (
+    <p className="text-xs text-muted">
+      {formatTimestamp(costs.durationSeconds)} of audio · this meeting cost {formatUsd(total)} (transcription {formatUsd(costs.transcriptionUsd)}, notes {formatUsd(costs.llmUsd)})
+    </p>
   );
 }
 
@@ -256,7 +435,7 @@ function NotesView({ notes }: { notes: MeetingNotes }) {
         <p className="mt-2 text-muted">{notes.summary}</p>
         {notes.key_points.length ? (
           <ul className="mt-4 list-disc space-y-1 pl-5 text-sm">
-            {notes.key_points.map((k) => <li key={k}>{k}</li>)}
+            {notes.key_points.map((k, i) => <li key={i}>{k}</li>)}
           </ul>
         ) : null}
       </div>
@@ -302,7 +481,7 @@ function NotesView({ notes }: { notes: MeetingNotes }) {
         <div className="glass p-5">
           <span className="pill">Open questions</span>
           <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
-            {notes.open_questions.map((q) => <li key={q}>{q}</li>)}
+            {notes.open_questions.map((q, i) => <li key={i}>{q}</li>)}
             {notes.open_questions.length === 0 ? <li className="list-none text-muted">None.</li> : null}
           </ul>
         </div>
@@ -318,8 +497,7 @@ function TranscriptView({ segments }: { segments: TranscriptSegment[] }) {
       <div className="mt-4 space-y-2 font-mono text-sm">
         {segments.map((s, i) => (
           <p key={i}>
-            <span className="text-muted">[{Math.floor(s.start / 60)}:{Math.floor(s.start % 60).toString().padStart(2, "0")}]</span>{" "}
-            <span className="text-accent">{s.speaker}:</span> {s.text}
+            <span className="text-muted">[{formatTimestamp(s.start)}]</span> <span className="text-accent">{s.speaker}:</span> {s.text}
           </p>
         ))}
       </div>

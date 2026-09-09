@@ -21,11 +21,24 @@ The user clicks **Record**, picks the window or tab of their meeting app, and ti
 ## Pipeline
 
 ```
-browser recorder  -->  /api/transcribe (Deepgram, speaker labels)
-                  -->  /api/extract   (Claude, strict JSON schema)
-                  -->  notes + action items + decisions + people + questions
-                  -->  approval queue  -->  connectors (Jira / Linear / Gmail / Slack)
+browser recorder (5s chunks, backed up to IndexedDB as you go)
+   --> upload straight to Supabase Storage via one-time signed URL
+   --> /api/transcribe   Deepgram fetches the file by link; speaker labels
+   --> /api/extract      Claude, strict JSON schema, streamed
+   --> notes + action items + decisions + people + questions (+ cost of this meeting)
+   --> approval queue  -->  connectors (Jira / Linear / Gmail / Slack)   [Phase 3]
 ```
+
+Why the audio goes straight to storage: Vercel rejects request bodies over 4.5 MB, and an hour of audio is ~14 MB at our bitrate. The browser asks our server for a signed URL, then PUTs the file to Supabase itself. Deepgram then downloads it by link (2 GB limit).
+
+Robustness built in:
+- Chunks saved every 5 seconds to the browser's IndexedDB. A crashed tab or closed laptop leaves a recoverable recording; the page offers "Recover" on next visit.
+- Warns before you leave the tab while recording or processing.
+- 32 kbps opus keeps a 3.5-hour meeting under the 50 MB free-tier upload cap; auto-stops at 3.5 h.
+- Uploads and Deepgram calls retry with backoff on network blips and 5xx.
+- Each step (upload, transcribe, extract) can be retried alone; nothing is redone.
+- Browser support is checked up front (Chrome/Edge desktop; phones and Firefox/Safari get a clear message).
+- Every meeting shows what it cost, computed from real token and duration counts.
 
 ## Stack
 
@@ -51,11 +64,11 @@ Put the keys in `.env.local` (copy `.env.example`). Never commit that file; it i
 
 ## Phases
 
-**Phase 1 (now): record → transcript → structured notes, single user, no login.**
-Recorder page, transcription route, extraction route, results view. Runs locally and on Vercel.
+**Phase 1 (done 2026-09-08): record → transcript → structured notes, single user, no login.**
+Recorder with crash recovery, direct-to-storage upload, transcription, extraction, results view with Markdown export and per-meeting cost. Unit tests for the pure helpers. Deployed on Vercel Hobby.
 
 **Phase 2: accounts and persistence.**
-Supabase login, save meetings, audio in storage, meeting list and detail pages, background job for long recordings.
+Supabase login, meetings table, meeting list and detail pages, delete recording, background job (Inngest) so very long meetings don't depend on one HTTP request.
 
 **Phase 3: the agent.**
 Approval queue, Linear and Jira connectors (create tickets), Gmail draft follow-ups, Slack summary post. Bring-your-own-LLM setting.
