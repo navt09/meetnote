@@ -141,6 +141,7 @@ body {
 .pill-ok { color: var(--ok); border-color: #1f3d2c; }
 .pill-danger { color: var(--danger); border-color: #46212c; }
 .pill-live { color: var(--accent); border-color: #24354f; }
+.pill-warn { color: var(--warn); border-color: #4a3a17; }
 
 /* ---------- recording indicator ---------- */
 
