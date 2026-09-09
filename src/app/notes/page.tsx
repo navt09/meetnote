@@ -6,6 +6,7 @@ import { formatUsd } from "@/lib/cost";
 import { toPublicSummary, type Meeting } from "@/lib/meeting";
 import { EmptyState, StatusPill } from "@/components/ui";
 import DeleteMeetingButton from "./delete-button";
+import SearchBox from "./search-box";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Notes · From the Call" };
@@ -54,6 +55,7 @@ export default async function NotesPage() {
         />
       ) : null}
 
+      <SearchBox>
       <ul className="stagger flex flex-col gap-3">
         {meetings.map((m) => (
           <li key={m.id} className="glass glass-hover flex flex-wrap items-start gap-3 p-4">
@@ -74,6 +76,7 @@ export default async function NotesPage() {
           </li>
         ))}
       </ul>
+      </SearchBox>
     </section>
   );
 }

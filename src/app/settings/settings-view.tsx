@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { deleteJson, getJson, patchJson, postJson, putJson } from "@/lib/upload";
+import { deleteJson, deleteJsonWithBody, getJson, patchJson, postJson, putJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
 import { BrandMark } from "@/components/brand-marks";
@@ -128,6 +128,8 @@ export default function SettingsView({
         <GoogleCard connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
       </div>
 
+      <DangerZone email={email} />
+
       {get("linear") || get("jira") ? (
         <div className="glass p-5">
           <p className="text-sm font-medium">Where approved tickets go</p>
@@ -205,6 +207,75 @@ function DisplayNameField({ initial }: { initial: string | null }) {
           {busy ? "Saving…" : "Save"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Deleting the account, for good.
+ *
+ * Guarded by typing the email address rather than a checkbox, because this is
+ * the one action in the product with nothing behind it: no trash, no undo, no
+ * copy on our side to restore from. The same confirmation is checked on the
+ * server, so the guard is real rather than decorative.
+ */
+function DangerZone({ email }: { email: string | null }) {
+  const toast = useToast();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const matches = !!email && typed.trim().toLowerCase() === email.toLowerCase();
+
+  async function remove() {
+    setBusy(true);
+    try {
+      const res = await deleteJsonWithBody<{ audioFilesRemoved: number }>("/api/account", { confirm: typed.trim() });
+      toast(`Account deleted, along with ${res.audioFilesRemoved} recording${res.audioFilesRemoved === 1 ? "" : "s"}.`, "ok");
+      // Nothing left to be signed in to. Any token still held is worthless:
+      // the account it belonged to no longer exists, so the server rejects it.
+      router.replace("/");
+      router.refresh();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not delete your account", "error");
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="glass border-danger/40 p-5">
+      <p className="text-sm font-medium">Delete your account</p>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        Removes your recordings, notes, tasks, drafts and connections, and the audio itself. It cannot be undone
+        and we keep no copy to restore from.
+      </p>
+
+      {!open ? (
+        <button className="btn btn-ghost mt-3 !py-1.5 text-xs text-muted hover:!text-danger" onClick={() => setOpen(true)}>
+          Delete account
+        </button>
+      ) : (
+        <div className="mt-4 flex flex-col gap-2 border-t border-panel-border pt-4">
+          <label className="text-xs text-muted" htmlFor="confirm-delete">
+            Type <span className="font-medium text-fg">{email}</span> to confirm.
+          </label>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <input
+              id="confirm-delete"
+              value={typed}
+              onChange={(e) => setTyped(e.target.value)}
+              autoComplete="off"
+              className="field text-sm sm:max-w-xs"
+            />
+            <button className="btn btn-danger" disabled={!matches || busy} onClick={remove}>
+              {busy ? "Deleting…" : "Delete everything"}
+            </button>
+            <button className="btn btn-ghost" disabled={busy} onClick={() => { setOpen(false); setTyped(""); }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -38,6 +38,18 @@ export async function deleteJson(url: string): Promise<void> {
   }
 }
 
+/** DELETE that carries a body, for a delete that needs confirming. */
+export async function deleteJsonWithBody<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "DELETE",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new HttpError(res.status, json.error ?? `Delete failed (${res.status})`);
+  return json as T;
+}
+
 function putWithProgress(url: string, blob: Blob, contentType: string, onProgress: (frac: number) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();

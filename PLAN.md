@@ -91,7 +91,7 @@ Bring-your-own-LLM was removed, not deferred: it asked customers for an API key,
 **Not yet true of Phase 3:** no connector has ever delivered anything to a real Linear, Jira, Slack or Google account. The consent flows are proven; the send path is not.
 
 **Phase 4: money and polish.** Not started.
-Stripe plans, team workspaces, search across meetings, desktop recorder, consent notice and retention settings.
+Stripe plans, team workspaces, desktop recorder, consent notice and retention settings. Search across meetings is done (2026-09-09): a `search_meetings` function in Postgres, security invoker so row level security decides what is searchable, matching titles, notes and transcript text with a snippet showing where it matched.
 
 ### Before anyone else can sign up
 
@@ -107,7 +107,7 @@ These are ordered by what unblocks what, not by size. The domain is the keystone
 
 ### Known gaps worth naming
 
-- **No account deletion.** The privacy policy promises erasure by email within 30 days, and storage has no cascade, so honouring it today means deleting the bucket prefix by hand. A self-serve route should clear `<user_id>/` before the row.
+- ~~No account deletion.~~ Done 2026-09-09: Settings has a delete-account section guarded by typing your own email, checked on the server too. It clears `<user_id>/` from the bucket first and only then deletes the account, because the cascade does not reach storage. Verified against a real uploaded recording.
 - **No usage cap.** Unchanged from the Phase 2 decision below.
 - **Delivery untested end to end.** See Phase 3.
 
