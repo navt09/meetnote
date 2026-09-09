@@ -1,5 +1,5 @@
 import { NextResponse, after } from "next/server";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requirePaid } from "@/lib/guard";
 import { storedObjectSize } from "@/lib/storage";
 import { runPipeline } from "@/lib/pipeline";
 import { isInProgress, nextStep, type Meeting } from "@/lib/meeting";
@@ -16,8 +16,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * and writes progress to the row, so the browser can close.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requirePaid(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 

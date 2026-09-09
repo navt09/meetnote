@@ -1,10 +1,10 @@
 // Shared shapes for third-party connections. Pure types and helpers; the
 // server-only storage lives in connector-store.ts.
 
-export type Provider = "linear" | "jira" | "slack" | "google" | "llm";
+export type Provider = "linear" | "jira" | "slack" | "google";
 export type TicketProvider = "linear" | "jira";
 
-export const PROVIDERS: Provider[] = ["linear", "jira", "slack", "google", "llm"];
+export const PROVIDERS: Provider[] = ["linear", "jira", "slack", "google"];
 export const TICKET_PROVIDERS: TicketProvider[] = ["linear", "jira"];
 
 /** Secrets. Never leaves the server. */
@@ -12,18 +12,16 @@ export type LinearCredentials = { apiKey: string };
 export type JiraCredentials = { siteUrl: string; email: string; apiToken: string };
 export type SlackCredentials = { webhookUrl: string };
 export type GoogleCredentials = { refreshToken: string; accessToken?: string; expiresAt?: number };
-export type LlmCredentials = { apiKey: string };
 
-export type Credentials = LinearCredentials | JiraCredentials | SlackCredentials | GoogleCredentials | LlmCredentials;
+export type Credentials = LinearCredentials | JiraCredentials | SlackCredentials | GoogleCredentials;
 
 /** Non-secret settings. Safe to show the user. */
 export type LinearConfig = { teamId?: string; teamName?: string };
 export type JiraConfig = { siteUrl?: string; projectKey?: string; projectName?: string; issueType?: string };
 export type SlackConfig = { channelName?: string };
 export type GoogleConfig = { email?: string; scopes?: string[] };
-export type LlmConfig = { model?: string; keyHint?: string };
 
-export type ConnectorConfig = LinearConfig | JiraConfig | SlackConfig | GoogleConfig | LlmConfig;
+export type ConnectorConfig = LinearConfig | JiraConfig | SlackConfig | GoogleConfig;
 
 export type ConnectorRow = {
   id: string;
@@ -61,7 +59,6 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
   jira: "Jira",
   slack: "Slack",
   google: "Google",
-  llm: "Your own LLM",
 };
 
 /** One-line description of what connecting each provider actually does. */
@@ -69,8 +66,7 @@ export const PROVIDER_PURPOSE: Record<Provider, string> = {
   linear: "Approved tickets are created as Linear issues.",
   jira: "Approved tickets are created as Jira issues.",
   slack: "Post a meeting summary to a channel.",
-  google: "Send approved emails from your Gmail, and read your calendar to name meetings.",
-  llm: "Use your own Anthropic key for transcription notes and drafting, billed to you.",
+  google: "Send approved emails from your Gmail, and block tasks out on your calendar.",
 };
 
 /** True when the connector has everything it needs to actually be used. */

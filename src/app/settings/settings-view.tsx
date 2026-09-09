@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { deleteJson, getJson, patchJson, postJson, putJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
+import { canUseAi, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
 
 type Team = { id: string; name: string };
 type Project = { id: string; key: string; name: string };
@@ -14,11 +15,15 @@ export default function SettingsView({
   initialTicketProvider,
   storageReady,
   googleReady,
+  tier,
+  email,
 }: {
   initial: PublicConnector[];
   initialTicketProvider: TicketProvider | null;
   storageReady: boolean;
   googleReady: boolean;
+  tier: Tier;
+  email: string | null;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -79,7 +84,25 @@ export default function SettingsView({
     <section className="flex flex-col gap-6 pt-10">
       <div className="rise">
         <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted">Connect the tools your approved work should go to.</p>
+        <p className="mt-1 text-sm text-muted">Your account, and the tools your approved work goes to.</p>
+      </div>
+
+      <div className="glass rise p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="flex items-center gap-2 text-sm font-medium">
+              Account
+              <span className={`pill ${tier === "owner" ? "pill-live" : tier === "active" ? "pill-ok" : ""}`}>{TIER_LABEL[tier]}</span>
+            </p>
+            {email ? <p className="mt-1 truncate text-xs text-faint">{email}</p> : null}
+            <p className="mt-1 text-xs text-muted">{TIER_BLURB[tier]}</p>
+          </div>
+        </div>
+        {!canUseAi(tier) ? (
+          <p className="mt-3 border-t border-panel-border pt-3 text-xs text-warn">
+            Recording and AI notes are turned off for free accounts. Everything already in your account stays readable.
+          </p>
+        ) : null}
       </div>
 
       {!storageReady ? (
@@ -120,7 +143,6 @@ export default function SettingsView({
 
         <SlackCard connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <GoogleCard connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
-        <LlmCard connector={get("llm")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
       </div>
     </section>
   );
@@ -452,62 +474,6 @@ function GoogleCard({
           </a>
         </div>
       )}
-    </Shell>
-  );
-}
-
-// ---- Bring your own LLM -----------------------------------------------------
-
-const MODELS = [
-  { id: "claude-opus-5", label: "Claude Opus 5 — best quality" },
-  { id: "claude-sonnet-5", label: "Claude Sonnet 5 — cheaper" },
-  { id: "claude-haiku-4-5", label: "Claude Haiku 4.5 — cheapest" },
-];
-
-function LlmCard({ connector, busy, setBusy, onChanged, disconnect }: CardProps) {
-  const toast = useToast();
-  const [apiKey, setApiKey] = useState("");
-  const [model, setModel] = useState("claude-opus-5");
-  const config = (connector?.config ?? {}) as { model?: string; keyHint?: string };
-
-  async function connect() {
-    setBusy("llm");
-    try {
-      await postJson("/api/connectors/llm", { apiKey, model });
-      setApiKey("");
-      toast("Your Anthropic key is in use", "ok");
-      await onChanged();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not save that key", "error");
-    } finally {
-      setBusy(null);
-    }
-  }
-
-  return (
-    <Shell
-      provider="llm"
-      title="Your own LLM key"
-      connected={!!connector}
-      error={connector?.lastError}
-      busy={busy === "llm"}
-      onDisconnect={() => disconnect("llm", "Your LLM key")}
-      detail={connector ? `Using ${config.keyHint} on ${config.model}. Notes and drafts are billed to you.` : undefined}
-    >
-      {!connector ? (
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-ant-…" className="field text-sm" aria-label="Anthropic API key" />
-            <select value={model} onChange={(e) => setModel(e.target.value)} className="field max-w-xs text-sm" aria-label="Model">
-              {MODELS.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
-            <button className="btn btn-primary" disabled={busy === "llm" || !apiKey.trim()} onClick={connect}>
-              {busy === "llm" ? "Checking…" : "Use mine"}
-            </button>
-          </div>
-          <p className="text-xs text-faint">Optional. Without this we use ours. Anthropic keys only for now.</p>
-        </div>
-      ) : null}
     </Shell>
   );
 }

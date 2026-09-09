@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requirePaid } from "@/lib/guard";
 import { loadConnector, noteConnectorError } from "@/lib/connector-store";
 import { createEvent, GoogleReconnectError, hasScope, SCOPE_CALENDAR_WRITE } from "@/lib/providers/google";
 import { describeSlot, parseDue, slotFor, toIso } from "@/lib/schedule";
@@ -20,8 +20,9 @@ const MINUTES: Record<string, number> = { bug: 60, feature: 90, task: 60, follow
  * nobody is emailed; it is a private block on their own calendar.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requirePaid(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 

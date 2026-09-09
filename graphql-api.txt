@@ -1,0 +1,45 @@
+Skip to content →
+Developers
+Sign up
+Open app
+GraphQL API
+Getting started
+Pagination
+Filtering
+Rate limiting
+Deprecations
+Webhooks
+Attachments
+Managing Customers
+GraphQL Schema
+↗
+Authentication
+OAuth 2.0 authentication
+OAuth actor authorization
+OAuth application manifests
+File storage authentication
+Agents
+Agent Interaction Guidelines (AIG)
+Getting Started
+Developing the Agent Interaction
+Interaction Best Practices
+Signals
+TypeScript SDK
+Getting started
+Fetching & modifying data
+Errors
+Advanced usage
+Webhooks
+Migrating from 1.x to 2.x
+GitHub
+↗
+Guides
+How to upload a file to Linear
+Create issues using linear.new
+Integration Directory
+Docs
+Developers
+Learn
+Contact support
+Not found
+The page you’re trying to access does not exist.

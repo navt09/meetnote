@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isBlocked, requirePaid } from "@/lib/guard";
 import { getAuth } from "@/lib/supabase/server";
 import { MAX_UPLOAD_BYTES, mintUploadUrl } from "@/lib/storage";
 import { baseMime, buildStoragePath, extForMime } from "@/lib/paths";
@@ -31,8 +32,9 @@ export async function GET(req: Request) {
  * The browser uploads straight to storage; nothing large passes through here.
  */
 export async function POST(req: Request) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requirePaid(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
 
   let body: { mimeType?: string; bytes?: number; durationSeconds?: number; recordedAt?: string };
   try {

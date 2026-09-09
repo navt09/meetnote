@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requirePaid } from "@/lib/guard";
 import { draftTicket } from "@/lib/agent";
 import { toPublicDraft, type DraftRow } from "@/lib/draft";
 import { publicErrorMessage } from "@/lib/public-error";
@@ -14,8 +14,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /** Draft a ticket for one task. Replaces any existing draft for that task. */
 export async function POST(req: Request, ctx: Ctx) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requirePaid(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
   if (!process.env.ANTHROPIC_API_KEY) return NextResponse.json({ error: "Drafting isn't configured." }, { status: 500 });
 
   const { id } = await ctx.params;
