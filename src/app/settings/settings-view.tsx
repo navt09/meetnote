@@ -19,6 +19,7 @@ export default function SettingsView({
   oauthReady,
   tier,
   email,
+  displayName,
 }: {
   initial: PublicConnector[];
   initialTicketProvider: TicketProvider | null;
@@ -27,6 +28,7 @@ export default function SettingsView({
   oauthReady: { linear: boolean; jira: boolean; slack: boolean };
   tier: Tier;
   email: string | null;
+  displayName: string | null;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -106,6 +108,7 @@ export default function SettingsView({
             Recording and AI notes are turned off for free accounts. Everything already in your account stays readable.
           </p>
         ) : null}
+        <DisplayNameField initial={displayName} />
       </div>
 
       {!storageReady ? (
@@ -152,6 +155,57 @@ export default function SettingsView({
       ) : null}
 
     </section>
+  );
+}
+
+/**
+ * The name the notes use for this person. Their own voice is already found
+ * from the microphone; the name is what lets the notes catch other people
+ * saying it, and what goes on their lines in the transcript.
+ */
+function DisplayNameField({ initial }: { initial: string | null }) {
+  const toast = useToast();
+  const [name, setName] = useState(initial ?? "");
+  const [saved, setSaved] = useState(initial ?? "");
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    try {
+      const res = await putJson<{ name: string | null }>("/api/settings/display-name", { name });
+      setName(res.name ?? "");
+      setSaved(res.name ?? "");
+      toast(res.name ? `Your notes will call you ${res.name}.` : "Name cleared. Your notes will say “You”.", "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not save your name", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t border-panel-border pt-4">
+      <label className="text-sm font-medium" htmlFor="display-name">
+        Your name, as people say it in meetings
+      </label>
+      <p className="mt-1 text-xs text-muted">
+        Your own voice is already picked out from your microphone. A name lets the notes catch when someone
+        else says it, and puts it on your lines in the transcript.
+      </p>
+      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+        <input
+          id="display-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. Naveen"
+          maxLength={60}
+          className="field text-sm sm:max-w-xs"
+        />
+        <button className="btn btn-primary" disabled={busy || name.trim() === saved} onClick={save}>
+          {busy ? "Saving…" : "Save"}
+        </button>
+      </div>
+    </div>
   );
 }
 

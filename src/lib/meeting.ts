@@ -17,6 +17,8 @@ export type Meeting = {
   recorded_at: string;
   transcript: TranscriptSegment[] | null;
   notes: MeetingNotes | null;
+  /** When the recorder's mic was the loud one: [start, end] seconds. Internal. */
+  self_speech: [number, number][] | null;
   usage: LlmUsage | null;
   transcription_cost_usd: number;
   llm_cost_usd: number;

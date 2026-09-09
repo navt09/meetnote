@@ -17,12 +17,13 @@ export default async function SettingsPage() {
 
   const [connectorsRes, settingsRes, tier] = await Promise.all([
     db.from("connectors").select("provider,config,last_error,created_at"),
-    db.from("user_settings").select("ticket_provider").maybeSingle(),
+    db.from("user_settings").select("ticket_provider,display_name").maybeSingle(),
     userData.user ? tierFor(userData.user.id, userData.user.email) : Promise.resolve("free" as const),
   ]);
 
   const connectors = ((connectorsRes.data ?? []) as ConnectorRow[]).map(toPublicConnector);
   const ticketProvider = ((settingsRes.data as { ticket_provider: TicketProvider | null } | null)?.ticket_provider) ?? null;
+  const displayName = ((settingsRes.data as { display_name?: string | null } | null)?.display_name) ?? null;
 
   return (
     <SettingsView
@@ -37,6 +38,7 @@ export default async function SettingsPage() {
       }}
       tier={tier}
       email={userData.user?.email ?? null}
+      displayName={displayName}
     />
   );
 }

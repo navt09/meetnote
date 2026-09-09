@@ -64,12 +64,18 @@ function putWithProgress(url: string, blob: Blob, contentType: string, onProgres
 
 export type CreatedMeeting = { meetingId: string; signedUrl: string; contentType: string };
 
-export async function createMeeting(blob: Blob, durationSeconds: number, recordedAt: Date): Promise<CreatedMeeting> {
+export async function createMeeting(
+  blob: Blob,
+  durationSeconds: number,
+  recordedAt: Date,
+  selfSpeech: [number, number][] = [],
+): Promise<CreatedMeeting> {
   return postJson<CreatedMeeting>("/api/meetings", {
     mimeType: blob.type,
     bytes: blob.size,
     durationSeconds,
     recordedAt: recordedAt.toISOString(),
+    selfSpeech,
   });
 }
 

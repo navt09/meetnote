@@ -7,6 +7,27 @@ export function notesToMarkdown(n: MeetingNotes, meetingDate?: Date): string {
   if (meetingDate) lines.push(`_${meetingDate.toLocaleString()}_`);
   lines.push("", n.summary, "");
 
+  // The personal section goes first, as on screen. Older notes have no
+  // for_you at all, so read it defensively rather than trusting the type.
+  const fy = n.for_you as MeetingNotes["for_you"] | undefined;
+  const personal: [string, string[]][] = fy
+    ? [
+        ["You said you would", fy.committed],
+        ["Asked of you", fy.asked_of_you],
+        ["Heads-up", fy.heads_up],
+        ["You were mentioned", fy.mentioned],
+      ]
+    : [];
+  if (personal.some(([, items]) => items.length > 0)) {
+    lines.push("## For you");
+    for (const [heading, items] of personal) {
+      if (items.length === 0) continue;
+      lines.push(`**${heading}**`);
+      for (const item of items) lines.push(`- ${item}`);
+      lines.push("");
+    }
+  }
+
   if (n.key_points.length) {
     lines.push("## Key points");
     for (const k of n.key_points) lines.push(`- ${k}`);

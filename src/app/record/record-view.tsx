@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MeetingRecorder, checkSupport, MAX_RECORDING_SECONDS, WARN_RECORDING_SECONDS, type SupportCheck } from "@/lib/recorder";
+import type { Window } from "@/lib/self-speech";
 import {
   appendChunk,
   createRecording,
@@ -46,6 +47,8 @@ export default function RecordView() {
   const [recoverable, setRecoverable] = useState<RecordingMeta[]>([]);
 
   const recorderRef = useRef<MeetingRecorder | null>(null);
+  // When the user was speaking. Read off the recorder at stop, sent with the meeting.
+  const selfSpeechRef = useRef<Window[]>([]);
   const memChunksRef = useRef<Blob[]>([]);
   const idbOkRef = useRef(true);
   const downloadRef = useRef<DownloadLink | null>(null);
@@ -165,6 +168,7 @@ export default function RecordView() {
       },
       onStop: () => {
         stopTimers();
+        selfSpeechRef.current = recorder.selfSpeech();
         const out = new Blob(memChunksRef.current, { type: recorder.mimeType });
         assignBlob(out);
         setPhase("stopped");
@@ -218,7 +222,7 @@ export default function RecordView() {
       let c = created;
       if (!c) {
         setSaveStep("create");
-        c = await createMeeting(blob, elapsed, recordedAt ?? new Date());
+        c = await createMeeting(blob, elapsed, recordedAt ?? new Date(), selfSpeechRef.current);
         setCreated(c);
       }
       step = "upload";

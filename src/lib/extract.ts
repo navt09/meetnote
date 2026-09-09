@@ -13,6 +13,19 @@ If speakers are labeled generically (Speaker 0, Speaker 1), keep those labels ra
 Never assume anyone's pronouns. Refer to people by name, or use they/them if a pronoun is unavoidable.
 If the transcript contains no real meeting content (silence, music, a single test sentence), still fill the schema honestly: a short title, a one-line summary saying so, and empty lists.`;
 
+/**
+ * The "for you" section is the same call, told who the reader is. The label on
+ * their lines was set from their microphone by tagSelf, not by the model, so
+ * "committed" rests on things they demonstrably said.
+ */
+function forYouInstructions(label: string): string {
+  return `
+
+One participant is the person these notes are for. In the transcript their lines are labeled "${label}". That label was set from their microphone, not guessed, so treat those lines as things they actually said.
+Fill the "for_you" section from two sources only: what was said under that label, and what other speakers said to or about them by name. Write each entry as one short line a person can act on.
+When nothing qualifies, leave the list empty. Never pad it, and never guess what they might have wanted.`;
+}
+
 export type ExtractResult = {
   notes: MeetingNotes;
   usage: LlmUsage;
@@ -20,8 +33,9 @@ export type ExtractResult = {
   model: string;
 };
 
-export async function extractNotes(segments: TranscriptSegment[]): Promise<ExtractResult> {
+export async function extractNotes(segments: TranscriptSegment[], opts: { name?: string | null } = {}): Promise<ExtractResult> {
   const client = new Anthropic();
+  const label = opts.name ?? "You";
 
   const transcript = segments.map((s) => `[${formatTimestamp(s.start)}] ${s.speaker}: ${s.text}`).join("\n");
 
@@ -30,7 +44,7 @@ export async function extractNotes(segments: TranscriptSegment[]): Promise<Extra
   const stream = client.messages.stream({
     model: EXTRACT_MODEL,
     max_tokens: 32000,
-    system: SYSTEM,
+    system: SYSTEM + forYouInstructions(label),
     messages: [
       {
         role: "user",

@@ -1,5 +1,10 @@
 // Browser-only. Captures the audio of a chosen window/tab plus the microphone,
 // mixes them, and hands back compressed chunks every few seconds.
+//
+// It also keeps a timeline of when the microphone is the loud one, which is
+// how the notes know which lines were the user's. See self-speech.ts.
+
+import { compactWindows, isSelfSample, rmsDb, SAMPLE_MS, type Window } from "./self-speech";
 
 export const CHUNK_MS = 5000;
 export const AUDIO_BITRATE = 32_000; // opus at 32 kbps: clear speech, ~14 MB per hour
@@ -52,6 +57,13 @@ export class MeetingRecorder {
   private recorder: MediaRecorder | null = null;
   private index = 0;
   private stopped = false;
+
+  // One analyser per source, so the two can be compared. The public analyser
+  // above hears the mix and only drives the waveform on screen.
+  private micAnalyser: AnalyserNode | null = null;
+  private sysAnalyser: AnalyserNode | null = null;
+  private samples: boolean[] = [];
+  private sampler: number | null = null;
 
   constructor(private cb: RecorderCallbacks) {
     this.mimeType = pickMimeType();
@@ -107,11 +119,19 @@ export class MeetingRecorder {
       const src = ctx.createMediaStreamSource(new MediaStream(sysTracks));
       src.connect(dest);
       src.connect(analyser);
+      const own = ctx.createAnalyser();
+      own.fftSize = 1024;
+      src.connect(own);
+      this.sysAnalyser = own;
     }
     if (mic) {
       const src = ctx.createMediaStreamSource(mic);
       src.connect(dest);
       src.connect(analyser);
+      const own = ctx.createAnalyser();
+      own.fftSize = 1024;
+      src.connect(own);
+      this.micAnalyser = own;
     }
 
     const recorder = new MediaRecorder(dest.stream, { mimeType: this.mimeType, audioBitsPerSecond: AUDIO_BITRATE });
@@ -137,6 +157,30 @@ export class MeetingRecorder {
     }
 
     recorder.start(CHUNK_MS);
+
+    // Who is talking, five times a second. Without a mic there is nothing to
+    // compare, so every sample is "not me" and the notes simply have no
+    // "for you" section.
+    const micFrame = new Float32Array(1024);
+    const sysFrame = new Float32Array(1024);
+    this.sampler = window.setInterval(() => {
+      if (!this.micAnalyser) {
+        this.samples.push(false);
+        return;
+      }
+      this.micAnalyser.getFloatTimeDomainData(micFrame);
+      let meetingDb = -100;
+      if (this.sysAnalyser) {
+        this.sysAnalyser.getFloatTimeDomainData(sysFrame);
+        meetingDb = rmsDb(sysFrame);
+      }
+      this.samples.push(isSelfSample(rmsDb(micFrame), meetingDb, !!this.sysAnalyser));
+    }, SAMPLE_MS);
+  }
+
+  /** When the user was the one speaking, as [start, end] seconds. Valid after stop. */
+  selfSpeech(): Window[] {
+    return compactWindows(this.samples);
   }
 
   stop(): void {
@@ -152,10 +196,14 @@ export class MeetingRecorder {
   }
 
   dispose(): void {
+    if (this.sampler !== null) window.clearInterval(this.sampler);
+    this.sampler = null;
     for (const s of this.streams) for (const t of s.getTracks()) t.stop();
     this.streams = [];
     this.ctx?.close().catch(() => {});
     this.ctx = null;
     this.analyser = null;
+    this.micAnalyser = null;
+    this.sysAnalyser = null;
   }
 }

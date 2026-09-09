@@ -7,6 +7,8 @@ import { extractNotes } from "./extract";
 import { nextStep, type Meeting } from "./meeting";
 import { toPublicFailure } from "./public-error";
 import { actionItemsToRows } from "./task";
+import { tagSelf, type Window } from "./self-speech";
+import { getDisplayName } from "./settings-store";
 import type { ActionItem, TranscriptSegment } from "./schema";
 
 /**
@@ -120,14 +122,18 @@ export async function runPipeline(meetingId: string, userId: string): Promise<vo
     if (step === "transcribe") {
       await patch({ status: "transcribing", error: null });
       const t = await transcribeFromStorage(m.storage_path!);
-      transcript = t.segments;
+      // Stamp the user's own lines with their name, from the mic timeline the
+      // recorder measured. Overlap arithmetic only; the model is not involved.
+      const name = (await getDisplayName(userId)) ?? "You";
+      const segments = tagSelf(t.segments, (m.self_speech ?? []) as Window[], name);
+      transcript = segments;
       await patch({
-        transcript: t.segments,
+        transcript: segments,
         duration_seconds: t.durationSeconds || m.duration_seconds,
         transcription_cost_usd: t.costUsd,
         status: "transcribed",
       });
-      if (t.segments.length === 0) {
+      if (segments.length === 0) {
         await patch({ status: "error", error: "No speech was detected in the recording." });
         return;
       }
@@ -136,7 +142,7 @@ export async function runPipeline(meetingId: string, userId: string): Promise<vo
 
     if (step === "extract") {
       await patch({ status: "extracting", error: null });
-      const e = await extractNotes(transcript!);
+      const e = await extractNotes(transcript!, { name: await getDisplayName(userId) });
       const keepTitle = !m.title.startsWith("Meeting · ") ? m.title : e.notes.title;
       await patch({
         notes: e.notes,

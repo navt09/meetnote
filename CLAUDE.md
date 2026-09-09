@@ -61,6 +61,13 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 - Storage bucket is `recordings` (private). Object paths are `<user_id>/<yyyy-mm>/<meeting_id>.<ext>`; ownership is checked with `pathBelongsTo()`.
 - Meeting status machine: recorded → uploaded → transcribing → transcribed → extracting → done, or error (retryable; finished steps are skipped).
 
+## Who is talking, and notes for the user
+- The recorder holds the microphone and the shared window's audio as separate streams before mixing them. Five times a second it compares their loudness (`src/lib/self-speech.ts`, pure and unit-tested): the mic is the user when it is above a floor **and** clearly louder than the meeting audio, which is what defeats speaker bleed. The result is a compact `[start, end]` timeline sent with the meeting and stored in `meetings.self_speech` (internal; never returned to the browser).
+- After transcription, `tagSelf()` relabels the user's segments with their name (`user_settings.display_name`, else "You") by overlap arithmetic. No model is involved in deciding who spoke. Diarisation still labels everyone else "Speaker N".
+- The name is optional and entered once in Settings. It is a supplement, not the mechanism: it lets the notes catch other people saying it and puts it on the user's lines.
+- `notes.for_you` (committed, asked_of_you, heads_up, mentioned) comes from the **same single extraction call**, which is told the user's label. Empty lists are the honest answer. Notes written before this section existed have no `for_you`; the renderer treats it as absent.
+- Mic-only recordings (no shared audio) count every voice in the room as the user; that is the documented limit, not a bug.
+
 ## The agent (Phase 3)
 - `src/lib/agent.ts` is the only place the model writes text a person might send. It drafts a ticket from a task, or a follow-up email for someone the notes named. It rephrases the transcript and never invents facts; when something is missing it says so in the draft.
 - Drafts land in the `drafts` table as `pending` and show on `/approvals`. A person edits, approves or dismisses. **Nothing is ever sent from From the Call without an explicit approval**, and there is no code path that sends without one.

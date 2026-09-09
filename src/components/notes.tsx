@@ -3,9 +3,52 @@ import { formatTimestamp } from "@/lib/transcript";
 import { kindLabel, type TaskKind } from "@/lib/task";
 import { PeopleToContact } from "./people-actions";
 
+/**
+ * What this meeting means for the person who recorded it. Rendered first
+ * because it is the part they will act on; hidden entirely when every list is
+ * empty, which is the honest state for a meeting that was not about them.
+ * Notes written before this section existed have no for_you and render as
+ * they always did.
+ */
+function ForYouPanel({ fy }: { fy: MeetingNotes["for_you"] | undefined }) {
+  if (!fy) return null;
+  const groups = (
+    [
+      ["You said you would", fy.committed],
+      ["Asked of you", fy.asked_of_you],
+      ["Heads-up", fy.heads_up],
+      ["You were mentioned", fy.mentioned],
+    ] as [string, string[]][]
+  ).filter(([, items]) => items.length > 0);
+  if (groups.length === 0) return null;
+
+  return (
+    <div className="glass border-accent/40 p-6 md:col-span-2">
+      <p className="text-xs text-accent">For you</p>
+      <div className="mt-4 grid gap-5 sm:grid-cols-2">
+        {groups.map(([title, items]) => (
+          <div key={title}>
+            <p className="text-sm font-medium">{title}</p>
+            <ul className="mt-2 space-y-1.5 text-sm text-muted">
+              {items.map((t, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="text-faint" aria-hidden>—</span>
+                  <span>{t}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId?: string }) {
   return (
     <div className="grid gap-3 md:grid-cols-2">
+      <ForYouPanel fy={notes.for_you} />
+
       <div className="glass p-6 md:col-span-2">
         <p className="text-xs text-muted">Summary</p>
         <p className="mt-3 leading-relaxed">{notes.summary}</p>

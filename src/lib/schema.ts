@@ -20,6 +20,22 @@ export const Person = z.object({
   why: z.string().describe("Why they need to be contacted or what was said about them"),
 });
 
+/**
+ * The part of the notes that is about the person who recorded the meeting.
+ *
+ * Their own lines in the transcript carry their name (or "You"), put there by
+ * the microphone timeline rather than by the model, so "committed" is drawn
+ * from things they demonstrably said. The other lists come from what other
+ * speakers said to or about them by name. Every list may be empty; an empty
+ * list is the honest answer when the meeting was not about them.
+ */
+export const ForYou = z.object({
+  committed: z.array(z.string()).describe("Things this person said they would do, in their own words"),
+  asked_of_you: z.array(z.string()).describe("Requests or questions other people directed at this person"),
+  heads_up: z.array(z.string()).describe("Decisions or changes that affect this person's work"),
+  mentioned: z.array(z.string()).describe("Where other people named this person, and why"),
+});
+
 export const MeetingNotes = z.object({
   title: z.string().describe("A short title for the meeting"),
   summary: z.string().describe("3-6 sentence overview"),
@@ -28,10 +44,12 @@ export const MeetingNotes = z.object({
   decisions: z.array(Decision),
   people_to_contact: z.array(Person),
   open_questions: z.array(z.string()),
+  for_you: ForYou,
 });
 
 export type MeetingNotes = z.infer<typeof MeetingNotes>;
 export type ActionItem = z.infer<typeof ActionItem>;
+export type ForYou = z.infer<typeof ForYou>;
 
 export type TranscriptSegment = {
   speaker: string;

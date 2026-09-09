@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { parseSelfSpeech } from "@/lib/self-speech";
 import { isBlocked, requirePaid } from "@/lib/guard";
 import { getAuth } from "@/lib/supabase/server";
 import { MAX_UPLOAD_BYTES, mintUploadUrl } from "@/lib/storage";
@@ -36,7 +37,7 @@ export async function POST(req: Request) {
   if (isBlocked(gate)) return gate;
   const { auth } = gate;
 
-  let body: { mimeType?: string; bytes?: number; durationSeconds?: number; recordedAt?: string };
+  let body: { mimeType?: string; bytes?: number; durationSeconds?: number; recordedAt?: string; selfSpeech?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -66,6 +67,9 @@ export async function POST(req: Request) {
     bytes,
     duration_seconds: Number.isFinite(duration) && duration > 0 ? duration : null,
     recorded_at: recordedAt.toISOString(),
+    // Malformed windows are dropped, never rejected: a bad timeline should
+    // cost the "for you" notes, not the recording.
+    self_speech: parseSelfSpeech(body.selfSpeech, duration),
   } satisfies Partial<Meeting>);
   if (insertError) {
     console.error(JSON.stringify({ event: "meeting_create_error", message: insertError.message }));

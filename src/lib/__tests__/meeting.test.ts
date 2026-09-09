@@ -3,7 +3,7 @@ import { defaultTitle, isInProgress, nextStep, statusLabel } from "../meeting";
 
 const seg = [{ speaker: "Speaker 0", text: "hi", start: 0, end: 1 }];
 const notes = {
-  title: "t", summary: "s", key_points: [], action_items: [], decisions: [], people_to_contact: [], open_questions: [],
+  title: "t", summary: "s", key_points: [], action_items: [], decisions: [], people_to_contact: [], open_questions: [], for_you: { committed: [], asked_of_you: [], heads_up: [], mentioned: [] },
 };
 
 describe("nextStep", () => {
