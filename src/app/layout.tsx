@@ -51,16 +51,18 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <>
               <Sidebar email={email} isOwner={isOwner} />
               <div className="flex min-w-0 flex-1 flex-col">
-                <main className="mx-auto w-full max-w-4xl flex-1 px-5 pb-16 sm:px-8">{children}</main>
-                <footer className="border-t border-panel-border">
-                  <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-xs text-faint sm:px-8">
+                {/* One ruled sheet on the desk, footer and all, with its column
+                    edges running the full height of the page. */}
+                <div className="sheet mx-auto flex w-full max-w-4xl flex-1 flex-col">
+                  <main className="flex-1 px-5 pb-16 sm:px-8">{children}</main>
+                  <footer className="flex flex-wrap items-center justify-between gap-3 border-t border-panel-border px-5 py-5 text-xs text-faint sm:px-8">
                     <span>&copy; {new Date().getFullYear()} From the Call</span>
                     <nav className="flex items-center gap-4">
                       <Link className="transition-colors hover:text-fg" href="/privacy">Privacy</Link>
                       <Link className="transition-colors hover:text-fg" href="/terms">Terms</Link>
                     </nav>
-                  </div>
-                </footer>
+                  </footer>
+                </div>
               </div>
             </>
           ) : (

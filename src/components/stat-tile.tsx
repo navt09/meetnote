@@ -25,8 +25,8 @@ export function StatTile({
         : "text-warn";
 
   return (
-    <div className="glass p-4">
-      <p className="rule-label">{label}</p>
+    <div>
+      <p className="text-xs text-muted">{label}</p>
       <p className="figure mt-2.5 text-3xl">{value}</p>
       {deltaText ? <p className={`mt-2 text-xs ${tone}`}>{deltaText}</p> : null}
     </div>
@@ -37,7 +37,7 @@ export function StatTile({
 export function HeroFigure({ value, label, sub }: { value: string; label: string; sub?: string }) {
   return (
     <div>
-      <p className="rule-label">{label}</p>
+      <p className="text-xs text-muted">{label}</p>
       <p className="figure mt-2.5 text-6xl">{value}</p>
       {sub ? <p className="mt-2.5 text-sm text-muted">{sub}</p> : null}
     </div>

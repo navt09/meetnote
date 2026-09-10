@@ -93,13 +93,13 @@ body.app {
      the waveform, a hover - drops back toward the page. The old palette had
      the page and the card set to the same value, which is why every card
      dissolved into the background. */
-  --bg: #edeae4;              /* the page */
+  --bg: #e4e0d7;              /* the desk the sheet lies on */
   --rail: #1c1b18;            /* the sidebar is ink, not a deeper paper */
-  --panel: #fdfcfa;           /* a card sits on the page and reads as a sheet */
-  --bg-elev: #f2efe9;         /* recessed: inputs, the waveform, toasts */
-  --panel-hi: #f2efe9;
-  --panel-border: #dcd7ce;
-  --panel-border-hi: #c4bdb1;
+  --panel: #faf8f4;           /* the sheet, and everything ruled on it */
+  --bg-elev: #f0ece4;         /* recessed: inputs, the waveform, toasts */
+  --panel-hi: #f0ece4;
+  --panel-border: #d9d3c8;    /* the rule: it has to be a line you can see */
+  --panel-border-hi: #bdb5a7;
 
   --fg: #1d1c1a;
   --muted: #5f5c57;
@@ -187,22 +187,34 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* A whisper of grain under the work. Barely visible on its own, but it turns
-   the page from an absence into a surface, and every card gains an edge by
-   covering it. */
-body.app {
-  background-image: radial-gradient(circle at 1px 1px, rgba(29, 28, 26, 0.062) 1px, transparent 0);
-  background-size: 22px 22px;
+/* ---------- the sheet ---------- */
+/* The work sits on one continuous ruled sheet rather than a stack of floating
+   cards, which is the arrangement every product on the internet already has.
+   Two hairlines mark the column and run the whole height of the page, so the
+   structure is visible even where the content is thin, and a rule under a
+   heading runs out to those edges instead of stopping in mid-air. */
+
+.sheet {
+  background: var(--panel);
+  border-inline: 1px solid var(--panel-border);
 }
 
-/* Cards lift off that surface. Two shadows: a tight one that draws the edge,
-   and a wide soft one that puts air underneath. */
+/* The reading inset, named once so a rule can be pushed back out to the
+   sheet's edge without guessing the number. */
+body.app main { --pad: 1.25rem; }
+@media (min-width: 640px) { body.app main { --pad: 2rem; } }
+.bleed { margin-inline: calc(var(--pad) * -1); padding-inline: var(--pad); }
+
+/* Sections separated by a rule that spans the sheet, not by a gap between
+   boxes. Anything dropped into a .ledger gets its own line above it. */
+.ledger > * { padding-block: 1.5rem; }
+.ledger > * + * { border-top: 1px solid var(--panel-border); }
+
+/* Nothing on paper floats, so nothing on paper has a shadow. Corners are
+   small: a hairline does the work a radius used to. */
 body.app .glass,
 body.app .band,
-body.app .strip {
-  border-radius: 14px;
-  box-shadow: 0 1px 2px rgba(29, 28, 26, 0.05), 0 10px 26px -14px rgba(29, 28, 26, 0.16);
-}
+body.app .strip { border-radius: 8px; box-shadow: none; }
 
 /* A row that scrolls within itself without showing a bar: the header tabs on a phone. */
 .no-scrollbar { scrollbar-width: none; }
@@ -581,6 +593,14 @@ body.app .eyebrow { color: var(--faint); }
   font-family: var(--font-display), Georgia, serif;
   font-size: 0.95rem; font-weight: 600; letter-spacing: -0.005em;
   color: var(--band-hue);
+}
+/* A solid chip of the hue, so the colour reads at a glance instead of only as
+   a wash behind the words. */
+.band-title::before {
+  content: ""; display: inline-block;
+  width: 0.5rem; height: 0.5rem; border-radius: 2px;
+  background: var(--band-hue);
+  margin-right: 0.5rem; vertical-align: 0.08em;
 }
 .band-count {
   font-family: var(--font-mono), ui-monospace, monospace;

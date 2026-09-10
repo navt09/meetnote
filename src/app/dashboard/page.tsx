@@ -111,7 +111,7 @@ export default async function DashboardPage() {
       : `${highPriorityOpen > 0 ? `${highPriorityOpen} high priority · ` : ""}across ${meetings.length} meeting${meetings.length === 1 ? "" : "s"}`;
 
   return (
-    <section className="flex flex-col gap-6 pt-10">
+    <section className="ledger pt-4">
       {/* A brand new account is not shown a big zero and a button it has no
           reason to trust; the panel below is the whole page until there is
           something to count. */}
@@ -126,7 +126,7 @@ export default async function DashboardPage() {
       )}
 
       {firstRun ? (
-        <div className="glass rise p-6 sm:p-8">
+        <div className="rise">
           <p className="rule-label">Start here</p>
           <h2 className="display mt-3 text-3xl">Nothing recorded yet.</h2>
           <p className="mt-3 max-w-xl leading-relaxed text-muted">
@@ -150,7 +150,8 @@ export default async function DashboardPage() {
         </div>
       ) : (
         <>
-        <div className="stagger grid gap-3 sm:grid-cols-3">
+          <div>
+          <div className="strip stagger sm:grid-cols-3">
           <StatTile
             label="Meetings this week"
             value={String(meetingsPerWeek[last])}
@@ -177,88 +178,99 @@ export default async function DashboardPage() {
             goodDirection="up"
           />
         </div>
+          </div>
 
           {/* Eight weeks of empty columns behind one bar reads as a broken
               chart rather than a new account. It appears once there is
               something to compare across weeks. */}
           {weeksWithData >= 2 ? (
-            <div className="glass rise p-6">
+            <div className="rise pt-6">
               <ActivityChart weeks={weeks} />
             </div>
           ) : null}
         </>
       )}
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <div className="glass rise p-6">
+      <div>
+      <div className="strip lg:grid-cols-2">
+        <section className="!p-5">
           <div className="flex items-center gap-3">
             <p className="rule-label flex-1">Top of the list</p>
             <Link href="/tasks" className="shrink-0 text-xs text-muted transition-colors hover:text-fg">All tasks</Link>
           </div>
-          <ul className="mt-4 divide-y divide-panel-border">
+          <ul className="mt-3.5 divide-y divide-panel-border">
             {topTasks.map((t) => (
-              <li key={t.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-3">
+              <li key={t.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
+                {/* Priority as a bar down the side of the row rather than a
+                    chip beside it: at a glance it is a column you scan, not
+                    three labels you read. */}
+                <span
+                  aria-hidden
+                  className="mt-0.5 w-0.5 shrink-0 rounded-full"
+                  style={{ background: t.priority === "high" ? "var(--work)" : t.priority === "medium" ? "#d8a13a" : "var(--panel-border-hi)" }}
+                />
+                <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium leading-snug">{t.title}</p>
-                  {t.priority === "high" ? <span className="pill pill-danger flex-none">high</span> : null}
+                  <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-faint">
+                    <span>{t.owner ?? "unassigned"}</span>
+                    {t.due ? <span className="text-warn">due {t.due}</span> : null}
+                    <Link href={`/meetings/${t.meeting_id}`} className="truncate transition-colors hover:text-fg">
+                      {t.meetings?.title ?? "meeting"}
+                    </Link>
+                  </p>
                 </div>
-                <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-faint">
-                  <span>{t.owner ?? "unassigned"}</span>
-                  {t.due ? <span className="text-warn">due {t.due}</span> : null}
-                  <Link href={`/meetings/${t.meeting_id}`} className="truncate transition-colors hover:text-fg">
-                    {t.meetings?.title ?? "meeting"}
-                  </Link>
-                </p>
               </li>
             ))}
             {topTasks.length === 0 ? <li className="py-3 text-sm text-muted">Nothing outstanding.</li> : null}
           </ul>
-        </div>
+        </section>
 
-        <div className="flex flex-col gap-3">
-          <div className="glass rise p-6">
-            <div className="flex items-center gap-3">
-              <p className="rule-label flex-1">Recent meetings</p>
-              <Link href="/notes" className="shrink-0 text-xs text-muted transition-colors hover:text-fg">All notes</Link>
-            </div>
-            <ul className="mt-4 divide-y divide-panel-border">
-              {recent.map((m) => (
-                <li key={m.id} className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
-                  <Link href={`/meetings/${m.id}`} className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium transition-colors hover:text-accent">{m.title}</span>
-                    <span className="mt-0.5 block text-xs text-faint">
-                      {new Date(m.recorded_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
-                      {m.duration_seconds ? ` · ${humanDuration(Number(m.duration_seconds))}` : ""}
-                    </span>
-                  </Link>
-                  {m.status !== "done" ? <StatusPill status={m.status} /> : null}
-                </li>
-              ))}
-              {recent.length === 0 ? (
-                <li className="py-3 text-sm text-muted">
-                  Nothing recorded yet. <Link href="/record" className="text-accent hover:underline">Record your first meeting</Link>.
-                </li>
-              ) : null}
-            </ul>
+        <section className="!p-5">
+          <div className="flex items-center gap-3">
+            <p className="rule-label flex-1">Recent meetings</p>
+            <Link href="/notes" className="shrink-0 text-xs text-muted transition-colors hover:text-fg">All notes</Link>
           </div>
-
-          <div className="glass rise p-6">
-            <p className="rule-label">People to follow up with</p>
-            <ul className="mt-4 divide-y divide-panel-border text-sm">
-              {people.slice(0, 4).map((p) => (
-                <li key={p.name} className="py-3 first:pt-0 last:pb-0">
-                  <p className="font-medium">
-                    {p.name}
-                    {p.role ? <span className="font-normal text-faint"> · {p.role}</span> : null}
-                  </p>
-                  <p className="mt-0.5 line-clamp-2 text-muted">{p.why}</p>
-                </li>
-              ))}
-              {people.length === 0 ? <li className="py-3 text-muted">Nobody flagged yet.</li> : null}
-            </ul>
-          </div>
-        </div>
+          <ul className="mt-3.5 divide-y divide-panel-border">
+            {recent.map((m) => (
+              <li key={m.id} className="flex items-start justify-between gap-3 py-3 first:pt-0 last:pb-0">
+                <Link href={`/meetings/${m.id}`} className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium transition-colors hover:text-accent">{m.title}</span>
+                  <span className="figure mt-1 block text-xs text-faint">
+                    {new Date(m.recorded_at).toLocaleDateString(undefined, { day: "numeric", month: "short" })}
+                    {m.duration_seconds ? ` · ${humanDuration(Number(m.duration_seconds))}` : ""}
+                  </span>
+                </Link>
+                {m.status !== "done" ? <StatusPill status={m.status} /> : null}
+              </li>
+            ))}
+            {recent.length === 0 ? (
+              <li className="py-3 text-sm text-muted">
+                Nothing recorded yet. <Link href="/record" className="text-accent hover:underline">Record your first meeting</Link>.
+              </li>
+            ) : null}
+          </ul>
+        </section>
       </div>
+      </div>
+
+      <section>
+        <p className="rule-label">People to follow up with</p>
+        <ul className="mt-3.5 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
+          {people.slice(0, 4).map((p) => (
+            <li key={p.name} className="flex gap-3">
+              <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--people)" }} />
+              <span className="min-w-0">
+                <span className="block font-medium">
+                  {p.name}
+                  {p.role ? <span className="font-normal text-faint"> &middot; {p.role}</span> : null}
+                </span>
+                <span className="mt-0.5 line-clamp-2 block text-muted">{p.why}</span>
+              </span>
+            </li>
+          ))}
+          {people.length === 0 ? <li className="text-muted">Nobody flagged yet.</li> : null}
+        </ul>
+      </section>
 
       {owner ? (
         <p className="text-center text-xs text-muted">

@@ -131,7 +131,7 @@ export function PageHead({
   action?: React.ReactNode;
 }) {
   return (
-    <header className="sec-head rise">
+    <header className="sec-head bleed rise">
       <div className="min-w-0">
         <h1 className="display text-4xl">{title}</h1>
         {meta ? <p className="mt-2 text-sm text-muted">{meta}</p> : null}
