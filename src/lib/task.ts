@@ -27,6 +27,8 @@ export type TaskRow = {
   first_step: string | null;
   /** The lines either side of the quote. Null when the quote could not be placed. */
   quote_context: QuoteContext | null;
+  /** What the meeting said is in the way, or null. Never updated afterwards. */
+  blocked_by: string | null;
   status: TaskStatus;
   completed_at: string | null;
   calendar_event_url: string | null;
@@ -55,6 +57,8 @@ export type PublicTask = {
   firstStep: string | null;
   /** What was said either side of the quote, so it can be read in context. */
   quoteContext: QuoteContext | null;
+  /** What the meeting said has to happen first. A quote of the meeting, not live state. */
+  blockedBy: string | null;
   status: TaskStatus;
   completedAt: string | null;
   createdAt: string;
@@ -79,6 +83,7 @@ export function toPublicTask(row: TaskRow, meetingTitle: string): PublicTask {
     quote: row.quote ?? null,
     firstStep: row.first_step ?? null,
     quoteContext: row.quote_context ?? null,
+    blockedBy: row.blocked_by ?? null,
     status: row.status,
     completedAt: row.completed_at,
     createdAt: row.created_at,
@@ -127,6 +132,7 @@ export function actionItemsToRows(
     // rather than looked up later, because /tasks shows work from many
     // meetings at once and would otherwise fetch a transcript per row.
     quote_context: quoteContext(a.quote, segments),
+    blocked_by: a.blocked_by?.trim() ? a.blocked_by.trim().slice(0, 300) : null,
     priority: (PRIORITIES as string[]).includes(a.priority) ? a.priority : "medium",
     kind: (KINDS as string[]).includes(a.kind) ? a.kind : "task",
   }));

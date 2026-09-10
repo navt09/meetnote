@@ -240,6 +240,17 @@ try {
   if (tasks.some((t) => t.status !== "open")) throw new Error("new tasks should start open");
   log(`${tasks.length} tasks created from the action items, internals hidden`);
 
+  // What the extraction call filled in beyond the bare task. Reported rather
+  // than asserted: every one of these is allowed to be null, and whether a
+  // given recording produces any of them depends on what was said in it. A
+  // run where all three are zero on a real conversation is worth a look.
+  const quoted = tasks.filter((t) => t.quote).length;
+  const placed = tasks.filter((t) => t.quoteContext).length;
+  const stepped = tasks.filter((t) => t.firstStep).length;
+  const blocked = tasks.filter((t) => t.blockedBy).length;
+  log(`context: ${quoted} quoted (${placed} placed in the transcript), ${stepped} with a first step, ${blocked} blocked`);
+  for (const t of tasks.filter((x) => x.blockedBy)) log(`  blocked: ${t.title} — ${t.blockedBy}`);
+
   const ticked = await api(`/api/tasks/${tasks[0].id}`, { method: "PATCH", body: JSON.stringify({ status: "done" }) }, token);
   if (ticked.status !== 200 || ticked.json.task.status !== "done" || !ticked.json.task.completedAt) {
     throw new Error(`tick task: ${ticked.status} ${JSON.stringify(ticked.json)}`);

@@ -847,6 +847,12 @@ body.app .eyebrow { color: var(--faint); }
   border-left: 2px solid var(--panel-border-hi);
   padding-left: 0.7rem;
 }
+/* Waiting on somebody. Marked by a warm rule down its left edge, the same
+   device the quote uses, because both are set-apart material rather than a
+   card of their own; the colour is the one the deadline already wears, since
+   a blocker and a date are the two things that decide when work can happen. */
+.blocked-note { border-left: 2px solid var(--warn); padding-left: 0.7rem; }
+
 /* The lines either side of the quote. They sit inside the same rule so the
    three read as one stretch of conversation, and are held back by weight and
    colour rather than by another border, which would cut the stretch in three. */

@@ -97,6 +97,7 @@ function notes(dayOffset) {
         kind: "bug",
         quote: "I found a crash in the export on anything over ten thousand rows.",
         first_step: "Reproduce it with a ten thousand row export before changing anything.",
+        blocked_by: null,
       },
       {
         title: "Start the payment webhook",
@@ -107,8 +108,32 @@ function notes(dayOffset) {
         kind: "task",
         quote: "Login refactor is merged, so I am picking up the payment webhook today.",
         first_step: null,
+        blocked_by: null,
       },
-      { title: "Chase the design team for the dark mode icons", details: "", owner: FIXTURE_NAME, due: "Monday", priority: "medium", kind: "follow_up", quote: null, first_step: null },
+      {
+        title: "Chase the design team for the dark mode icons",
+        details: "",
+        owner: FIXTURE_NAME,
+        due: "Monday",
+        priority: "medium",
+        kind: "follow_up",
+        quote: null,
+        first_step: null,
+        blocked_by: "The final dark mode icons are not ready.",
+      },
+      // Nothing at all on this one, so the pass still proves a task with
+      // nothing to show offers no expander.
+      {
+        title: "Confirm whether scheduled reports hit the same export path",
+        details: "",
+        owner: FIXTURE_NAME,
+        due: null,
+        priority: "low",
+        kind: "task",
+        quote: null,
+        first_step: null,
+        blocked_by: null,
+      },
     ],
     decisions: [
       { decision: "Dark mode launch moves to next sprint", context: "The icons are not ready and shipping half of it would look worse than waiting." },
@@ -198,6 +223,7 @@ export async function createFixture() {
     quote: a.quote ?? null,
     first_step: a.first_step ?? null,
     quote_context: idx === 0 ? QUOTE_CONTEXT : null,
+    blocked_by: a.blocked_by ?? null,
     // One real deadline, so the Tasks page's due column has something to show.
     due_at: idx === 0 ? dueAt : null,
     priority: a.priority,

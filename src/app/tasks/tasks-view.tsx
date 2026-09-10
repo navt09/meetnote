@@ -35,6 +35,7 @@ const contextOf = (t: PublicTask): TaskContext => ({
   firstStep: t.firstStep,
   owner: t.owner,
   around: t.quoteContext,
+  blockedBy: t.blockedBy,
 });
 
 /** One deadline, dated on the server where "Thursday" has a fixed meaning. */
@@ -337,6 +338,11 @@ export default function TasksView({
                         // Nothing concrete was said, so the words stand as they were.
                         return t.due ? <span className="font-medium text-warn">due {t.due}</span> : null;
                       })()}
+                        {/* One word collapsed, the sentence on opening. A task
+                            nobody can start should say so without being
+                            opened, but the reason is a sentence and this line
+                            is a strip of chips. */}
+                        {t.blockedBy ? <span className="font-medium text-warn">blocked</span> : null}
                         {/* Work already done stays visible even on a tier that
                             could not start it now. */}
                         {emailTo ? (

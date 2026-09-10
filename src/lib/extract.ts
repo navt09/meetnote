@@ -13,7 +13,8 @@ If speakers are labeled generically (Speaker 0, Speaker 1), keep those labels ra
 Never assume anyone's pronouns. Refer to people by name, or use they/them if a pronoun is unavoidable.
 If the transcript contains no real meeting content (silence, music, a single test sentence), still fill the schema honestly: a short title, a one-line summary saying so, and empty lists.
 For each action item, "quote" is the line from the transcript that the task came from, copied word for word, at most about 200 characters. Never paraphrase it, tidy it up or write words nobody said; use null when no single line carries the task.
-For each action item, "first_step" is one short sentence saying where the person should start, drawn only from what the meeting actually discussed. It is a suggestion, not a decision. If the meeting gave no basis for a first step, use null rather than inventing one.`;
+For each action item, "first_step" is one short sentence saying where the person should start, drawn only from what the meeting actually discussed. It is a suggestion, not a decision. If the meeting gave no basis for a first step, use null rather than inventing one.
+For each action item, "blocked_by" is what has to happen before the work can start, in the meeting's own terms, naming the person or thing being waited on. Only fill it when the transcript says the work is waiting on something; work that is merely hard, large or unpleasant is not blocked. Use null when nothing was said to be in the way, which is the common case.`;
 
 /**
  * The "for you" section is the same call, told who the reader is. The label on

@@ -5,7 +5,7 @@ import type { ActionItem } from "../schema";
 const task = (over: Partial<PublicTask>): PublicTask => ({
   id: "t", meetingId: "m", meetingTitle: "Standup", title: "T", details: "", owner: null, due: null, dueAt: null,
   priority: "medium", kind: "task", status: "open", completedAt: null, createdAt: "2026-09-01T00:00:00Z",
-  calendarEventUrl: null, quote: null, firstStep: null, quoteContext: null, ...over,
+  calendarEventUrl: null, quote: null, firstStep: null, quoteContext: null, blockedBy: null, ...over,
 });
 
 describe("actionItemsToRows", () => {
@@ -44,7 +44,7 @@ describe("actionItemsToRows", () => {
           priority: "high",
           kind: "bug",
           quote: "  it just dies when you hit export on Safari  ",
-          first_step: "  Reproduce it on Safari with the file Priya sent.  ",
+          first_step: "  Reproduce it on Safari with the file Priya sent.  ", blocked_by: null,
         } as ActionItem,
       ],
       "u",
@@ -65,7 +65,7 @@ describe("actionItemsToRows", () => {
     expect(absent.first_step).toBeNull();
 
     const [empty] = actionItemsToRows(
-      [{ title: "Ship it", details: "", owner: null, due: null, priority: "low", kind: "task", quote: null, first_step: "   " } as unknown as ActionItem],
+      [{ title: "Ship it", details: "", owner: null, due: null, priority: "low", kind: "task", quote: null, first_step: "   ", blocked_by: null } as unknown as ActionItem],
       "u",
       "m",
     );
@@ -73,7 +73,7 @@ describe("actionItemsToRows", () => {
     expect(empty.first_step).toBeNull();
   });
 
-  it("bounds an absurdly long quote or first step", () => {
+  it("bounds an absurdly long quote, first step or blocker", () => {
     const [row] = actionItemsToRows(
       [
         {
@@ -85,6 +85,7 @@ describe("actionItemsToRows", () => {
           kind: "task",
           quote: "q".repeat(5000),
           first_step: "s".repeat(5000),
+          blocked_by: "b".repeat(5000),
         } as ActionItem,
       ],
       "u",
@@ -92,6 +93,7 @@ describe("actionItemsToRows", () => {
     );
     expect(row.quote).toHaveLength(500);
     expect(row.first_step).toHaveLength(500);
+    expect(row.blocked_by).toHaveLength(300);
   });
 });
 
@@ -146,7 +148,7 @@ describe("due_at is resolved once, at extraction", () => {
     // A Tuesday.
     const now = new Date(2026, 8, 8, 14, 30);
     const [row] = actionItemsToRows(
-      [{ title: "Ship it", details: "", owner: null, due: "Thursday", priority: "high", kind: "task", quote: null, first_step: null }],
+      [{ title: "Ship it", details: "", owner: null, due: "Thursday", priority: "high", kind: "task", quote: null, first_step: null, blocked_by: null }],
       "u1",
       "m1",
       now,
@@ -157,7 +159,7 @@ describe("due_at is resolved once, at extraction", () => {
 
   it("leaves it null when nothing concrete was said, rather than inventing one", () => {
     const [row] = actionItemsToRows(
-      [{ title: "Ship it", details: "", owner: null, due: "when we get to it", priority: "low", kind: "task", quote: null, first_step: null }],
+      [{ title: "Ship it", details: "", owner: null, due: "when we get to it", priority: "low", kind: "task", quote: null, first_step: null, blocked_by: null }],
       "u1",
       "m1",
       new Date(2026, 8, 8),

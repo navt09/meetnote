@@ -159,7 +159,20 @@ test.describe("every page renders what it was given", () => {
 
     // A task with nothing to show must not offer an expander that reveals
     // nothing.
-    await expect(page.locator(".task-toggle", { hasText: "Chase the design team" })).toHaveCount(0);
+    await expect(page.locator(".task-toggle", { hasText: "Confirm whether scheduled reports" })).toHaveCount(0);
+  });
+
+  test("a task that cannot be started says so before it is opened", async ({ page }) => {
+    await page.goto("/tasks");
+
+    const row = page.locator(".band-row", { hasText: "Chase the design team" });
+    await expect(row.getByText("blocked", { exact: true })).toBeVisible();
+    // Collapsed it is one word; the reason is a sentence and waits for a click.
+    await expect(page.getByText(/final dark mode icons are not ready/)).toHaveCount(0);
+
+    await page.locator(".task-toggle", { hasText: "Chase the design team" }).click();
+    await expect(page.getByText("Waiting on")).toBeVisible();
+    await expect(page.getByText(/final dark mode icons are not ready/)).toBeVisible();
   });
 
   test("the theme sticks across a reload", async ({ page }) => {

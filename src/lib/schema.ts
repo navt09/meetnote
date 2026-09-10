@@ -23,6 +23,15 @@ export const ActionItem = z.object({
     .string()
     .nullable()
     .describe("One short sentence on where to start, grounded in what was discussed, or null"),
+  // The one field that changes what a person does with a task rather than
+  // describing it: work that is waiting on somebody else belongs on a chase
+  // list, not on today's list. It records what the meeting said at the time
+  // and is never updated afterwards, so it stays a quote of the meeting rather
+  // than becoming stale project state.
+  blocked_by: z
+    .string()
+    .nullable()
+    .describe("What has to happen before this can start, in the meeting's own terms, or null if nothing was said to be in the way"),
 });
 
 export const Decision = z.object({

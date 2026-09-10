@@ -22,11 +22,31 @@ export type TaskContext = {
   owner?: string | null;
   /** What was said either side of the quote. Absent on anything but a live task. */
   around?: QuoteContext | null;
+  /** What the meeting said has to happen first, or null. */
+  blockedBy?: string | null;
 };
 
 /** Whether there is anything to expand. An expander that reveals nothing is worse than none. */
 export function hasContext(c: TaskContext): boolean {
-  return !!(c.details?.trim() || c.quote?.trim() || c.firstStep?.trim());
+  return !!(c.details?.trim() || c.quote?.trim() || c.firstStep?.trim() || c.blockedBy?.trim());
+}
+
+/**
+ * The one thing a task carries that changes what you do with it rather than
+ * describing it, so it is said first and said plainly.
+ *
+ * Worded as what the meeting said, in the past, because that is all it is: it
+ * is never revisited, and the thing being waited on may well have landed since.
+ * Claiming otherwise would make it stale project state instead of a note.
+ */
+function Blocker({ what }: { what: string }) {
+  return (
+    <div className="blocked-note">
+      <p className="text-xs font-semibold text-warn">Waiting on</p>
+      <p className="mt-0.5 text-sm leading-relaxed text-fg">{what}</p>
+      <p className="mt-0.5 text-xs text-faint">What the meeting said was in the way. Nothing has checked since.</p>
+    </div>
+  );
 }
 
 /**
@@ -79,9 +99,13 @@ function Around({ line }: { line: { speaker: string; text: string } }) {
  * underneath: it is the one part of a task the meeting did not decide.
  */
 export function TaskContextPanel({ id, context }: { id: string; context: TaskContext }) {
-  const { details, quote, firstStep, owner, around } = context;
+  const { details, quote, firstStep, owner, around, blockedBy } = context;
   return (
     <div id={id} className="task-detail mt-2 flex flex-col gap-3">
+      {/* Ahead of everything else: whether the work can be started at all
+          decides what a person does next, and the rest only describes it. */}
+      {blockedBy ? <Blocker what={blockedBy} /> : null}
+
       {details ? <p className="text-sm leading-relaxed text-muted">{details}</p> : null}
 
       {quote ? (
@@ -245,12 +269,20 @@ export function ActionItems({
         // The live task and the notes' own copy hold the same three things
         // under different names, so the row is read through one shape.
         const context: TaskContext = task
-          ? { details: task.details, quote: task.quote, firstStep: task.firstStep, owner: task.owner, around: task.quoteContext }
+          ? {
+              details: task.details,
+              quote: task.quote,
+              firstStep: task.firstStep,
+              owner: task.owner,
+              around: task.quoteContext,
+              blockedBy: task.blockedBy,
+            }
           : {
               details: row.details,
               quote: (row as ActionItem).quote,
               firstStep: (row as ActionItem).first_step,
               owner: row.owner,
+              blockedBy: (row as ActionItem).blocked_by,
             };
         const key = task?.id ?? String(i);
         const expandable = hasContext(context);
@@ -281,6 +313,10 @@ export function ActionItems({
               <span className={row.owner ? "font-medium text-fg" : ""}>{row.owner ?? "Unassigned"}</span>
               <span>{kindLabel(row.kind)}</span>
               {row.due ? <span className="font-medium text-warn">due {row.due}</span> : null}
+              {/* One word collapsed, the sentence on opening. A row that
+                  cannot be started should say so without being opened, but
+                  the reason is a sentence and this line is a strip of chips. */}
+              {context.blockedBy ? <span className="font-medium text-warn">blocked</span> : null}
 
               {task ? (
                 <>

@@ -52,6 +52,7 @@ The body is Markdown with three short sections in this order:
 **Context** — what was said in the meeting that led to this, including who raised it.
 **What to do** — the actual work, as concretely as the transcript supports.
 **Done when** — how someone would know it is finished. If the transcript does not support acceptance criteria, write a single line saying the criteria need confirming and what is unclear.
+If the action item names something it is blocked by, say so in one line at the top of Context, before anything else.
 Keep the whole body under 200 words. Do not repeat the title as a heading.`;
 
 const EMAIL_SYSTEM = `${SHARED_RULES}
@@ -96,7 +97,7 @@ async function run<T>(system: string, prompt: string, schema: Parameters<typeof 
 
 /** Turns one action item into a ticket, using the meeting for context. */
 export async function draftTicket(
-  task: Pick<ActionItem, "title" | "details" | "owner" | "due" | "priority" | "kind">,
+  task: Pick<ActionItem, "title" | "details" | "owner" | "due" | "priority" | "kind" | "blocked_by">,
   notes: MeetingNotes | null,
   transcript: TranscriptSegment[] | null,
   meetingTitle: string,
@@ -112,6 +113,9 @@ export async function draftTicket(
     `details: ${task.details || "(none captured)"}`,
     `owner: ${task.owner ?? "unassigned"}`,
     `due: ${task.due ?? "not stated"}`,
+    // A ticket that does not say what it is waiting on gets picked up and put
+    // straight back down. The meeting already said it, so pass it through.
+    task.blocked_by ? `blocked by: ${task.blocked_by}` : "",
     `type: ${task.kind}`,
     `priority: ${task.priority}`,
     "</action_item>",
