@@ -41,6 +41,10 @@ body.marketing {
   --pill-live-border: #24354f;
   --pill-warn-border: #4a3a17;
   --skeleton-sheen: rgba(255, 255, 255, 0.05);
+  --danger-ink: #1b0d0b;
+  --flag-high-ink: #1b0d0b;
+  --flag-med-bg: #3a2f14;
+  --flag-med-ink: #eac371;
 
   --chart-1: #3987e5;
   --chart-2: #d95926;
@@ -81,6 +85,10 @@ body.marketing .light {
   --pill-danger-border: #f3cdc7;
   --pill-live-border: #c9d7f4;
   --pill-warn-border: #ecd9b0;
+  --danger-ink: #ffffff;
+  --flag-high-ink: #ffffff;
+  --flag-med-bg: #f6e7c6;
+  --flag-med-ink: #7c5705;
 
   color-scheme: light;
   background: var(--bg);
@@ -88,51 +96,57 @@ body.marketing .light {
 }
 
 body.app {
-  /* Three grounds, not one. The page is warm paper you could not mistake for
-     white, cards are the sheets laid on it, and anything recessed - a field,
-     the waveform, a hover - drops back toward the page. The old palette had
-     the page and the card set to the same value, which is why every card
-     dissolved into the background. */
-  --bg: #e4e0d7;              /* the desk the sheet lies on */
-  --rail: #1c1b18;            /* the sidebar is ink, not a deeper paper */
-  --panel: #faf8f4;           /* the sheet, and everything ruled on it */
-  --bg-elev: #f0ece4;         /* recessed: inputs, the waveform, toasts */
-  --panel-hi: #f0ece4;
-  --panel-border: #d9d3c8;    /* the rule: it has to be a line you can see */
-  --panel-border-hi: #bdb5a7;
+  /* The tool is a screen, not a sheet of paper on one. Surfaces separate by
+     how much light they hold rather than by a line drawn around them, which
+     is what keeps a dense interface from reading as a stack of boxes.
+     Everything is warm-black to match the shopfront; a blue-black next to
+     these hues looks like a different product. */
+  --bg: #131211;              /* the ground everything sits on */
+  --rail: #0b0a09;            /* the rail sinks, so the work comes forward */
+  --panel: #1b1a17;           /* a surface with something on it */
+  --bg-elev: #211f1c;         /* recessed: inputs, the waveform, toasts */
+  --panel-hi: #262421;
+  --panel-border: #2c2a26;
+  --panel-border-hi: #403c37;
 
-  --fg: #1d1c1a;
-  --muted: #5f5c57;
-  --faint: #7d7972;
+  --fg: #f0ede8;
+  --muted: #a29d95;
+  --faint: #7d7871;
 
-  /* The interactive colour is the work hue, so a link to act on something and
-     the band that holds it agree. The primary button is ink instead: a fourth
-     colour would compete with the three that carry meaning. */
-  --accent: #c4443c;
-  --accent-ink: #fcfbf9;
-  --btn-bg: #1d1c1a;
-  --btn-fg: #fcfbf9;
-  --btn-bg-hover: #35322e;
+  /* Interactive text is the work hue; the primary button is paper on ink, the
+     same as the shopfront, because a fourth colour would compete with the
+     three that carry meaning. */
+  --accent: #ef6a5a;
+  --accent-ink: #16150f;
+  --btn-bg: #f2efe9;
+  --btn-fg: #16150f;
+  --btn-bg-hover: #ffffff;
 
-  --danger: #c4443c;
-  --ok: #15704f;
-  --warn: #8a5a06;
+  --danger: #f2705f;
+  --danger-ink: #1b0d0b;      /* dark type on a bright warning, never white */
+  --ok: #45c795;
+  --warn: #dda63f;
 
-  /* The three kinds of thing a meeting produces. */
-  --work: #c4443c;    --work-bg: #fdefed;   --work-line: #f3cdc7;
-  --agreed: #15704f;  --agreed-bg: #e7f4ef; --agreed-line: #bfe0d3;
-  --people: #2b58bd;  --people-bg: #eaf0fd; --people-line: #c9d7f4;
+  /* The three kinds of thing a meeting produces, re-picked for a dark ground:
+     the light values were mud here. */
+  --work: #ef6a5a;    --work-bg: #241715;   --work-line: #40211d;
+  --agreed: #45c795;  --agreed-bg: #10231c; --agreed-line: #1c3f32;
+  --people: #7ba3ff;  --people-bg: #161c2c; --people-line: #26314f;
 
-  --pill-ok-border: #bfe0d3;
-  --pill-danger-border: #f3cdc7;
-  --pill-live-border: #c9d7f4;
-  --pill-warn-border: #ecd9b0;
-  --skeleton-sheen: rgba(0, 0, 0, 0.045);
+  --pill-ok-border: #1c3f32;
+  --pill-danger-border: #40211d;
+  --pill-live-border: #26314f;
+  --pill-warn-border: #453718;
+  --skeleton-sheen: rgba(255, 255, 255, 0.06);
+  --flag-high-ink: #1b0d0b;
+  --flag-med-bg: #3a2f14;
+  --flag-med-ink: #eac371;
 
-  /* Re-validated against the light panel; see the note by the chart component. */
-  --chart-1: #1f6fd0;
-  --chart-2: #b4460f;
-  --chart-grid: #e9e5df;
+  /* Validated with the dataviz checker against the panel these are drawn on
+     (#1b1a17): all six checks pass. */
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-grid: #2c2a26;
 }
 
 @theme inline {
@@ -172,7 +186,7 @@ body.app {
 
 html { color-scheme: light dark; }
 body.marketing { color-scheme: dark; }
-body.app { color-scheme: light; }
+body.app { color-scheme: dark; }
 
 html, body {
   /* The page never scrolls sideways. Anything wider than the viewport is a bug
@@ -194,10 +208,11 @@ body {
    structure is visible even where the content is thin, and a rule under a
    heading runs out to those edges instead of stopping in mid-air. */
 
-.sheet {
-  background: var(--panel);
-  border-inline: 1px solid var(--panel-border);
-}
+/* Deliberately holds no colour and draws no edge. An earlier version made
+   this a bordered white column and the app read as a piece of paper stuck to
+   a screen; the work now sits on the ground, and the surfaces that carry
+   content are the only things that catch light. */
+.sheet { background: transparent; }
 
 /* The reading inset, named once so a rule can be pushed back out to the
    sheet's edge without guessing the number. */
@@ -214,7 +229,7 @@ body.app main { --pad: 1.25rem; }
    small: a hairline does the work a radius used to. */
 body.app .glass,
 body.app .band,
-body.app .strip { border-radius: 8px; box-shadow: none; }
+body.app .strip { border-radius: 12px; box-shadow: none; }
 
 /* A row that scrolls within itself without showing a bar: the header tabs on a phone. */
 .no-scrollbar { scrollbar-width: none; }
@@ -256,7 +271,7 @@ body.app .strip { border-radius: 8px; box-shadow: none; }
 .btn-ghost { color: var(--fg); border: 1px solid var(--panel-border); background: transparent; }
 .btn-ghost:hover:not(:disabled) { background: var(--panel-hi); border-color: var(--panel-border-hi); }
 
-.btn-danger { background: var(--danger); color: #fff; font-weight: 600; }
+.btn-danger { background: var(--danger); color: var(--danger-ink, #fff); font-weight: 600; }
 .btn-danger:hover:not(:disabled) { filter: brightness(1.12); }
 
 /* ---------- pills ---------- */
@@ -358,7 +373,7 @@ body.app .strip { border-radius: 8px; box-shadow: none; }
 .record-btn:active:not(:disabled) { transform: scale(0.96); }
 .record-btn:disabled { opacity: 0.4; }
 .record-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
-.record-btn-stop { background: var(--danger); color: #fff; }
+.record-btn-stop { background: var(--danger); color: var(--danger-ink, #fff); }
 .record-btn-stop:hover:not(:disabled) { filter: brightness(1.1); }
 
 /* ---------- toasts ---------- */
@@ -619,8 +634,8 @@ body.app .eyebrow { color: var(--faint); }
   font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
   padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap;
 }
-.flag-high { background: var(--work); color: #fff; }
-.flag-med { background: #f6e7c6; color: #7c5705; }
+.flag-high { background: var(--work); color: var(--flag-high-ink, #fff); }
+.flag-med { background: var(--flag-med-bg); color: var(--flag-med-ink); }
 .flag-off { background: var(--panel-hi); color: var(--faint); }
 
 /* ---------- the rail ---------- */
@@ -632,9 +647,15 @@ body.app .eyebrow { color: var(--faint); }
 .rail {
   --rail-fg: #f4f1ec;
   --rail-muted: #99938a;
-  --rail-line: #302d29;
+  --rail-line: #262320;
   background: var(--rail);
   color: var(--rail-fg);
+  /* One hairline so the rail reads as its own plane against a ground that is
+     nearly as dark, rather than as a shadow of it. */
+  border-bottom: 1px solid #211f1c;
+}
+@media (min-width: 768px) {
+  .rail { border-bottom: 0; border-right: 1px solid #211f1c; }
 }
 .rail-quiet { color: var(--rail-muted); transition: color 140ms ease; }
 .rail-action:hover { color: var(--rail-fg); }
