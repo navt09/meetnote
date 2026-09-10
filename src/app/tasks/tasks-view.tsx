@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, PageHead } from "@/components/ui";
 import { filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
 import { PriorityFlag } from "@/components/priority";
 
@@ -73,16 +73,16 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
 
   return (
     <section className="flex flex-col gap-6 pt-10">
-      <div className="rise flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Tasks</h1>
-          <p className="mt-1 text-sm text-muted">
+      <PageHead
+        title="Tasks"
+        meta={
+          <>
             {openCount === 0 ? "Nothing outstanding" : `${openCount} still to do`}
             {tasks.length > openCount ? ` · ${tasks.length - openCount} done` : ""}
-          </p>
-        </div>
-        <Link href="/record" className="btn btn-primary">New meeting</Link>
-      </div>
+          </>
+        }
+        action={<Link href="/record" className="btn btn-primary">New meeting</Link>}
+      />
 
       {error ? <p className="glass p-4 text-sm text-danger">{error}</p> : null}
 

@@ -87,6 +87,34 @@ export function ProcessingStepper({ status }: { status: MeetingStatus }) {
   );
 }
 
+/**
+ * The header every page in the app opens with.
+ *
+ * The same skeleton as a section on the landing page: the title on the left,
+ * the one thing to do on the right, a hairline under both. The title is set in
+ * Fraunces at regular weight rather than the body face, which is what makes
+ * the tool and the shopfront read as one product without sharing a palette.
+ */
+export function PageHead({
+  title,
+  meta,
+  action,
+}: {
+  title: React.ReactNode;
+  meta?: React.ReactNode;
+  action?: React.ReactNode;
+}) {
+  return (
+    <header className="sec-head rise">
+      <div className="min-w-0">
+        <h1 className="display text-4xl">{title}</h1>
+        {meta ? <p className="mt-2 text-sm text-muted">{meta}</p> : null}
+      </div>
+      {action ? <div className="flex shrink-0 flex-wrap gap-2">{action}</div> : null}
+    </header>
+  );
+}
+
 export function EmptyState({ title, body, action }: { title: string; body: string; action?: React.ReactNode }) {
   return (
     <div className="glass px-6 py-12 text-center">

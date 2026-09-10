@@ -151,11 +151,11 @@ export default function MeetingPage() {
                 if (e.key === "Enter") saveTitle();
                 if (e.key === "Escape") setEditing(false);
               }}
-              className="field min-w-0 flex-1 !py-1.5 text-2xl font-semibold"
+              className="field display min-w-0 flex-1 !py-1.5 text-2xl"
             />
           ) : (
             <h1
-              className="group cursor-text text-3xl font-semibold leading-tight tracking-tight"
+              className="group display cursor-text text-4xl"
               title="Click to rename"
               onClick={() => {
                 setDraft(meeting.title);

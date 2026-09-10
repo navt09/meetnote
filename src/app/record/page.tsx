@@ -2,7 +2,7 @@ import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { tierFor } from "@/lib/account-store";
 import { canRecord } from "@/lib/account";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, PageHead } from "@/components/ui";
 import RecordView from "./record-view";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +17,7 @@ export default async function RecordPage() {
   if (!canRecord(tier)) {
     return (
       <section className="flex flex-col gap-6 pt-10">
-        <h1 className="rise text-3xl font-semibold tracking-tight">Record</h1>
+        <PageHead title="Record" />
         <EmptyState
           title="Recording needs an active account"
           body="Your free account can read the meetings and notes you already have. Recording, transcription and AI notes need an active account."

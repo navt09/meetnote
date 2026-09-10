@@ -5,6 +5,7 @@ import { getJson, patchJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { TIER_LABEL, type Tier } from "@/lib/account";
 import type { OwnerAccount } from "@/lib/owner-store";
+import { PageHead } from "@/components/ui";
 
 const money = (n: number) => `$${n.toFixed(n > 0 && n < 1 ? 4 : 2)}`;
 
@@ -64,10 +65,7 @@ export default function OwnerView({
 
   return (
     <section className="flex flex-col gap-6 pt-10">
-      <div className="rise">
-        <h1 className="text-3xl font-semibold tracking-tight">Owner</h1>
-        <p className="mt-1 text-sm text-muted">Everyone who has signed up, and what running them costs.</p>
-      </div>
+      <PageHead title="Owner" meta="Everyone who has signed up, and what running them costs." />
 
       <div className="rise grid grid-cols-2 gap-3 sm:grid-cols-4">
         <Stat label="Accounts" value={String(accounts.length)} />

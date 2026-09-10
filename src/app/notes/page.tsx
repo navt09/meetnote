@@ -4,7 +4,7 @@ import { isOwnerEmail } from "@/lib/admin";
 import { formatTimestamp } from "@/lib/transcript";
 import { formatUsd } from "@/lib/cost";
 import { toPublicSummary, type Meeting } from "@/lib/meeting";
-import { EmptyState, StatusPill } from "@/components/ui";
+import { EmptyState, PageHead, StatusPill } from "@/components/ui";
 import DeleteMeetingButton from "./delete-button";
 import SearchBox from "./search-box";
 
@@ -32,18 +32,18 @@ export default async function NotesPage() {
 
   return (
     <section className="flex flex-col gap-6 pt-10">
-      <div className="rise flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Notes</h1>
-          {meetings.length > 0 ? (
-            <p className="mt-1 text-sm text-muted">
+      <PageHead
+        title="Notes"
+        meta={
+          meetings.length > 0 ? (
+            <>
               {meetings.length} meeting{meetings.length === 1 ? "" : "s"} · {formatTimestamp(totalSeconds)} of audio
               {owner ? ` · ${formatUsd(meetings.reduce((n, m) => n + (m.internal?.costUsd ?? 0), 0))} spent` : ""}
-            </p>
-          ) : null}
-        </div>
-        <Link href="/record" className="btn btn-primary">New meeting</Link>
-      </div>
+            </>
+          ) : null
+        }
+        action={<Link href="/record" className="btn btn-primary">New meeting</Link>}
+      />
 
       {error ? <p className="glass p-4 text-sm text-danger">Could not load your notes. Refresh to try again.</p> : null}
 

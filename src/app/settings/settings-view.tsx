@@ -8,6 +8,7 @@ import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvi
 import { BrandMark } from "@/components/brand-marks";
 import { canUseAi, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
 import { settingsFlash } from "@/lib/flash";
+import { PageHead } from "@/components/ui";
 
 type Team = { id: string; name: string };
 type Project = { id: string; key: string; name: string };
@@ -89,10 +90,7 @@ export default function SettingsView({
 
   return (
     <section className="flex flex-col gap-6 pt-10">
-      <div className="rise">
-        <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-sm text-muted">Your account, and the tools your approved work goes to.</p>
-      </div>
+      <PageHead title="Settings" meta="Your account, and the tools your approved work goes to." />
 
       <div className="glass rise p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">

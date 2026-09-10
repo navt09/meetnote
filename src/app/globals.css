@@ -432,9 +432,13 @@ body {
    right, then a hairline. The same row every time is what makes a long page
    feel short. */
 .sec-head {
-  display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem;
+  display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 1.5rem;
   padding-bottom: 1.5rem; border-bottom: 1px solid var(--panel-border);
 }
+/* In the app the accent is the work hue, and a red label above every section
+   would claim a meaning it does not have. The eyebrow keeps its shape and
+   drops to the quietest ink. */
+body.app .eyebrow { color: var(--faint); }
 .display {
   font-family: var(--font-fraunces), Georgia, serif;
   font-weight: 400; letter-spacing: -0.02em; line-height: 1.05;

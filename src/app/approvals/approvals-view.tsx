@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { deleteJson, patchJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
-import { EmptyState } from "@/components/ui";
+import { EmptyState, PageHead } from "@/components/ui";
 import { draftToClipboard, kindLabel, sortDrafts, type DraftStatus, type PublicDraft } from "@/lib/draft";
 import { parseBlocks, type Inline } from "@/lib/markdown-lite";
 
@@ -116,15 +116,11 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
 
   return (
     <section className="flex flex-col gap-6 pt-10">
-      <div className="rise flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-semibold tracking-tight">Approvals</h1>
-          <p className="mt-1 text-sm text-muted">
-            {pendingCount === 0 ? "Nothing waiting on you" : `${pendingCount} waiting on you`}
-          </p>
-        </div>
-        <Link href="/tasks" className="btn btn-ghost">Go to tasks</Link>
-      </div>
+      <PageHead
+        title="Approvals"
+        meta={pendingCount === 0 ? "Nothing waiting on you" : `${pendingCount} waiting on you`}
+        action={<Link href="/tasks" className="btn btn-ghost">Go to tasks</Link>}
+      />
 
       {loadError ? <p className="glass p-4 text-sm text-danger">{loadError}</p> : null}
 

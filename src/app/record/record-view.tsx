@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { MeetingRecorder, checkSupport, MAX_RECORDING_SECONDS, WARN_RECORDING_SECONDS, type SupportCheck } from "@/lib/recorder";
 import type { Window } from "@/lib/self-speech";
+import { PageHead } from "@/components/ui";
 import {
   appendChunk,
   createRecording,
@@ -297,6 +298,8 @@ export default function RecordView() {
 
   return (
     <section className="flex flex-col gap-6 pt-10">
+      <PageHead title="Record" meta="Nothing joins the call. Your browser does the recording, on this machine." />
+
       {support && !support.ok ? (
         <div className="glass pop border-danger/40 p-5 text-sm text-danger">{support.reason}</div>
       ) : null}
