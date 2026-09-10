@@ -124,6 +124,35 @@ export default function Home() {
           </div>
         </div>
 
+        {/* where the work ends up: the part nobody else does, so it comes first */}
+        <Reveal className="mt-20 sm:mt-24">
+          <SectionHead
+            eyebrow="Where the work ends up"
+            title={
+              <>
+                Approve it once.
+                <br />
+                It lands where your team already looks.
+              </>
+            }
+            action={<a href="#how" className="btn btn-ghost">See how it works</a>}
+          />
+        </Reveal>
+        <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {CONNECTS.map((c, i) => (
+            <Reveal key={c.provider} delay={i * 70} className="h-full">
+              <div className="glass glass-hover flex h-full flex-col gap-4 p-5">
+                <BrandMark provider={c.provider} />
+                <div>
+                  <h3 className="font-semibold">{c.name}</h3>
+                  <p className="mt-1 text-sm leading-relaxed text-muted">{c.body}</p>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+        <p className="mt-4 text-sm text-faint">One click to connect each, with the narrowest permission that does the job. Nothing is sent until you press Approve.</p>
+
         {/* works with */}
         <Reveal className="mt-16 sm:mt-20">
           <p className="text-center text-sm text-faint">Works on whatever you already use. Chrome and Edge, nothing to install.</p>
@@ -202,30 +231,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ================= paper: where it goes, and what it costs ================= */}
+      {/* ================= paper: what it costs ================= */}
       <section className="light py-20 sm:py-24">
         <div className="wrap">
-          <Reveal>
-            <SectionHead
-              eyebrow="Where the work ends up"
-              title="One click each, the narrowest permission that does the job."
-            />
-          </Reveal>
-          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {CONNECTS.map((c, i) => (
-              <Reveal key={c.provider} delay={i * 70}>
-                <div className="glass glass-hover flex h-full flex-col gap-4 p-5">
-                  <BrandMark provider={c.provider} />
-                  <div>
-                    <h3 className="font-semibold">{c.name}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-muted">{c.body}</p>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-
-          <div id="pricing" className="scroll-mt-14 pt-20 sm:pt-24">
+          <div id="pricing" className="scroll-mt-14">
             <Reveal>
               <SectionHead
                 eyebrow="Pricing"
