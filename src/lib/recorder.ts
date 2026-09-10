@@ -4,12 +4,53 @@
 // It also keeps a timeline of when the microphone is the loud one, which is
 // how the notes know which lines were the user's. See self-speech.ts.
 
-import { audibleSeconds, isSelfSample, rmsDb, SAMPLE_MS, SIGNAL_FLOOR_DB, trailingSilenceSeconds, windowsFromMarks, type Mark, type Window } from "./self-speech";
+import { audibleSeconds, isSelfSample, rmsDb, SAMPLE_MS, SIGNAL_FLOOR_DB, windowsFromMarks, type Mark, type Window } from "./self-speech";
 
 export const CHUNK_MS = 5000;
 export const AUDIO_BITRATE = 32_000; // opus at 32 kbps: clear speech, ~14 MB per hour
 export const MAX_RECORDING_SECONDS = 3.5 * 3600; // keeps a recording under the 50 MB upload cap
 export const WARN_RECORDING_SECONDS = 3 * 3600;
+
+/**
+ * How long nothing may be heard before capture is paused.
+ *
+ * Transcription is billed by the length of the audio, not by what is in it, so
+ * a meeting with a twenty-minute break in it costs twenty minutes of nothing.
+ * Pausing the recorder simply leaves that stretch out of the file; there is no
+ * re-encoding and no cutting afterwards.
+ *
+ * The floor this measures against is digital silence (-70 dBFS), not a speech
+ * threshold. Room tone through an open microphone sits far above it, so this
+ * only fires when nothing at all is arriving: a muted mic and a silent
+ * meeting. That matters, because capture resumes on the first sample above the
+ * floor, and a sample is 200ms: room noise wakes it well before anybody
+ * speaks. On a truly silent line the first fifth of a second could be lost,
+ * which is why the threshold is generous rather than eager.
+ */
+export const TRIM_AFTER_SILENT_SECONDS = 45;
+
+/** Long enough to ask whether the meeting is still going. */
+export const SILENCE_PROMPT_SECONDS = 180;
+/** And how long the question waits for an answer before recording is stopped. */
+export const SILENCE_GRACE_SECONDS = 120;
+
+export type SilenceAction = "none" | "ask" | "stop";
+
+/**
+ * What a stretch of silence calls for. Pure, so the thresholds can be checked
+ * without a microphone, and shared, so the banner and the stop can never
+ * disagree about when each one happens.
+ *
+ * `answered` is someone having said the meeting is still going. It holds only
+ * until something is heard again, at which point the caller clears it: one
+ * answer should not license an hour of silence later on.
+ */
+export function silenceAction(silentSeconds: number, answered: boolean): SilenceAction {
+  if (answered || !Number.isFinite(silentSeconds)) return "none";
+  if (silentSeconds >= SILENCE_PROMPT_SECONDS + SILENCE_GRACE_SECONDS) return "stop";
+  if (silentSeconds >= SILENCE_PROMPT_SECONDS) return "ask";
+  return "none";
+}
 
 export type SupportCheck = {
   ok: boolean;
@@ -57,6 +98,11 @@ export class MeetingRecorder {
   private recorder: MediaRecorder | null = null;
   private index = 0;
   private stopped = false;
+  /** Wall-clock moment the current silent run began, null while anything is audible. */
+  private silentSince: number | null = null;
+  /** Total seconds left out of the file so far. */
+  private trimmed = 0;
+  private pausedAt: number | null = null;
 
   // One analyser per source, so the two can be compared. The public analyser
   // above hears the mix and only drives the waveform on screen.
@@ -166,7 +212,7 @@ export class MeetingRecorder {
     const sysFrame = new Float32Array(1024);
     const t0 = ctx.currentTime;
     this.sampler = window.setInterval(() => {
-      const t = ctx.currentTime - t0;
+      const now = ctx.currentTime;
       let micDb = -100;
       if (this.micAnalyser) {
         this.micAnalyser.getFloatTimeDomainData(micFrame);
@@ -177,14 +223,58 @@ export class MeetingRecorder {
         this.sysAnalyser.getFloatTimeDomainData(sysFrame);
         meetingDb = rmsDb(sysFrame);
       }
+      // Either source counts: this asks whether anything is being captured at
+      // all, not who is talking.
+      const sound = Math.max(micDb, meetingDb) > SIGNAL_FLOOR_DB;
+
+      if (sound) {
+        this.silentSince = null;
+        this.resumeCapture(now);
+      } else {
+        if (this.silentSince === null) this.silentSince = now;
+        if (now - this.silentSince >= TRIM_AFTER_SILENT_SECONDS) this.pauseCapture(now);
+      }
+
+      // Nothing is being written while paused, so nothing is marked: the marks
+      // have to describe the file, not the room, or the timeline they carry
+      // would no longer line up with the transcript's.
+      if (this.pausedAt !== null) return;
+
       this.marks.push({
-        t,
+        t: now - t0 - this.trimmed,
         self: this.micAnalyser ? isSelfSample(micDb, meetingDb, !!this.sysAnalyser) : false,
-        // Either source counts: this asks whether anything is being captured
-        // at all, not who is talking.
-        sound: Math.max(micDb, meetingDb) > SIGNAL_FLOOR_DB,
+        sound,
       });
     }, SAMPLE_MS);
+  }
+
+  /** Stops writing audio. Safe to call when already paused. */
+  private pauseCapture(now: number): void {
+    if (this.pausedAt !== null) return;
+    const r = this.recorder;
+    if (!r || r.state !== "recording") return;
+    r.pause();
+    this.pausedAt = now;
+  }
+
+  /** Starts writing again, and remembers how much was left out. */
+  private resumeCapture(now: number): void {
+    if (this.pausedAt === null) return;
+    this.trimmed += now - this.pausedAt;
+    this.pausedAt = null;
+    const r = this.recorder;
+    if (r && r.state === "paused") r.resume();
+  }
+
+  /** Seconds of silence left out of the file. Counts the current pause too. */
+  trimmedSeconds(): number {
+    const live = this.pausedAt !== null && this.ctx ? this.ctx.currentTime - this.pausedAt : 0;
+    return this.trimmed + live;
+  }
+
+  /** True while nothing is being written because nothing is being heard. */
+  isTrimming(): boolean {
+    return this.pausedAt !== null;
   }
 
   /** When the user was the one speaking, as [start, end] seconds. Valid after stop. */
@@ -202,14 +292,24 @@ export class MeetingRecorder {
     return this.marks.length ? this.marks[this.marks.length - 1].t : 0;
   }
 
-  /** How long it has been silent right now. Live, for warning mid-recording. */
+  /**
+   * How long it has been silent right now, in real time.
+   *
+   * Read from the wall clock rather than from the marks: while capture is
+   * paused no marks are written, so a marks-based answer would freeze at the
+   * moment trimming began and the "still there?" prompt would never fire.
+   */
   silentForSeconds(): number {
-    return trailingSilenceSeconds(this.marks);
+    if (this.silentSince === null || !this.ctx) return 0;
+    return this.ctx.currentTime - this.silentSince;
   }
 
   stop(): void {
     if (this.stopped) return;
     this.stopped = true;
+    // Close an open pause so the trimmed total is right, and so the recorder
+    // is in a state that can actually be stopped.
+    if (this.ctx) this.resumeCapture(this.ctx.currentTime);
     const r = this.recorder;
     if (r && r.state !== "inactive") {
       r.stop(); // triggers final ondataavailable, then onstop -> dispose

@@ -2,7 +2,16 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { MeetingRecorder, checkSupport, MAX_RECORDING_SECONDS, WARN_RECORDING_SECONDS, type SupportCheck } from "@/lib/recorder";
+import {
+  MeetingRecorder,
+  checkSupport,
+  MAX_RECORDING_SECONDS,
+  SILENCE_GRACE_SECONDS,
+  SILENCE_PROMPT_SECONDS,
+  silenceAction,
+  WARN_RECORDING_SECONDS,
+  type SupportCheck,
+} from "@/lib/recorder";
 import type { Window } from "@/lib/self-speech";
 import { PageHead } from "@/components/ui";
 import {
@@ -47,6 +56,16 @@ export default function RecordView() {
   const [sources, setSources] = useState<{ system: boolean; mic: boolean } | null>(null);
   // Seconds of continuous silence right now. Nonzero for long means nothing is being captured.
   const [silentFor, setSilentFor] = useState(0);
+  // Seconds of silence left out of the file, and whether any is being left out
+  // right now.
+  const [trimmed, setTrimmed] = useState(0);
+  // Set when someone answers the "still going?" question. Cleared the moment
+  // anything is heard again, so a second long silence asks again rather than
+  // recording in silence for ever on one old answer.
+  const [stillGoing, setStillGoing] = useState(false);
+  // The one-second timer closes over the render that created it, so the answer
+  // reaches it through a ref rather than through state.
+  const stillGoingRef = useRef(false);
   const [recoverable, setRecoverable] = useState<RecordingMeta[]>([]);
 
   const recorderRef = useRef<MeetingRecorder | null>(null);
@@ -219,11 +238,28 @@ export default function RecordView() {
 
     setPhase("recording");
     timerRef.current = window.setInterval(() => {
-      setSilentFor(recorderRef.current?.silentForSeconds() ?? 0);
+      const rec = recorderRef.current;
+      const silent = rec?.silentForSeconds() ?? 0;
+      setSilentFor(silent);
+      setTrimmed(rec?.trimmedSeconds() ?? 0);
+
+      // Anything audible clears the question, so the next long silence asks
+      // again from scratch.
+      if (silent < 2) {
+        stillGoingRef.current = false;
+        setStillGoing(false);
+      }
+      if (silenceAction(silent, stillGoingRef.current) === "stop") {
+        setWarning(
+          "Recording stopped: nothing was heard for five minutes and the question went unanswered. Everything up to that point is here to save.",
+        );
+        rec?.stop();
+      }
+
       setElapsed((s) => {
         const next = s + 1;
         if (next === WARN_RECORDING_SECONDS) setWarning("This is getting long. Recording stops automatically at 3.5 hours.");
-        if (next >= MAX_RECORDING_SECONDS) recorderRef.current?.stop();
+        if (next >= MAX_RECORDING_SECONDS) rec?.stop();
         return next;
       });
     }, 1000);
@@ -395,7 +431,7 @@ export default function RecordView() {
               what is actually arriving, and keeps counting since the last
               sound, so silence is visible long before the alarm fires. */}
           {phase === "recording" ? (
-            <dl className="strip w-full max-w-md grid-cols-3 text-center">
+            <dl className="strip w-full max-w-md grid-cols-2 text-center sm:grid-cols-4">
               <div>
                 <dt className="text-xs text-faint">Meeting</dt>
                 <dd className={`mt-1.5 text-sm font-medium ${sources?.system ? "" : "text-warn"}`}>
@@ -409,6 +445,10 @@ export default function RecordView() {
                 </dd>
               </div>
               <div>
+                <dt className="text-xs text-faint">Not recorded</dt>
+                <dd className="figure mt-1.5 text-sm">{trimmed >= 1 ? formatTimestamp(trimmed) : "0:00"}</dd>
+              </div>
+              <div>
                 <dt className="text-xs text-faint">Last heard</dt>
                 <dd className={`figure mt-1.5 text-sm ${silentFor >= 60 ? "text-warn" : ""}`}>
                   {silentFor < 2 ? "just now" : `${Math.round(silentFor)}s ago`}
@@ -418,18 +458,33 @@ export default function RecordView() {
           ) : null}
 
           {/* Silence is the one thing worth interrupting a recording over,
-              since transcription is billed by length rather than content. Set
-              at three minutes: people think, read, and sit through a demo, and
-              a warning that fires during a normal pause is one people learn to
-              ignore. Three minutes of true digital silence is a broken
-              capture, not a lull. */}
-          {phase === "recording" && silentFor >= 180 ? (
+              since transcription is billed by length rather than content. The
+              question is asked at three minutes and answered by pressing a
+              button; two minutes later, unanswered, recording stops. Nothing
+              is thrown away when it does, and the audio recorded so far is
+              still there to save. Stopping without asking would eventually
+              cut a real meeting off during a long demo or a document being
+              read aloud, which is a far worse thing to get wrong than a few
+              cents of transcription. */}
+          {phase === "recording" && silenceAction(silentFor, stillGoing) === "ask" ? (
             <div className="max-w-sm rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-center">
-              <p className="text-sm font-medium text-danger">Nothing has been heard for {Math.round(silentFor / 60)} minutes</p>
+              <p className="text-sm font-medium text-danger">Is this meeting still going?</p>
               <p className="mt-1 text-xs leading-relaxed text-muted">
-                No sound is reaching the recording from either source. Stop and check that the right window is shared
-                and your microphone is not muted, rather than recording more of this.
+                Nothing has been heard from either side for {Math.round(silentFor / 60)} minutes. Recording stops in{" "}
+                <span className="figure">
+                  {formatTimestamp(Math.max(0, SILENCE_PROMPT_SECONDS + SILENCE_GRACE_SECONDS - silentFor))}
+                </span>{" "}
+                unless you say otherwise.
               </p>
+              <button
+                className="btn btn-primary mt-3 !py-1 text-xs"
+                onClick={() => {
+                  stillGoingRef.current = true;
+                  setStillGoing(true);
+                }}
+              >
+                Yes, keep recording
+              </button>
             </div>
           ) : null}
 
