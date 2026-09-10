@@ -395,12 +395,15 @@ export default function RecordView() {
             </p>
           ) : null}
 
-          {/* Silence is the one thing worth interrupting a recording over.
-              Transcription is billed by length, not by content, so an hour of
-              nothing costs the same as an hour of meeting. */}
-          {phase === "recording" && silentFor >= 45 ? (
+          {/* Silence is the one thing worth interrupting a recording over,
+              since transcription is billed by length rather than content. Set
+              at three minutes: people think, read, and sit through a demo, and
+              a warning that fires during a normal pause is one people learn to
+              ignore. Three minutes of true digital silence is a broken
+              capture, not a lull. */}
+          {phase === "recording" && silentFor >= 180 ? (
             <div className="max-w-sm rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-center">
-              <p className="text-sm font-medium text-danger">Nothing has been heard for {Math.round(silentFor)}s</p>
+              <p className="text-sm font-medium text-danger">Nothing has been heard for {Math.round(silentFor / 60)} minutes</p>
               <p className="mt-1 text-xs leading-relaxed text-muted">
                 No sound is reaching the recording from either source. Stop and check that the right window is shared
                 and your microphone is not muted, rather than recording more of this.

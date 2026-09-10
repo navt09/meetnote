@@ -2,6 +2,9 @@ import type { MeetingNotes, TranscriptSegment } from "@/lib/schema";
 import { formatTimestamp } from "@/lib/transcript";
 import { kindLabel, type TaskKind } from "@/lib/task";
 import { PeopleToContact } from "./people-actions";
+import { ActionItems } from "./action-items";
+import { ShareToSlack } from "./share-slack";
+import Link from "next/link";
 
 /**
  * Colour here is semantic, never decorative: it is the status tokens doing the
@@ -83,6 +86,7 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
       <section className="glass p-6">
         <SectionHead title="Summary" />
         <p className="mt-4 leading-relaxed">{notes.summary}</p>
+        {meetingId ? <ShareToSlack meetingId={meetingId} /> : null}
         {notes.key_points.length ? (
           <ul className="mt-5 flex flex-col gap-2 border-t border-panel-border pt-5 text-sm">
             {notes.key_points.map((k, i) => (
@@ -97,8 +101,16 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
 
       {/* ---- action items: the point of the page, so it gets the full width ---- */}
       <section className="glass p-6">
-        <SectionHead title="Action items" count={notes.action_items.length} />
-        {notes.action_items.length === 0 ? (
+        <div className="flex items-baseline justify-between gap-3 border-b border-panel-border pb-3">
+          <h2 className="font-display text-base font-semibold tracking-tight">Action items</h2>
+          <span className="flex items-baseline gap-3">
+            <span className="font-mono text-xs text-faint">{notes.action_items.length}</span>
+            <Link href="/tasks" className="text-xs text-muted transition-colors hover:text-fg">All tasks &rarr;</Link>
+          </span>
+        </div>
+        {meetingId ? (
+          <ActionItems meetingId={meetingId} fallback={notes.action_items} />
+        ) : notes.action_items.length === 0 ? (
           <p className="mt-4 text-sm text-muted">Nothing to do came out of this one.</p>
         ) : (
           <ul className="mt-4 flex flex-col gap-2.5">
@@ -107,7 +119,7 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
               return (
                 <li
                   key={i}
-                  className="rounded-lg border border-panel-border bg-bg-elev py-3 pl-4 pr-4"
+                  className="rounded-lg border border-panel-border bg-bg-elev p-4"
                   style={{ borderLeftWidth: "3px", borderLeftColor: p.stripe }}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
@@ -115,7 +127,7 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
                     <span className={`pill ${p.pill} shrink-0`}>{p.label}</span>
                   </div>
                   {a.details ? <p className="mt-1.5 text-sm leading-relaxed text-muted">{a.details}</p> : null}
-                  <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
                     <span className={a.owner ? "font-medium text-fg" : "text-faint"}>{a.owner ?? "Unassigned"}</span>
                     <span className="text-faint">{kindLabel(a.kind as TaskKind)}</span>
                     {a.due ? <span className="text-warn">due {a.due}</span> : null}

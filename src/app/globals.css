@@ -4,16 +4,23 @@
    motion. No gradient text, no glow, no drifting blobs. */
 
 :root {
+  /* Surfaces step up: page, card, then a row raised inside a card. They used
+     to sit within 1.06:1 of each other - bg-elev was byte-identical to panel -
+     so nested rows had no separation at all and hairline borders were doing
+     every bit of the work. */
   --bg: #0a0a0b;
-  --bg-elev: #121214;
-  --panel: #121214;
-  --panel-hi: #17171a;
-  --panel-border: #232327;
-  --panel-border-hi: #34343a;
+  --panel: #151519;
+  --bg-elev: #1e1e24;
+  --panel-hi: #232329;
+  --panel-border: #2b2b31;
+  --panel-border-hi: #3d3d45;
 
+  /* All three clear 4.5:1 on both the card and a raised row. --faint was at
+     3.14:1 while carrying owners, dates and meta lines, which is what made
+     the notes hard to read. */
   --fg: #ededee;
-  --muted: #8c8c94;
-  --faint: #63636b;
+  --muted: #a1a1aa;
+  --faint: #85858f;
 
   --accent: #629bff;
   --accent-ink: #0a0a0b; /* text on an accent fill */
@@ -29,7 +36,7 @@
      Re-run the dataviz validator before changing them. */
   --chart-1: #3987e5;
   --chart-2: #d95926;
-  --chart-grid: #232327;
+  --chart-grid: #2b2b31;
 }
 
 @theme inline {

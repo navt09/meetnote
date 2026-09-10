@@ -9,11 +9,13 @@ export async function GET(req: Request) {
   const auth = await getAuth(req);
   if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
 
-  const { data, error } = await auth.db
-    .from("tasks")
-    .select("*, meetings(title)")
-    .order("created_at", { ascending: false })
-    .limit(500);
+  // Optional filter, so the meeting page can show that meeting's tasks without
+  // pulling every task the account has.
+  const meetingId = new URL(req.url).searchParams.get("meetingId");
+  let query = auth.db.from("tasks").select("*, meetings(title)").order("created_at", { ascending: false }).limit(500);
+  if (meetingId) query = query.eq("meeting_id", meetingId);
+
+  const { data, error } = await query;
 
   if (error) {
     console.error(JSON.stringify({ event: "tasks_list_error", message: error.message }));
