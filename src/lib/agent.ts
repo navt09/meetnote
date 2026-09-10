@@ -8,6 +8,28 @@ import type { ActionItem, MeetingNotes, TranscriptSegment } from "./schema";
 export const DRAFT_MODEL = "claude-haiku-4-5";
 
 /**
+ * Reasoning tokens are billed as output. Drafting is a short rephrasing job
+ * from notes we already have, and a person reads and approves the result
+ * before anything is sent, so the cheaper setting is an acceptable trade here
+ * for the same reason Haiku is.
+ */
+export const DRAFT_EFFORT = "low";
+
+/** The cap on the optional note a sender adds to an email draft. */
+export const DRAFT_NOTE_MAX = 500;
+
+/**
+ * Trims and bounds the sender's optional note. Returns null for empty or for
+ * anything that isn't a string, which means "draft it the way we always did".
+ * Runs of whitespace collapse so a pasted block arrives as one paragraph.
+ */
+export function cleanDraftNote(input: unknown): string | null {
+  if (typeof input !== "string") return null;
+  const cleaned = input.replace(/\s+/g, " ").trim().slice(0, DRAFT_NOTE_MAX).trim();
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/**
  * The one place the model writes something a person might send. It only
  * rephrases what was already said; our code decides where anything goes, and
  * a person approves it first.
@@ -51,7 +73,7 @@ async function run<T>(system: string, prompt: string, schema: Parameters<typeof 
     max_tokens: 8000,
     system,
     messages: [{ role: "user", content: prompt }],
-    output_config: { format: zodOutputFormat(schema) },
+    output_config: { format: zodOutputFormat(schema), effort: DRAFT_EFFORT },
   });
 
   if (response.stop_reason === "refusal") throw new Error("The model declined to draft this.");
@@ -113,7 +135,22 @@ export async function draftEmail(
   transcript: TranscriptSegment[] | null,
   meetingTitle: string,
   senderName: string | null,
+  senderNote?: string | null,
 ): Promise<DraftResult<EmailDraft>> {
+  // The note is the sender's own steer, not a source of facts. It is fenced in
+  // its own tag and explicitly subordinated to the no-inventing rule, so that a
+  // point the meeting never covered cannot arrive in the email as though it did.
+  const noteBlock = senderNote
+    ? [
+        "<sender_notes>",
+        senderNote,
+        "</sender_notes>",
+        "Those are points the sender wants covered. Work in the ones that fit what the meeting actually covered, and leave out the ones that do not.",
+        "They do not override the rule above: never state as fact anything the meeting did not establish.",
+        "",
+      ].join("\n")
+    : "";
+
   const prompt = [
     `<meeting title="${meetingTitle}">`,
     notes?.summary ? `<summary>\n${notes.summary}\n</summary>` : "",
@@ -126,6 +163,7 @@ export async function draftEmail(
     `why they came up: ${person.why}`,
     "</person>",
     "",
+    noteBlock,
     `Write the follow-up email to ${person.name}.`,
   ]
     .filter(Boolean)

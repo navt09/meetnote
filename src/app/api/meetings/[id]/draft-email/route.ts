@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isBlocked, requirePaid } from "@/lib/guard";
-import { draftEmail } from "@/lib/agent";
+import { cleanDraftNote, draftEmail } from "@/lib/agent";
 import { toPublicDraft, type DraftRow } from "@/lib/draft";
 import { publicErrorMessage } from "@/lib/public-error";
 import type { Meeting } from "@/lib/meeting";
@@ -22,7 +22,7 @@ export async function POST(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-  let body: { name?: string };
+  let body: { name?: string; note?: unknown };
   try {
     body = await req.json();
   } catch {
@@ -30,6 +30,7 @@ export async function POST(req: Request, ctx: Ctx) {
   }
   const name = (body.name ?? "").trim();
   if (!name) return NextResponse.json({ error: "Which person?" }, { status: 400 });
+  const note = cleanDraftNote(body.note);
 
   const { data: meetingData, error: meetingError } = await auth.db
     .from("meetings")
@@ -50,7 +51,7 @@ export async function POST(req: Request, ctx: Ctx) {
   let result;
   try {
     const senderName = await getDisplayName(auth.user.id);
-    result = await draftEmail(person, meeting.notes, meeting.transcript, meeting.title, senderName);
+    result = await draftEmail(person, meeting.notes, meeting.transcript, meeting.title, senderName, note);
   } catch (err) {
     console.error(JSON.stringify({ event: "draft_email_error", id, raw: err instanceof Error ? err.message : String(err) }));
     return NextResponse.json({ error: publicErrorMessage(err) }, { status: 502 });

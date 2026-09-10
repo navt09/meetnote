@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { draftToClipboard, kindLabel, sortDrafts, toPublicDraft, type DraftRow, type PublicDraft } from "../draft";
+import { DRAFT_NOTE_MAX, cleanDraftNote } from "../agent";
 
 const draft = (over: Partial<PublicDraft>): PublicDraft => ({
   id: "d", meetingId: "m", meetingTitle: "Standup", taskId: null, kind: "ticket", subject: "S", body: "B",
@@ -58,6 +59,32 @@ describe("draftToClipboard", () => {
   it("omits the To line when nobody is named", () => {
     expect(draftToClipboard({ kind: "email", subject: "Icons", body: "Hi", recipient: null }))
       .toBe("Subject: Icons\n\nHi\n");
+  });
+});
+
+describe("cleanDraftNote", () => {
+  it("trims the ends", () => {
+    expect(cleanDraftNote("  ask about the timeline  ")).toBe("ask about the timeline");
+  });
+  it("collapses runs of whitespace, newlines included", () => {
+    expect(cleanDraftNote("ask about\n\n  the   timeline\ttoo")).toBe("ask about the timeline too");
+  });
+  it("caps the length", () => {
+    const out = cleanDraftNote("a".repeat(DRAFT_NOTE_MAX + 50));
+    expect(out).toHaveLength(DRAFT_NOTE_MAX);
+  });
+  it("does not leave a trailing space when the cap lands mid-gap", () => {
+    const out = cleanDraftNote(`${"a".repeat(DRAFT_NOTE_MAX - 1)} tail`);
+    expect(out).toBe("a".repeat(DRAFT_NOTE_MAX - 1));
+  });
+  it("returns null for empty or whitespace-only input", () => {
+    expect(cleanDraftNote("")).toBeNull();
+    expect(cleanDraftNote("   \n\t ")).toBeNull();
+  });
+  it("returns null for anything that is not a string", () => {
+    for (const bad of [undefined, null, 42, {}, ["a note"], true]) {
+      expect(cleanDraftNote(bad)).toBeNull();
+    }
   });
 });
 
