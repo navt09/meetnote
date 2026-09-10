@@ -45,3 +45,11 @@ next-env.d.ts
 /*.html
 /*.graphql
 /resp.txt
+
+# Playwright
+/test-results/
+/playwright-report/
+
+# Smoke test scratch
+/tests/.auth.json
+/tests/.fixture.json

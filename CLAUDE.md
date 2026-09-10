@@ -45,8 +45,16 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 - `npm test` — unit tests (vitest)
 - `npm run migrate` — apply pending SQL migrations
 - `npm run e2e [baseUrl]` — full pipeline test against local or production
+- `npm run smoke` — every signed-in page in a real browser (Playwright)
+- `npm run smoke:clean` — remove any smoke accounts a crashed run left behind
 - `npm run build` — must pass before pushing
 - `npm run lint`
+
+## What each check is for
+- **CI** (`.github/workflows/checks.yml`) runs types, lint, unit tests and the production build on every push and pull request. It needs **no secrets**: every page is dynamic and reads Supabase inside a try, so a build with an empty environment still compiles. If that stops being true, this workflow starts needing keys, which is a much worse place to be.
+- **`npm run smoke`** drives a real browser over every signed-in page: content, the deadline jump, the theme surviving a reload, search, and both themes at phone width, failing on any console error or sideways scroll. It is the pass that used to be done by eye. Its account and meeting are written straight into the database by `scripts/smoke-fixture.mjs`, so a run calls no vendor and costs nothing. Global setup signs in once, saves the cookies, and walks every route so Next has compiled them before anything is timed; a test that signs in itself is really measuring Supabase. **Not in CI**, because it needs the service role key and a secret that can delete any account does not belong in a workflow that runs on pull requests.
+- **`npm run e2e`** is the only check that exercises the real pipeline, and it does cost money: it records, transcribes and extracts. It also covers what the browser cannot easily reach: row level security against a second user, internals staying out of responses, search matching a word from inside a transcript, a deadline resolving once and not moving when read again, and closing an account clearing its audio out of storage rather than only its rows.
+- Anything creating fixtures uses a throwaway account (`smoke-*` / `e2e-*` / `demo-*` at `@fromthecall.invalid`) and refuses to delete anything outside that pattern.
 
 ## Keeping internals out of the browser
 - API routes return `PublicMeeting` / `PublicMeetingSummary` (`src/lib/meeting.ts`), never the raw row. No `user_id`, `storage_path`, token counts or costs unless the caller is an owner (`OWNER_EMAILS`, checked by `src/lib/admin.ts`).

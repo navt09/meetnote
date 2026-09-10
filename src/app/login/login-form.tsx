@@ -134,9 +134,10 @@ export default function LoginForm() {
       </p>
 
       <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-xs text-muted">
-          Email
+        <div className="flex flex-col gap-1 text-xs text-muted">
+          <label htmlFor="email">Email</label>
           <input
+            id="email"
             type="email"
             autoComplete="email"
             required
@@ -145,13 +146,17 @@ export default function LoginForm() {
             placeholder="you@company.com"
             className="field text-base"
           />
-        </label>
+        </div>
 
+        {/* The label is a sibling, not a wrapper. Wrapping it put the show/hide
+            button inside the label, so the field announced itself as
+            "Password Show" to anything reading the page aloud. */}
         {needsPassword ? (
-          <label className="flex flex-col gap-1 text-xs text-muted">
-            Password
+          <div className="flex flex-col gap-1 text-xs text-muted">
+            <label htmlFor="password">Password</label>
             <span className="relative flex items-center">
               <input
+                id="password"
                 type={showPassword ? "text" : "password"}
                 autoComplete={mode === "signup" ? "new-password" : "current-password"}
                 required
@@ -169,7 +174,7 @@ export default function LoginForm() {
                 {showPassword ? "Hide" : "Show"}
               </button>
             </span>
-          </label>
+          </div>
         ) : null}
 
         {notice ? <p className="text-sm text-accent">{notice}</p> : null}

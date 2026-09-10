@@ -36,6 +36,17 @@ let meetingId = null;
 const t0 = Date.now();
 const log = (msg) => console.log(`[${((Date.now() - t0) / 1000).toFixed(1)}s] ${msg}`);
 
+/** Every object under a user's prefix in the recordings bucket. */
+async function listStoredObjects(uid) {
+  const found = [];
+  const { data: months } = await admin.storage.from("recordings").list(uid, { limit: 1000 });
+  for (const month of months ?? []) {
+    const { data: files } = await admin.storage.from("recordings").list(`${uid}/${month.name}`, { limit: 1000 });
+    for (const f of files ?? []) found.push(`${uid}/${month.name}/${f.name}`);
+  }
+  return found;
+}
+
 async function api(path, init = {}, token) {
   const res = await fetch(`${BASE}${path}`, {
     ...init,
@@ -243,6 +254,52 @@ try {
   if (peekTick.status !== 404) throw new Error(`isolation broken: other user ticked a task (${peekTick.status})`);
   log("row level security ok (other user sees no meeting and no tasks)");
 
+  // 8. search reaches inside the meeting, not just its title
+  const words = (m.transcript ?? []).map((seg) => seg.text).join(" ").split(/\s+/).filter((w) => w.length > 6);
+  const needle = words[Math.floor(words.length / 2)]?.replace(/[^\p{L}]/gu, "").toLowerCase();
+  if (!needle || needle.length < 3) throw new Error("transcript had nothing long enough to search for");
+  const hit = await api(`/api/search?q=${encodeURIComponent(needle)}`, {}, token);
+  if (hit.status !== 200) throw new Error(`search: ${hit.status} ${JSON.stringify(hit.json)}`);
+  if (!hit.json.hits?.some((h) => h.id === meetingId)) throw new Error(`search missed the meeting for "${needle}"`);
+  const miss = await api(`/api/search?q=${encodeURIComponent("zzqqxx" + Date.now())}`, {}, token);
+  if ((miss.json.hits ?? []).length !== 0) throw new Error("search invented a hit");
+  const tooShort = await api("/api/search?q=a", {}, token);
+  if ((tooShort.json.hits ?? []).length !== 0) throw new Error("search ran on a single character");
+  log(`search found the meeting by a word from inside it ("${needle}")`);
+
+  // 9. the surface preference is stored on the account, and only ever one of two
+  const badTheme = await api("/api/settings/theme", { method: "PUT", body: JSON.stringify({ theme: "solarized" }) }, token);
+  if (badTheme.status !== 400) throw new Error(`theme: expected 400 for a made-up value, got ${badTheme.status}`);
+  const setLight = await api("/api/settings/theme", { method: "PUT", body: JSON.stringify({ theme: "light" }) }, token);
+  if (setLight.status !== 200) throw new Error(`theme: ${setLight.status} ${JSON.stringify(setLight.json)}`);
+  const { data: themeRow } = await admin.from("user_settings").select("theme").eq("user_id", userId).maybeSingle();
+  if (themeRow?.theme !== "light") throw new Error(`theme not stored: ${JSON.stringify(themeRow)}`);
+  log("theme saved to the account, and a made-up value refused");
+
+  // 10. a deadline is resolved once and then stays where it was put
+  const { data: dueRows } = await admin.from("tasks").select("id,due,due_at").eq("user_id", userId);
+  const dated = (dueRows ?? []).filter((t) => t.due_at);
+  const worded = (dueRows ?? []).filter((t) => t.due && !t.due_at);
+  for (const t of worded) {
+    // Nothing concrete was said, which has to stay a null rather than becoming
+    // a deadline nobody agreed to.
+    // "Last Friday" names a day but is not a deadline, so it is meant to be
+    // undated. Only forward-looking wording has to resolve.
+    const backwards = /\b(last|previous|yesterday)\b/i.test(t.due);
+    if (!backwards && /\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday)\b/i.test(t.due)) {
+      throw new Error(`"${t.due}" was concrete but left undated`);
+    }
+  }
+  if (dated.length > 0) {
+    const before = dated.map((t) => t.due_at).join("|");
+    const reread = await api("/api/tasks", {}, token);
+    if (reread.status !== 200) throw new Error(`tasks reread: ${reread.status}`);
+    const { data: after } = await admin.from("tasks").select("id,due_at").eq("user_id", userId).order("idx");
+    const now = (after ?? []).filter((t) => t.due_at).map((t) => t.due_at).join("|");
+    if (before !== now) throw new Error("a deadline moved just from being read");
+  }
+  log(`${dated.length} deadline(s) resolved once, ${worded.length} left undated because nothing concrete was said`);
+
   const del = await api(`/api/meetings/${meetingId}`, { method: "DELETE" }, token);
   if (del.status !== 200) throw new Error(`delete: ${del.status} ${JSON.stringify(del.json)}`);
   const afterDelete = await api("/api/tasks", {}, token);
@@ -251,6 +308,34 @@ try {
   if ((draftsAfter.json.drafts ?? []).length !== 0) throw new Error("drafts outlived their meeting");
   meetingId = null;
   log("deleted meeting + audio; tasks and drafts went with it");
+
+  // 11. closing the account clears the bucket, not just the rows.
+  // Storage has no cascade from auth.users, so this is the step that would
+  // quietly leave someone's recordings behind after they asked us to go.
+  const second = await api("/api/meetings", { method: "POST", body: JSON.stringify({ mimeType: mime, bytes: audio.length, durationSeconds: 40, recordedAt: new Date().toISOString() }) }, token);
+  if (second.status !== 201) throw new Error(`second meeting: ${second.status}`);
+  meetingId = second.json.meetingId;
+  const put2 = await fetch(second.json.signedUrl, { method: "PUT", headers: { "Content-Type": mime, "x-upsert": "true" }, body: audio });
+  if (!put2.ok) throw new Error(`second upload: ${put2.status}`);
+
+  const before = await listStoredObjects(userId);
+  if (before.length === 0) throw new Error("nothing in storage to prove deletion with");
+
+  const wrongConfirm = await api("/api/account", { method: "DELETE", body: JSON.stringify({ confirm: "not-my-email@example.com" }) }, token);
+  if (wrongConfirm.status === 200) throw new Error("account deleted without the right confirmation");
+  log(`account deletion refused the wrong confirmation (${wrongConfirm.status})`);
+
+  const closed = await api("/api/account", { method: "DELETE", body: JSON.stringify({ confirm: email }) }, token);
+  if (closed.status !== 200) throw new Error(`account delete: ${closed.status} ${JSON.stringify(closed.json)}`);
+
+  const after = await listStoredObjects(userId);
+  if (after.length > 0) throw new Error(`audio outlived the account: ${after.length} object(s) still in the bucket`);
+  const { data: gone } = await admin.auth.admin.getUserById(userId);
+  if (gone?.user) throw new Error("the account itself is still there");
+  log(`account closed: ${before.length} audio object(s) removed from storage, user gone`);
+  meetingId = null;
+  userId = null;
+
   console.log("\nE2E PASSED");
 } catch (err) {
   console.error("\nE2E FAILED:", err.message);
