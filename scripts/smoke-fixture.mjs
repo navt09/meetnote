@@ -134,6 +134,18 @@ const TRANSCRIPT = [
   { start: 17, end: 22, speaker: FIXTURE_NAME, text: "Agreed. I will chase design on Monday." },
 ];
 
+/**
+ * The lines either side of the first task's quote, which is TRANSCRIPT[1].
+ *
+ * Derived from the transcript rather than typed out, so it cannot drift from
+ * it. The pipeline finds this by matching text; the fixture never runs the
+ * pipeline, so it writes the answer the matcher would have reached.
+ */
+const QUOTE_CONTEXT = {
+  before: { speaker: TRANSCRIPT[0].speaker, text: TRANSCRIPT[0].text },
+  after: { speaker: TRANSCRIPT[2].speaker, text: TRANSCRIPT[2].text },
+};
+
 /** Creates the account and everything the pages need to render. */
 export async function createFixture() {
   const email = `${PREFIX}${Date.now()}${DOMAIN}`;
@@ -185,6 +197,7 @@ export async function createFixture() {
     due: a.due,
     quote: a.quote ?? null,
     first_step: a.first_step ?? null,
+    quote_context: idx === 0 ? QUOTE_CONTEXT : null,
     // One real deadline, so the Tasks page's due column has something to show.
     due_at: idx === 0 ? dueAt : null,
     priority: a.priority,

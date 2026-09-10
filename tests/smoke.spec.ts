@@ -149,6 +149,10 @@ test.describe("every page renders what it was given", () => {
     // not a paraphrase of them.
     await expect(page.getByText(/over ten thousand rows/)).toBeVisible();
     await expect(page.getByText(/Reproduce it with a ten thousand row export/)).toBeVisible();
+    // The lines either side of the quote, which are what say why the task
+    // exists rather than merely that somebody said it.
+    await expect(page.getByText(/Login refactor is merged/)).toBeVisible();
+    await expect(page.getByText(/Then dark mode waits/)).toBeVisible();
 
     await withContext.click();
     await expect(withContext).toHaveAttribute("aria-expanded", "false");

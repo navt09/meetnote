@@ -1,5 +1,7 @@
 import type { ActionItem } from "./schema";
 import { parseDue } from "./schedule";
+import { quoteContext, type QuoteContext } from "./quote-context";
+import type { TranscriptSegment } from "./schema";
 
 export type TaskStatus = "open" | "done" | "dismissed";
 export type TaskPriority = "low" | "medium" | "high";
@@ -23,6 +25,8 @@ export type TaskRow = {
   quote: string | null;
   /** A suggested place to start, from the discussion. Null when it gave none. */
   first_step: string | null;
+  /** The lines either side of the quote. Null when the quote could not be placed. */
+  quote_context: QuoteContext | null;
   status: TaskStatus;
   completed_at: string | null;
   calendar_event_url: string | null;
@@ -49,6 +53,8 @@ export type PublicTask = {
   quote: string | null;
   /** Where to start, shown as a suggestion and never as something agreed. */
   firstStep: string | null;
+  /** What was said either side of the quote, so it can be read in context. */
+  quoteContext: QuoteContext | null;
   status: TaskStatus;
   completedAt: string | null;
   createdAt: string;
@@ -72,6 +78,7 @@ export function toPublicTask(row: TaskRow, meetingTitle: string): PublicTask {
     // flattened to null and the UI has one absent case to handle, not two.
     quote: row.quote ?? null,
     firstStep: row.first_step ?? null,
+    quoteContext: row.quote_context ?? null,
     status: row.status,
     completedAt: row.completed_at,
     createdAt: row.created_at,
@@ -89,8 +96,19 @@ const KINDS: TaskKind[] = ["bug", "feature", "task", "follow_up", "other"];
  * `due` keeps the words from the meeting; `due_at` pins them to a moment using
  * `now`, which is the clock at extraction. Resolving the phrase again later is
  * what made deadlines walk forward for ever, so it is resolved exactly once.
+ *
+ * `segments` is the transcript the items were extracted from, used only to
+ * find the lines either side of each quote. It is optional because the rows
+ * are valid without it; a caller that has no transcript simply writes tasks
+ * whose quotes stand alone.
  */
-export function actionItemsToRows(items: ActionItem[], userId: string, meetingId: string, now: Date = new Date()) {
+export function actionItemsToRows(
+  items: ActionItem[],
+  userId: string,
+  meetingId: string,
+  now: Date = new Date(),
+  segments: TranscriptSegment[] = [],
+) {
   return items.map((a, idx) => ({
     user_id: userId,
     meeting_id: meetingId,
@@ -105,6 +123,10 @@ export function actionItemsToRows(items: ActionItem[], userId: string, meetingId
     // and a run-on one is a paragraph nobody will read.
     quote: a.quote?.trim() ? a.quote.trim().slice(0, 500) : null,
     first_step: a.first_step?.trim() ? a.first_step.trim().slice(0, 500) : null,
+    // Matched against the transcript here, where both are in hand. Stored
+    // rather than looked up later, because /tasks shows work from many
+    // meetings at once and would otherwise fetch a transcript per row.
+    quote_context: quoteContext(a.quote, segments),
     priority: (PRIORITIES as string[]).includes(a.priority) ? a.priority : "medium",
     kind: (KINDS as string[]).includes(a.kind) ? a.kind : "task",
   }));

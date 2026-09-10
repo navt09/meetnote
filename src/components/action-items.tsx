@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { kindLabel, personToEmail, type ContactPerson, type PublicTask } from "@/lib/task";
+import type { QuoteContext } from "@/lib/quote-context";
 import type { ActionItem } from "@/lib/schema";
 import { PriorityFlag } from "@/components/priority";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
@@ -19,6 +20,8 @@ export type TaskContext = {
   quote?: string | null;
   firstStep?: string | null;
   owner?: string | null;
+  /** What was said either side of the quote. Absent on anything but a live task. */
+  around?: QuoteContext | null;
 };
 
 /** Whether there is anything to expand. An expander that reveals nothing is worse than none. */
@@ -58,6 +61,15 @@ export function TaskTitle({
   );
 }
 
+/** One line of transcript either side of the quote, named and quieter. */
+function Around({ line }: { line: { speaker: string; text: string } }) {
+  return (
+    <p className="task-around text-xs leading-relaxed text-faint">
+      <span className="font-medium">{line.speaker}:</span> {line.text}
+    </p>
+  );
+}
+
 /**
  * What a task looks like once it is open.
  *
@@ -67,15 +79,29 @@ export function TaskTitle({
  * underneath: it is the one part of a task the meeting did not decide.
  */
 export function TaskContextPanel({ id, context }: { id: string; context: TaskContext }) {
-  const { details, quote, firstStep, owner } = context;
+  const { details, quote, firstStep, owner, around } = context;
   return (
     <div id={id} className="task-detail mt-2 flex flex-col gap-3">
       {details ? <p className="text-sm leading-relaxed text-muted">{details}</p> : null}
 
       {quote ? (
         <figure className="task-quote">
-          <blockquote className="text-sm leading-relaxed text-fg">“{quote}”</blockquote>
-          <figcaption className="mt-1 text-xs text-faint">{owner ? `${owner} said this` : "Said in the meeting"}</figcaption>
+          {/* The lines either side are set back and dimmed, because they are
+              there to explain the quote, not to compete with it. Either may be
+              missing: a quote can open or close a meeting. */}
+          {around?.before ? <Around line={around.before} /> : null}
+          <blockquote className="text-sm leading-relaxed text-fg">
+            {/* With neighbours around it the quote is one line of a
+                conversation, so it is named the same way they are. A caption
+                underneath would sit between the quote and the reply and read
+                as if it belonged to whichever line came next. */}
+            {around && owner ? <span className="font-medium text-muted">{owner}: </span> : null}
+            “{quote}”
+          </blockquote>
+          {around?.after ? <Around line={around.after} /> : null}
+          {!around ? (
+            <figcaption className="mt-1 text-xs text-faint">{owner ? `${owner} said this` : "Said in the meeting"}</figcaption>
+          ) : null}
         </figure>
       ) : null}
 
@@ -219,7 +245,7 @@ export function ActionItems({
         // The live task and the notes' own copy hold the same three things
         // under different names, so the row is read through one shape.
         const context: TaskContext = task
-          ? { details: task.details, quote: task.quote, firstStep: task.firstStep, owner: task.owner }
+          ? { details: task.details, quote: task.quote, firstStep: task.firstStep, owner: task.owner, around: task.quoteContext }
           : {
               details: row.details,
               quote: (row as ActionItem).quote,

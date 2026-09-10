@@ -1,0 +1,22 @@
+-- The lines either side of a task's quote, so the quote can be read in context.
+--
+-- The quote says the task was not invented. What it usually does not say is
+-- why the task exists, and that is nearly always in the sentence before it or
+-- the answer after it. Both are already in meetings.transcript, so this column
+-- is a cached lookup rather than new information: it is filled in by matching
+-- the stored quote against the transcript when tasks are synced, which is the
+-- one moment both are in hand. No model is involved, and no request is made.
+--
+-- Shape: {"before": {"speaker": "...", "text": "..."} | null,
+--         "after":  {"speaker": "...", "text": "..."} | null}
+--
+-- Denormalised deliberately. The alternative is fetching a whole transcript to
+-- render two lines, on a page that shows tasks from many meetings at once.
+-- Both lines are bounded at render time by the same code that writes them.
+--
+-- Null is a normal answer, not a failure: a task with no quote has no context,
+-- a quote the matcher cannot place has none either, and a task written before
+-- this migration has none. Every case reads the same in the UI, which is that
+-- nothing is shown.
+alter table public.tasks
+  add column if not exists quote_context jsonb;

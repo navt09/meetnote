@@ -17,9 +17,14 @@ import type { ActionItem, TranscriptSegment } from "./schema";
  * rather than duplicating them. Any "done" tick the user made is preserved,
  * because status is not part of the update.
  */
-async function syncTasks(meetingId: string, userId: string, items: ActionItem[]): Promise<void> {
+async function syncTasks(
+  meetingId: string,
+  userId: string,
+  items: ActionItem[],
+  segments: TranscriptSegment[],
+): Promise<void> {
   const admin = supabaseAdmin();
-  const rows = actionItemsToRows(items, userId, meetingId);
+  const rows = actionItemsToRows(items, userId, meetingId, new Date(), segments);
 
   if (rows.length > 0) {
     const { error } = await admin.from("tasks").upsert(rows, { onConflict: "meeting_id,idx" });
@@ -152,7 +157,7 @@ export async function runPipeline(meetingId: string, userId: string): Promise<vo
         status: "done",
         error: null,
       });
-      await syncTasks(meetingId, userId, e.notes.action_items);
+      await syncTasks(meetingId, userId, e.notes.action_items, transcript ?? []);
     }
   } catch (err) {
     // Full detail to the server log; only a safe summary onto the row.

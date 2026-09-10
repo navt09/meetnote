@@ -28,12 +28,13 @@ const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
-/** The three things a row can open to show, read off a task. */
+/** Everything a row can open to show, read off a task. */
 const contextOf = (t: PublicTask): TaskContext => ({
   details: t.details,
   quote: t.quote,
   firstStep: t.firstStep,
   owner: t.owner,
+  around: t.quoteContext,
 });
 
 /** One deadline, dated on the server where "Thursday" has a fixed meaning. */
