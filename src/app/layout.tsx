@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Hanken_Grotesk, IBM_Plex_Mono } from "next/font/google";
+import { Bricolage_Grotesque, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { tierFor } from "@/lib/account-store";
@@ -8,12 +8,16 @@ import NavTabs from "@/components/nav-tabs";
 import { Logo } from "@/components/logo";
 import "./globals.css";
 
-// Three faces, one voice. Bricolage carries the headlines and the wordmark: its
-// optical-size axis means the display cut kicks in on its own at large sizes.
-// Hanken is the quiet body face. Plex Mono is for transcripts, where it has to
-// look like something a machine wrote down.
+// Bricolage carries the headlines and the wordmark: its optical-size axis means
+// the display cut kicks in on its own at large sizes.
+//
+// Body and mono are both Plex. Most of this product is small text - owners,
+// dates, task meta - and Plex Sans holds its shape there where a softer
+// grotesk goes mushy: open apertures, a tall x-height, and an l that cannot be
+// mistaken for a 1. It also belongs to the same family as the mono already
+// used for transcripts, so the two sit together instead of merely coexisting.
 const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], axes: ["opsz", "wdth"] });
-const body = Hanken_Grotesk({ variable: "--font-hanken", subsets: ["latin"] });
+const body = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin"], weight: ["400", "500", "600"] });
 const mono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"] });
 
 export const metadata: Metadata = {

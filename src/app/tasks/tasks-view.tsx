@@ -7,6 +7,7 @@ import { patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState } from "@/components/ui";
 import { filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
+import { PRIORITY_STRIPE, PriorityTag } from "@/components/priority";
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "open", label: "To do" },
@@ -136,7 +137,11 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
         {visible.map((t) => {
           const done = t.status === "done";
           return (
-            <li key={t.id} className={`glass glass-hover flex items-start gap-3 p-4 ${done ? "opacity-55" : ""}`}>
+            <li
+              key={t.id}
+              className={`glass glass-hover flex items-start gap-3 p-4 ${done ? "opacity-60" : ""}`}
+              style={{ borderLeftWidth: "3px", borderLeftColor: done ? "var(--panel-border-hi)" : PRIORITY_STRIPE[t.priority] }}
+            >
               <button
                 onClick={() => toggle(t)}
                 aria-label={done ? `Mark "${t.title}" as not done` : `Mark "${t.title}" as done`}
@@ -148,43 +153,52 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
               </button>
 
               <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium leading-snug ${done ? "line-through decoration-faint" : ""}`}>{t.title}</p>
+                <p className={`font-medium leading-snug ${done ? "line-through decoration-faint" : ""}`}>{t.title}</p>
                 {t.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{t.details}</p> : null}
-                <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
-                  <span>{t.owner ?? "unassigned"}</span>
-                  <span>{kindLabel(t.kind)}</span>
-                  {t.due ? <span className="text-warn">due {t.due}</span> : null}
-                  <Link href={`/meetings/${t.meetingId}`} className="truncate transition-colors hover:text-fg">
-                    {t.meetingTitle}
-                  </Link>
-                  {hasDraft.has(t.id) ? (
-                    <Link href="/approvals" className="text-accent transition-colors hover:underline">ticket drafted</Link>
-                  ) : (
-                    <button
-                      onClick={() => draft(t)}
-                      disabled={drafting === t.id}
-                      className="text-muted transition-colors hover:text-fg disabled:opacity-50"
-                    >
-                      {drafting === t.id ? "drafting…" : "draft ticket"}
-                    </button>
-                  )}
-                  {t.calendarEventUrl ? (
-                    <a href={t.calendarEventUrl} target="_blank" rel="noreferrer" className="text-accent transition-colors hover:underline">
-                      on your calendar
-                    </a>
-                  ) : (
-                    <button
-                      onClick={() => addToCalendar(t)}
-                      disabled={scheduling === t.id}
-                      className="text-muted transition-colors hover:text-fg disabled:opacity-50"
-                    >
-                      {scheduling === t.id ? "adding…" : "add to calendar"}
-                    </button>
-                  )}
-                </p>
-              </div>
 
-              {t.priority === "high" && !done ? <span className="pill pill-danger flex-none">high</span> : null}
+                {/* What the task is. */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  <PriorityTag priority={t.priority} dimmed={done} />
+                  <span className={t.owner ? "font-medium text-fg" : "text-faint"}>{t.owner ?? "Unassigned"}</span>
+                  <span className="text-faint">{kindLabel(t.kind)}</span>
+                  {t.due ? <span className="text-warn">due {t.due}</span> : null}
+                </div>
+
+                {/* What you can do about it. Kept apart from the line above:
+                    mixing a due date, a meeting name and two buttons into one
+                    run of grey text is what made these rows unreadable. */}
+                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-panel-border pt-2.5 text-xs">
+                  <Link href={`/meetings/${t.meetingId}`} className="min-w-0 truncate text-faint transition-colors hover:text-fg">
+                    from {t.meetingTitle}
+                  </Link>
+                  <span className="flex flex-none items-center gap-3">
+                    {hasDraft.has(t.id) ? (
+                      <Link href="/approvals" className="text-accent transition-colors hover:underline">ticket drafted</Link>
+                    ) : (
+                      <button
+                        onClick={() => draft(t)}
+                        disabled={drafting === t.id}
+                        className="text-muted transition-colors hover:text-fg disabled:opacity-50"
+                      >
+                        {drafting === t.id ? "drafting…" : "draft ticket"}
+                      </button>
+                    )}
+                    {t.calendarEventUrl ? (
+                      <a href={t.calendarEventUrl} target="_blank" rel="noreferrer" className="text-accent transition-colors hover:underline">
+                        on your calendar
+                      </a>
+                    ) : (
+                      <button
+                        onClick={() => addToCalendar(t)}
+                        disabled={scheduling === t.id}
+                        className="text-muted transition-colors hover:text-fg disabled:opacity-50"
+                      >
+                        {scheduling === t.id ? "adding…" : "add to calendar"}
+                      </button>
+                    )}
+                  </span>
+                </div>
+              </div>
             </li>
           );
         })}

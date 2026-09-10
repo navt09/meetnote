@@ -1,10 +1,11 @@
 import type { MeetingNotes, TranscriptSegment } from "@/lib/schema";
 import { formatTimestamp } from "@/lib/transcript";
-import { kindLabel, type TaskKind } from "@/lib/task";
+import { kindLabel, type TaskKind, type TaskPriority } from "@/lib/task";
 import { PeopleToContact } from "./people-actions";
 import { ActionItems } from "./action-items";
 import { ShareToSlack } from "./share-slack";
 import Link from "next/link";
+import { PRIORITY_STRIPE, PriorityTag } from "./priority";
 
 /**
  * Colour here is semantic, never decorative: it is the status tokens doing the
@@ -12,12 +13,6 @@ import Link from "next/link";
  * scans for, so it gets a stripe down the side of the row as well as a label —
  * the stripe is what you can read without stopping to read.
  */
-const PRIORITY = {
-  high: { label: "High", pill: "pill-danger", stripe: "var(--danger)" },
-  medium: { label: "Medium", pill: "pill-warn", stripe: "var(--warn)" },
-  low: { label: "Low", pill: "", stripe: "var(--panel-border-hi)" },
-} as const;
-
 /**
  * A section heading with real weight. These used to be small grey labels
  * identical across every panel, which is what made the sections read as one
@@ -114,27 +109,22 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
           <p className="mt-4 text-sm text-muted">Nothing to do came out of this one.</p>
         ) : (
           <ul className="mt-4 flex flex-col gap-2.5">
-            {notes.action_items.map((a, i) => {
-              const p = PRIORITY[a.priority as keyof typeof PRIORITY] ?? PRIORITY.low;
-              return (
-                <li
-                  key={i}
-                  className="rounded-lg border border-panel-border bg-bg-elev p-4"
-                  style={{ borderLeftWidth: "3px", borderLeftColor: p.stripe }}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1.5">
-                    <p className="font-medium leading-snug">{a.title}</p>
-                    <span className={`pill ${p.pill} shrink-0`}>{p.label}</span>
-                  </div>
-                  {a.details ? <p className="mt-1.5 text-sm leading-relaxed text-muted">{a.details}</p> : null}
-                  <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                    <span className={a.owner ? "font-medium text-fg" : "text-faint"}>{a.owner ?? "Unassigned"}</span>
-                    <span className="text-faint">{kindLabel(a.kind as TaskKind)}</span>
-                    {a.due ? <span className="text-warn">due {a.due}</span> : null}
-                  </p>
-                </li>
-              );
-            })}
+            {notes.action_items.map((a, i) => (
+              <li
+                key={i}
+                className="rounded-lg border border-panel-border bg-bg-elev p-4"
+                style={{ borderLeftWidth: "3px", borderLeftColor: PRIORITY_STRIPE[a.priority as TaskPriority] }}
+              >
+                <p className="font-medium leading-snug">{a.title}</p>
+                {a.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{a.details}</p> : null}
+                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                  <PriorityTag priority={a.priority as TaskPriority} />
+                  <span className={a.owner ? "font-medium text-fg" : "text-faint"}>{a.owner ?? "Unassigned"}</span>
+                  <span className="text-faint">{kindLabel(a.kind as TaskKind)}</span>
+                  {a.due ? <span className="text-warn">due {a.due}</span> : null}
+                </div>
+              </li>
+            ))}
           </ul>
         )}
       </section>
