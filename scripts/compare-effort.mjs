@@ -46,7 +46,11 @@ const { extractNotes, EXTRACT_MODEL } = await import("../src/lib/extract.ts");
 const { llmCostUsd, MODEL_PRICING, formatUsd } = await import("../src/lib/cost.ts");
 const { CATEGORIES, diffRuns, cheapestLossless } = await import("../src/lib/effort-compare.ts");
 
-const VALID_LEVELS = ["low", "medium", "high", "xhigh", "max"];
+// "default" is not an API value: it means send no effort key at all, which is
+// how to measure the level we chose against whatever the model would have
+// done on its own.
+const DEFAULT_LEVEL = "default";
+const VALID_LEVELS = ["low", "medium", "high", "xhigh", "max", DEFAULT_LEVEL];
 const args = process.argv.slice(2);
 const flag = (name) => args.find((a) => a.startsWith(`--${name}=`))?.slice(name.length + 3);
 const confirmed = args.includes("--yes");
@@ -134,7 +138,7 @@ const runs = [];
 for (const level of levels) {
   process.stdout.write(`\nrunning ${level}... `);
   const started = Date.now();
-  const result = await extractNotes(segments, { name, effort: level });
+  const result = await extractNotes(segments, { name, effort: level === DEFAULT_LEVEL ? null : level });
   const seconds = (Date.now() - started) / 1000;
   const path = join(outDir, `${meeting.id}.${level}.json`);
   writeFileSync(path, JSON.stringify(result.notes, null, 2));
@@ -195,8 +199,12 @@ console.log("\n== Verdict ==\n");
 if (runs.length < 2) {
   console.log("Only one level was run, so there is nothing to compare it against.");
 } else {
-  const dearest = runs[runs.length - 1].level;
-  const winner = cheapestLossless(runs);
+  // Ordered by what each run actually cost, not by the order the levels were
+  // typed. "default" has no place on the scale until it has been measured, and
+  // on a short transcript it came back twice as dear as an explicit medium.
+  const byCost = [...runs].sort((a, b) => llmCostUsd(a.usage, EXTRACT_MODEL) - llmCostUsd(b.usage, EXTRACT_MODEL));
+  const dearest = byCost[byCost.length - 1].level;
+  const winner = cheapestLossless(byCost);
   if (winner === null) console.log(`Every level cheaper than ${dearest} lost something. Keep paying for ${dearest}.`);
   else console.log(`${winner} is the cheapest level that lost nothing against ${dearest}.`);
 }

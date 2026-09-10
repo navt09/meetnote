@@ -163,7 +163,10 @@ export function diffRuns(a: Run, b: Run): PairDiff {
 
 /**
  * The cheapest run that loses nothing against the reference (the last run,
- * which the caller orders cheapest first, so the reference is the dearest one).
+ * which the caller must order by what each run actually cost, cheapest first,
+ * so the reference is the dearest one). Ordering by the level's name would be
+ * wrong: "default" has no known place on the scale, and a level that reasons
+ * less can still write more.
  * "Loses nothing" is one-directional: extra items in the cheap run are not a
  * loss, a missing item or an unfilled owner is. Null when every cheaper run
  * lost something, which is the answer that says "keep paying for the dear one".

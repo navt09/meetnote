@@ -37,16 +37,32 @@ export type ExtractResult = {
  * Reasoning effort, typed from the SDK so a level the API drops or renames
  * fails to compile rather than at runtime. Reasoning is billed as output, and
  * output is 5x input on Sonnet, so this is the biggest lever on extraction
- * cost. It is only set by the comparison harness; production leaves it unset.
+ * cost.
  */
 export type Effort = NonNullable<Anthropic.Messages.OutputConfig["effort"]>;
 
+/**
+ * Named rather than left to the model's default, because a default is not a
+ * decision: it can move under us, and extraction is the call whose output we
+ * cannot check by eye.
+ *
+ * Measured with `npm run compare:effort` before it was set. Low saved nothing
+ * on two real transcripts, using more output tokens than medium on one of
+ * them, and left the owner blank on every action item of the other where
+ * medium attributed each one. An unowned task is most of the way to a useless
+ * one, so the saving was not real and the loss was.
+ */
+export const EXTRACT_EFFORT: Effort = "medium";
+
 export async function extractNotes(
   segments: TranscriptSegment[],
-  opts: { name?: string | null; effort?: Effort } = {},
+  // `effort: null` means send no effort at all, which is only used by the
+  // comparison harness to measure this decision against the model's default.
+  opts: { name?: string | null; effort?: Effort | null } = {},
 ): Promise<ExtractResult> {
   const client = new Anthropic();
   const label = opts.name ?? "You";
+  const effort = opts.effort === undefined ? EXTRACT_EFFORT : opts.effort;
 
   const transcript = segments.map((s) => `[${formatTimestamp(s.start)}] ${s.speaker}: ${s.text}`).join("\n");
 
@@ -62,9 +78,9 @@ export async function extractNotes(
         content: `Here is the transcript of a meeting. Produce the structured notes.\n\n<transcript>\n${transcript}\n</transcript>`,
       },
     ],
-    // Spread rather than `effort: opts.effort`: with no effort asked for, the
-    // key must be absent entirely so the request is byte-identical to before.
-    output_config: { format: zodOutputFormat(MeetingNotes), ...(opts.effort ? { effort: opts.effort } : {}) },
+    // Spread rather than a plain key: an explicit null has to leave the key
+    // out entirely, not send `effort: null`.
+    output_config: { format: zodOutputFormat(MeetingNotes), ...(effort ? { effort } : {}) },
   });
 
   const message = await stream.finalMessage();
