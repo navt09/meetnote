@@ -127,7 +127,7 @@ export default async function DashboardPage() {
 
       {firstRun ? (
         <div className="glass rise p-6 sm:p-8">
-          <p className="eyebrow">Start here</p>
+          <p className="rule-label">Start here</p>
           <h2 className="display mt-3 text-3xl">Nothing recorded yet.</h2>
           <p className="mt-3 max-w-xl leading-relaxed text-muted">
             Record any call from this browser. Nothing joins the meeting, and nothing is filed or sent until you have
@@ -191,9 +191,9 @@ export default async function DashboardPage() {
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="glass rise p-6">
-          <div className="flex items-baseline justify-between">
-            <p className="eyebrow">Top of the list</p>
-            <Link href="/tasks" className="text-xs text-faint transition-colors hover:text-fg">All tasks</Link>
+          <div className="flex items-center gap-3">
+            <p className="rule-label flex-1">Top of the list</p>
+            <Link href="/tasks" className="shrink-0 text-xs text-muted transition-colors hover:text-fg">All tasks</Link>
           </div>
           <ul className="mt-4 divide-y divide-panel-border">
             {topTasks.map((t) => (
@@ -217,9 +217,9 @@ export default async function DashboardPage() {
 
         <div className="flex flex-col gap-3">
           <div className="glass rise p-6">
-            <div className="flex items-baseline justify-between">
-              <p className="eyebrow">Recent meetings</p>
-              <Link href="/notes" className="text-xs text-faint transition-colors hover:text-fg">All notes</Link>
+            <div className="flex items-center gap-3">
+              <p className="rule-label flex-1">Recent meetings</p>
+              <Link href="/notes" className="shrink-0 text-xs text-muted transition-colors hover:text-fg">All notes</Link>
             </div>
             <ul className="mt-4 divide-y divide-panel-border">
               {recent.map((m) => (
@@ -243,7 +243,7 @@ export default async function DashboardPage() {
           </div>
 
           <div className="glass rise p-6">
-            <p className="eyebrow">People to follow up with</p>
+            <p className="rule-label">People to follow up with</p>
             <ul className="mt-4 divide-y divide-panel-border text-sm">
               {people.slice(0, 4).map((p) => (
                 <li key={p.name} className="py-3 first:pt-0 last:pb-0">

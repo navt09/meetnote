@@ -94,7 +94,7 @@ body.app {
      the page and the card set to the same value, which is why every card
      dissolved into the background. */
   --bg: #edeae4;              /* the page */
-  --rail: #e5e1d9;            /* the sidebar, one step deeper again */
+  --rail: #1c1b18;            /* the sidebar is ink, not a deeper paper */
   --panel: #fdfcfa;           /* a card sits on the page and reads as a sheet */
   --bg-elev: #f2efe9;         /* recessed: inputs, the waveform, toasts */
   --panel-hi: #f2efe9;
@@ -185,6 +185,23 @@ body {
   color: var(--fg);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+}
+
+/* A whisper of grain under the work. Barely visible on its own, but it turns
+   the page from an absence into a surface, and every card gains an edge by
+   covering it. */
+body.app {
+  background-image: radial-gradient(circle at 1px 1px, rgba(29, 28, 26, 0.062) 1px, transparent 0);
+  background-size: 22px 22px;
+}
+
+/* Cards lift off that surface. Two shadows: a tight one that draws the edge,
+   and a wide soft one that puts air underneath. */
+body.app .glass,
+body.app .band,
+body.app .strip {
+  border-radius: 14px;
+  box-shadow: 0 1px 2px rgba(29, 28, 26, 0.05), 0 10px 26px -14px rgba(29, 28, 26, 0.16);
 }
 
 /* A row that scrolls within itself without showing a bar: the header tabs on a phone. */
@@ -312,14 +329,20 @@ body {
 
 .record-btn {
   position: relative;
-  width: 64px; height: 64px;
+  width: 76px; height: 76px;
   border-radius: 50%;
   display: grid; place-items: center;
   background: var(--accent);
   color: var(--accent-ink);
-  transition: background-color 140ms ease, transform 120ms ease;
+  /* A halo in the button's own colour, so the one thing to press on this page
+     looks like the one thing to press. */
+  box-shadow: 0 0 0 7px color-mix(in srgb, var(--accent) 13%, transparent);
+  transition: background-color 140ms ease, transform 120ms ease, box-shadow 220ms ease;
 }
-.record-btn:hover:not(:disabled) { filter: brightness(1.1); }
+.record-btn:hover:not(:disabled) {
+  filter: brightness(1.08);
+  box-shadow: 0 0 0 12px color-mix(in srgb, var(--accent) 16%, transparent);
+}
 .record-btn:active:not(:disabled) { transform: scale(0.96); }
 .record-btn:disabled { opacity: 0.4; }
 .record-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
@@ -435,6 +458,20 @@ body {
 /* The same label without its chevron, for a strip of them where four
    chevrons in a row would be noise. */
 .eyebrow-bare::before { content: none; }
+
+/* A section label in the app: the words, then a hairline running out to
+   whatever sits at the far end of the row. The mono all-caps tag reads as a
+   machine label, which is right on the shopfront and wrong on a page someone
+   works in all day. */
+.rule-label {
+  display: flex; align-items: center; gap: 0.7rem;
+  font-size: 0.875rem; font-weight: 600; color: var(--fg);
+  white-space: nowrap;
+}
+.rule-label::after {
+  content: ""; flex: 1; height: 1px; min-width: 1rem;
+  background: var(--panel-border);
+}
 
 /* Anything counted, timed or measured. Fraunces draws lovely letters and
    awkward numbers, so figures are set in the mono face with tabular digits:
@@ -566,20 +603,42 @@ body.app .eyebrow { color: var(--faint); }
 .flag-med { background: #f6e7c6; color: #7c5705; }
 .flag-off { background: var(--panel-hi); color: var(--faint); }
 
-/* ---------- sidebar ---------- */
+/* ---------- the rail ---------- */
+/* Ink beside paper: the same alternation the shopfront runs down the page,
+   and it keeps the navigation from competing with the three hues inside the
+   content. One marker slides between the tabs; sidebar.tsx measures where it
+   goes. */
 
+.rail {
+  --rail-fg: #f4f1ec;
+  --rail-muted: #99938a;
+  --rail-line: #302d29;
+  background: var(--rail);
+  color: var(--rail-fg);
+}
+.rail-quiet { color: var(--rail-muted); transition: color 140ms ease; }
+.rail-action:hover { color: var(--rail-fg); }
+.rail-foot { border-top: 1px solid var(--rail-line); }
+
+.rail-nav { position: relative; }
+.rail-pill {
+  position: absolute; top: 0; left: 0;
+  border-radius: 8px;
+  background: var(--rail-fg);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform 380ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    width 380ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    height 380ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    opacity 160ms ease;
+}
 .rail-link {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px;
-  color: var(--muted); font-size: 0.9375rem;
-  transition: color 120ms ease, background-color 120ms ease;
+  position: relative; z-index: 1;
+  display: flex; align-items: center;
+  padding: 0.4rem 0.7rem; border-radius: 8px;
+  color: var(--rail-muted); font-size: 0.9375rem;
+  transition: color 220ms ease;
 }
-.rail-link:hover { color: var(--fg); }
-.rail-link[aria-current="page"] {
-  background: var(--panel); color: var(--fg); font-weight: 600;
-  box-shadow: inset 0 0 0 1px var(--panel-border);
-}
-.rail-key {
-  font-family: var(--font-mono), ui-monospace, monospace;
-  font-size: 0.6875rem; color: var(--faint);
-}
+.rail-link:hover { color: var(--rail-fg); }
+.rail-link[aria-current="page"] { color: #1c1b18; font-weight: 600; }

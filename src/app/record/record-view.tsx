@@ -397,19 +397,19 @@ export default function RecordView() {
           {phase === "recording" ? (
             <dl className="strip w-full max-w-md grid-cols-3 text-center">
               <div>
-                <dt className="eyebrow eyebrow-bare">Meeting</dt>
+                <dt className="text-xs text-faint">Meeting</dt>
                 <dd className={`mt-1.5 text-sm font-medium ${sources?.system ? "" : "text-warn"}`}>
                   {sources?.system ? "Captured" : "Not shared"}
                 </dd>
               </div>
               <div>
-                <dt className="eyebrow eyebrow-bare">Your mic</dt>
+                <dt className="text-xs text-faint">Your mic</dt>
                 <dd className={`mt-1.5 text-sm font-medium ${sources?.mic ? "" : "text-warn"}`}>
                   {sources?.mic ? "Captured" : "Off"}
                 </dd>
               </div>
               <div>
-                <dt className="eyebrow eyebrow-bare">Last heard</dt>
+                <dt className="text-xs text-faint">Last heard</dt>
                 <dd className={`figure mt-1.5 text-sm ${silentFor >= 60 ? "text-warn" : ""}`}>
                   {silentFor < 2 ? "just now" : `${Math.round(silentFor)}s ago`}
                 </dd>

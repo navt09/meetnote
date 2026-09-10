@@ -2,40 +2,89 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { Logo } from "@/components/logo";
 
 /**
  * The app's navigation, once you are signed in.
  *
- * A rail rather than a top bar: the tabs stopped fitting across the top once
- * there were six of them, and a vertical list has room for as many as the
- * product grows. Each entry carries the key that will jump to it, which is
- * both a hint that the keyboard works and a reason the labels stay short.
+ * Ink against the paper the work sits on, which is the same alternation the
+ * landing page runs down the screen, and it keeps the chrome out of the way of
+ * the three hues that carry meaning inside the content.
+ *
+ * A single marker slides between the tabs rather than each one carrying its
+ * own background. It is positioned by measuring the live DOM and writing to
+ * the node, not through React state: nothing else in the tree needs to know
+ * where it is, and a mid-flight render would fight the transition.
  */
 
 const TABS = [
-  { href: "/dashboard", label: "Home", key: "H", match: (p: string) => p.startsWith("/dashboard") },
-  { href: "/notes", label: "Notes", key: "N", match: (p: string) => p === "/notes" || p.startsWith("/meetings") },
-  { href: "/tasks", label: "Tasks", key: "T", match: (p: string) => p.startsWith("/tasks") },
-  { href: "/approvals", label: "Approvals", key: "A", match: (p: string) => p.startsWith("/approvals") },
-  { href: "/record", label: "Record", key: "R", match: (p: string) => p.startsWith("/record") },
-  { href: "/settings", label: "Settings", key: ",", match: (p: string) => p.startsWith("/settings") },
+  { href: "/dashboard", label: "Home", match: (p: string) => p.startsWith("/dashboard") },
+  { href: "/notes", label: "Notes", match: (p: string) => p === "/notes" || p.startsWith("/meetings") },
+  { href: "/tasks", label: "Tasks", match: (p: string) => p.startsWith("/tasks") },
+  { href: "/approvals", label: "Approvals", match: (p: string) => p.startsWith("/approvals") },
+  { href: "/record", label: "Record", match: (p: string) => p.startsWith("/record") },
+  { href: "/settings", label: "Settings", match: (p: string) => p.startsWith("/settings") },
 ];
 
-const OWNER_TAB = { href: "/owner", label: "Owner", key: "O", match: (p: string) => p.startsWith("/owner") };
+const OWNER_TAB = { href: "/owner", label: "Owner", match: (p: string) => p.startsWith("/owner") };
 
 export default function Sidebar({ email, isOwner }: { email: string; isOwner: boolean }) {
   const pathname = usePathname() ?? "";
   const tabs = isOwner ? [...TABS, OWNER_TAB] : TABS;
 
+  const navRef = useRef<HTMLElement>(null);
+  const pillRef = useRef<HTMLSpanElement>(null);
+  const settled = useRef(false);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    const pill = pillRef.current;
+    if (!nav || !pill) return;
+
+    const place = () => {
+      const active = nav.querySelector<HTMLElement>('[aria-current="page"]');
+      if (!active) {
+        pill.style.opacity = "0";
+        return;
+      }
+      // The first placement must not slide in from the corner.
+      if (!settled.current) {
+        settled.current = true;
+        pill.style.transition = "none";
+        requestAnimationFrame(() => {
+          pill.style.transition = "";
+        });
+      }
+      pill.style.opacity = "1";
+      pill.style.width = `${active.offsetWidth}px`;
+      pill.style.height = `${active.offsetHeight}px`;
+      pill.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
+    };
+
+    place();
+    // The rail turns from a column into a scrolling row at the mobile
+    // breakpoint, so the marker has to be re-measured on resize.
+    const observer = new ResizeObserver(place);
+    observer.observe(nav);
+    return () => observer.disconnect();
+  }, [pathname, tabs.length]);
+
   return (
-    <aside className="flex shrink-0 flex-col gap-5 border-b border-panel-border bg-rail px-3 py-4 md:h-screen md:w-[13rem] md:border-b-0 md:border-r md:sticky md:top-0">
-      <Link href="/dashboard" className="font-display flex items-center gap-2 whitespace-nowrap px-2 text-[1.0625rem] font-semibold tracking-tight">
+    <aside className="rail flex shrink-0 flex-col gap-6 px-3 py-4 md:sticky md:top-0 md:h-screen md:w-[13.5rem]">
+      <Link
+        href="/dashboard"
+        className="font-display flex items-center gap-2.5 whitespace-nowrap px-2 text-[1.0625rem] font-semibold tracking-tight"
+      >
         <Logo size={22} />
         From the Call
       </Link>
 
-      <nav className="flex gap-0.5 overflow-x-auto md:flex-col md:overflow-visible no-scrollbar">
+      <nav
+        ref={navRef}
+        className="rail-nav no-scrollbar flex gap-1 overflow-x-auto md:flex-col md:gap-0.5 md:overflow-visible"
+      >
+        <span ref={pillRef} aria-hidden className="rail-pill" />
         {tabs.map((t) => (
           <Link
             key={t.href}
@@ -43,15 +92,14 @@ export default function Sidebar({ email, isOwner }: { email: string; isOwner: bo
             aria-current={t.match(pathname) ? "page" : undefined}
             className="rail-link whitespace-nowrap"
           >
-            <span>{t.label}</span>
-            <span className="rail-key hidden md:inline">{t.key}</span>
+            {t.label}
           </Link>
         ))}
       </nav>
 
-      <form action="/auth/signout" method="post" className="mt-auto hidden flex-col gap-1 border-t border-panel-border px-2 pt-3 md:flex">
-        <span className="truncate text-xs text-faint" title={email}>{email}</span>
-        <button className="self-start text-xs text-muted transition-colors hover:text-fg" type="submit">Sign out</button>
+      <form action="/auth/signout" method="post" className="rail-foot mt-auto hidden flex-col gap-1 px-2 pt-3.5 md:flex">
+        <span className="rail-quiet truncate text-xs" title={email}>{email}</span>
+        <button className="rail-quiet rail-action self-start text-xs" type="submit">Sign out</button>
       </form>
     </aside>
   );
