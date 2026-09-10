@@ -7,6 +7,7 @@ import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
 import { BrandMark } from "@/components/brand-marks";
 import { canUseAi, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
+import { settingsFlash } from "@/lib/flash";
 
 type Team = { id: string; name: string };
 type Project = { id: string; key: string; name: string };
@@ -40,12 +41,13 @@ export default function SettingsView({
   const byProvider = useMemo(() => new Map(connectors.map((c) => [c.provider, c])), [connectors]);
   const get = (p: Provider) => byProvider.get(p) ?? null;
 
-  // The Google callback comes back with a message in the URL.
+  // A connect flow comes back with a code in the URL. Only a code we know is
+  // shown, so a crafted link can't put its own words in a toast here.
   useEffect(() => {
     const error = params.get("error");
     const notice = params.get("notice");
-    if (error) toast(error, "error");
-    else if (notice) toast(notice, "ok");
+    const flash = settingsFlash(error) ?? settingsFlash(notice);
+    if (flash) toast(flash.text, flash.tone);
     if (error || notice) router.replace("/settings");
   }, [params, toast, router]);
 

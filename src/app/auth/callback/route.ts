@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { supabaseServer } from "@/lib/supabase/server";
-import { friendlyAuthError } from "@/lib/auth-errors";
+import { authErrorCode } from "@/lib/auth-errors";
 
 /** Where email links land: turns the one-time code into a session cookie. */
 export async function GET(req: Request) {
@@ -17,7 +17,10 @@ export async function GET(req: Request) {
   // A recovery link always goes to the page that sets a new password.
   if (type === "recovery") next = "/reset-password";
 
-  if (linkError) return redirectToLogin(url, linkError, next);
+  if (linkError) {
+    console.error(JSON.stringify({ event: "auth_link_error", message: linkError }));
+    return redirectToLogin(url, linkError, next);
+  }
 
   const supabase = await supabaseServer();
   let message: string | null = null;
@@ -32,13 +35,17 @@ export async function GET(req: Request) {
     message = "The link is missing its code.";
   }
 
-  if (message) return redirectToLogin(url, message, next);
+  if (message) {
+    console.error(JSON.stringify({ event: "auth_callback_error", message }));
+    return redirectToLogin(url, message, next);
+  }
   return NextResponse.redirect(new URL(next, url.origin));
 }
 
 function redirectToLogin(url: URL, message: string, next: string) {
   const login = new URL("/login", url.origin);
-  login.searchParams.set("error", friendlyAuthError(message));
+  // A code, not the message: the login page only shows sentences it knows.
+  login.searchParams.set("error", authErrorCode(message));
   if (next !== "/dashboard") login.searchParams.set("next", next);
   return NextResponse.redirect(login);
 }

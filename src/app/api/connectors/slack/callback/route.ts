@@ -17,25 +17,26 @@ export async function GET(req: Request) {
   if (!auth) return NextResponse.redirect(new URL("/login?next=/settings", origin));
 
   if (!(await consumeState("slack", url.searchParams.get("state")))) {
-    return NextResponse.redirect(backToSettings(origin, { error: "That Slack connection attempt expired. Try again." }));
+    return NextResponse.redirect(backToSettings(origin, { error: "slack_expired" }));
   }
 
   const denied = url.searchParams.get("error");
   if (denied) {
-    return NextResponse.redirect(
-      backToSettings(origin, { error: denied === "access_denied" ? "You declined the Slack permissions." : "Slack reported a problem." }),
-    );
+    console.error(JSON.stringify({ event: "slack_denied", reason: denied.slice(0, 100) }));
+    return NextResponse.redirect(backToSettings(origin, { error: denied === "access_denied" ? "slack_declined" : "slack_provider_error" }));
   }
 
   const code = url.searchParams.get("code");
-  if (!code) return NextResponse.redirect(backToSettings(origin, { error: "Slack didn't return an authorisation code." }));
+  if (!code) return NextResponse.redirect(backToSettings(origin, { error: "slack_no_code" }));
 
   try {
     const { credentials, channelName } = await exchangeCode(origin, code);
     await saveConnector(auth.user.id, "slack", credentials, { channelName } satisfies SlackConfig);
-    return NextResponse.redirect(backToSettings(origin, { notice: `Slack connected. Summaries will post to ${channelName}.` }));
+    // The channel name is shown from the stored config once the page loads.
+    return NextResponse.redirect(backToSettings(origin, { notice: "slack_connected" }));
   } catch (err) {
+    // Slack's own wording stays in the log; the page shows a fixed sentence.
     console.error(JSON.stringify({ event: "slack_callback_error", message: err instanceof Error ? err.message : String(err) }));
-    return NextResponse.redirect(backToSettings(origin, { error: err instanceof Error ? err.message : "Couldn't finish connecting Slack." }));
+    return NextResponse.redirect(backToSettings(origin, { error: "slack_failed" }));
   }
 }

@@ -18,25 +18,24 @@ export async function GET(req: Request) {
   if (!auth) return NextResponse.redirect(new URL("/login?next=/settings", origin));
 
   if (!(await consumeState("jira", url.searchParams.get("state")))) {
-    return NextResponse.redirect(backToSettings(origin, { error: "That Jira connection attempt expired. Try again." }));
+    return NextResponse.redirect(backToSettings(origin, { error: "jira_expired" }));
   }
 
   const denied = url.searchParams.get("error");
   if (denied) {
-    return NextResponse.redirect(
-      backToSettings(origin, { error: denied === "access_denied" ? "You declined the Jira permissions." : "Atlassian reported a problem." }),
-    );
+    console.error(JSON.stringify({ event: "jira_denied", reason: denied.slice(0, 100) }));
+    return NextResponse.redirect(backToSettings(origin, { error: denied === "access_denied" ? "jira_declined" : "jira_provider_error" }));
   }
 
   const code = url.searchParams.get("code");
-  if (!code) return NextResponse.redirect(backToSettings(origin, { error: "Atlassian didn't return an authorisation code." }));
+  if (!code) return NextResponse.redirect(backToSettings(origin, { error: "jira_no_code" }));
 
   try {
     const { accessToken, refreshToken, expiresAt, sites } = await exchangeCode(origin, code);
 
     // Consent can legitimately grant zero sites if the user picked none.
     if (sites.length === 0) {
-      return NextResponse.redirect(backToSettings(origin, { error: "Jira connected, but no site was granted. Try again and pick a site." }));
+      return NextResponse.redirect(backToSettings(origin, { error: "jira_no_site" }));
     }
     const site = sites[0];
 
@@ -62,14 +61,11 @@ export async function GET(req: Request) {
     }
 
     await saveConnector(auth.user.id, "jira", credentials, config);
-    const extra = sites.length > 1 ? ` Connected to ${site.name}.` : "";
-    return NextResponse.redirect(
-      backToSettings(origin, {
-        notice: config.projectKey ? `Jira connected. Issues will go to ${config.projectName}.` : `Jira connected. Pick a project.${extra}`,
-      }),
-    );
+    // The project name is shown from the stored config once the page loads.
+    return NextResponse.redirect(backToSettings(origin, { notice: config.projectKey ? "jira_connected" : "jira_pick" }));
   } catch (err) {
+    // Atlassian's own wording stays in the log; the page shows a fixed sentence.
     console.error(JSON.stringify({ event: "jira_callback_error", message: err instanceof Error ? err.message : String(err) }));
-    return NextResponse.redirect(backToSettings(origin, { error: err instanceof Error ? err.message : "Couldn't finish connecting Jira." }));
+    return NextResponse.redirect(backToSettings(origin, { error: "jira_failed" }));
   }
 }

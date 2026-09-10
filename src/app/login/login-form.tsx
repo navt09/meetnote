@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { friendlyAuthError, isValidEmail, passwordProblem, PASSWORD_MIN_LENGTH } from "@/lib/auth-errors";
+import { loginFlash } from "@/lib/flash";
 
 type Mode = "signin" | "signup" | "forgot" | "magic";
 type Sent = null | "confirm" | "reset" | "magic";
@@ -26,8 +27,10 @@ export default function LoginForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState<Sent>(null);
-  const [error, setError] = useState<string | null>(params.get("error"));
-  const [notice, setNotice] = useState<string | null>(params.get("notice"));
+  // The URL carries a code, never a sentence, so a crafted link can't put its
+  // own words on this page. An unknown code shows nothing.
+  const [error, setError] = useState<string | null>(loginFlash(params.get("error"))?.text ?? null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   function switchMode(m: Mode) {
     setMode(m);

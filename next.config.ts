@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 // Keep internals out of responses and lock down what the browser may do.
+// Content-Security-Policy is not here: it needs a per-request nonce, so it is
+// set in src/proxy.ts.
 const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },

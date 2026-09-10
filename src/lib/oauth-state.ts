@@ -2,6 +2,7 @@ import "server-only";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
 import { safeEqual } from "./crypto";
+import type { SettingsFlashCode } from "./flash";
 
 /**
  * CSRF protection shared by every connect flow: a random value stored in a
@@ -35,9 +36,14 @@ export async function consumeState(provider: string, returned: string | null): P
   return !!expected && !!returned && safeEqual(expected, returned);
 }
 
-/** Sends the user back to Settings with a message. */
-export function backToSettings(origin: string, params: Record<string, string>): URL {
+/**
+ * Sends the user back to Settings with a message code. Only a code: the page
+ * turns it into a sentence, so no text from a provider or a link reaches the
+ * screen.
+ */
+export function backToSettings(origin: string, flash: { error: SettingsFlashCode } | { notice: SettingsFlashCode }): URL {
   const url = new URL("/settings", origin);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
+  if ("error" in flash) url.searchParams.set("error", flash.error);
+  else url.searchParams.set("notice", flash.notice);
   return url;
 }

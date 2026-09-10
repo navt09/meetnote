@@ -3,17 +3,17 @@ import { cookies } from "next/headers";
 import { getAuth } from "@/lib/supabase/server";
 import { saveConnector } from "@/lib/connector-store";
 import { safeEqual } from "@/lib/crypto";
+import { backToSettings } from "@/lib/oauth-state";
 import { exchangeCode, SCOPES } from "@/lib/providers/google";
 import { STATE_COOKIE } from "../start/route";
 import type { GoogleConfig, GoogleCredentials } from "@/lib/connectors";
+import type { SettingsFlashCode } from "@/lib/flash";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-function back(origin: string, params: Record<string, string>) {
-  const url = new URL("/settings", origin);
-  for (const [k, v] of Object.entries(params)) url.searchParams.set(k, v);
-  return NextResponse.redirect(url);
+function back(origin: string, flash: { error: SettingsFlashCode } | { notice: SettingsFlashCode }) {
+  return NextResponse.redirect(backToSettings(origin, flash));
 }
 
 /** Where Google sends the user back. Turns the code into a stored refresh token. */
@@ -30,14 +30,17 @@ export async function GET(req: Request) {
 
   const returned = url.searchParams.get("state") ?? "";
   if (!expected || !safeEqual(expected, returned)) {
-    return back(origin, { error: "That Google connection attempt expired or didn't match. Try again." });
+    return back(origin, { error: "google_expired" });
   }
 
   const denied = url.searchParams.get("error");
-  if (denied) return back(origin, { error: denied === "access_denied" ? "You declined the Google permissions." : "Google reported a problem." });
+  if (denied) {
+    console.error(JSON.stringify({ event: "google_denied", reason: denied.slice(0, 100) }));
+    return back(origin, { error: denied === "access_denied" ? "google_declined" : "google_provider_error" });
+  }
 
   const code = url.searchParams.get("code");
-  if (!code) return back(origin, { error: "Google didn't return an authorisation code." });
+  if (!code) return back(origin, { error: "google_no_code" });
 
   try {
     const { tokens, scopes } = await exchangeCode(origin, code);
@@ -54,12 +57,12 @@ export async function GET(req: Request) {
     await saveConnector(auth.user.id, "google", credentials, config);
 
     if (missing.length > 0) {
-      const what = missing.some((s) => s.includes("gmail")) ? "sending email" : "reading your calendar";
-      return back(origin, { notice: `Google connected, but permission for ${what} wasn't granted. Reconnect to enable it.` });
+      return back(origin, { notice: missing.some((s) => s.includes("gmail")) ? "google_partial_gmail" : "google_partial_calendar" });
     }
-    return back(origin, { notice: "Google connected." });
+    return back(origin, { notice: "google_connected" });
   } catch (err) {
+    // Google's own wording stays in the log; the page shows a fixed sentence.
     console.error(JSON.stringify({ event: "google_callback_error", message: err instanceof Error ? err.message : String(err) }));
-    return back(origin, { error: err instanceof Error ? err.message : "Couldn't finish connecting Google." });
+    return back(origin, { error: "google_failed" });
   }
 }
