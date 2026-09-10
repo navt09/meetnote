@@ -21,6 +21,8 @@ Set-up lives in `.env.example`: secret key, **price** id (not the product id), w
 - Every API route checks auth via `getAuth(req)` (cookie session or `Authorization: Bearer`). Row Level Security on `meetings` is the real boundary; the service role is only used for storage signing and the post-response pipeline, always scoped by `user_id`.
 
 ## Navigation
+**`/tasks` opens on your own tasks**, matched against `user_settings.display_name`, and only when that name matches an owner and more than one owner exists: a filter that opens on an empty list, or that cannot be seen or lifted, reads as a broken page. A meeting's own notes deliberately keep showing everybody's.
+
 Tabs when signed in, in order: **Home** (`/dashboard`), **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Approvals** (`/approvals`), **Record** (`/record`), **Settings** (`/settings`), and **Owner** (`/owner`) for owner accounts only. Record sits before Settings because it is what people come to do. Signing in lands on `/dashboard`. `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/sidebar.tsx`. The rail carries no keyboard-shortcut hints, because there is no key handler behind them.
 
 ## Charts
@@ -118,7 +120,8 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 - `src/lib/agent.ts` is the only place the model writes text a person might send. It drafts a ticket from a task, or a follow-up email for someone the notes named. It rephrases the transcript and never invents facts; when something is missing it says so in the draft.
 - Drafts land in the `drafts` table as `pending` and show on `/approvals`. A person edits, approves or dismisses. **Nothing is ever sent from From the Call without an explicit approval**, and there is no code path that sends without one.
 - An email can only be drafted for a person already in that meeting's `people_to_contact`; free-text targets are refused.
-- One live ticket draft per task (unique index on `drafts.task_id`; upsert replaces). Drafts cascade away with their meeting.
+- One live ticket draft per task (unique index on `drafts.task_id`; upsert replaces), and one live email draft per recipient per meeting (`drafts_one_per_recipient`). Both are plain unique indexes rather than partial ones, because PostgREST cannot use a partial index as an upsert conflict target; Postgres treats NULLs as distinct, so ticket rows with no recipient do not collide. Drafts cascade away with their meeting.
+- **A task can be an email rather than a ticket.** `personToEmail()` in `src/lib/task.ts` decides: the title has to carry a get-in-touch verb, and name somebody the meeting separately flagged in `people_to_contact`, and that somebody must not be the task's own owner. Do not key this off `kind`: on a real recording the extractor labelled "Email Priya at Figma about missing icons" a plain `task`, which is how the product came to offer a ticket for an email.
 - Draft bodies keep their Markdown, because that is what Linear and Jira expect on paste. `src/lib/markdown-lite.ts` renders a preview as React elements, never HTML, so model output cannot inject markup.
 
 ## Connectors (Phase 3)

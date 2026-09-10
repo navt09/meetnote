@@ -93,6 +93,65 @@ export function actionItemsToRows(items: ActionItem[], userId: string, meetingId
   }));
 }
 
+/** A person the meeting said to contact, as stored in notes.people_to_contact. */
+export type ContactPerson = { name: string; role: string | null; why: string };
+
+/** Words that mean "get in touch with", as opposed to merely mentioning someone. */
+const CONTACT_INTENT =
+  /\b(e-?mail(?:s|ing)?|call(?:s|ing)?|message(?:s|ing)?|ping|contact|chase|write to|reach out|follow(?:ing)? up|get back to|send)\b/i;
+
+/**
+ * Whether `name` appears in `text` as a whole word.
+ *
+ * Scanned rather than compiled into a RegExp, because the name comes out of a
+ * transcript: a name carrying a bracket would either throw or quietly match
+ * something nobody meant.
+ */
+function namedIn(text: string, name: string): boolean {
+  const haystack = text.toLowerCase();
+  const needle = name.toLowerCase();
+  const isWordChar = (c: string) => c !== "" && /[a-z0-9]/.test(c);
+
+  for (let from = 0; ; ) {
+    const at = haystack.indexOf(needle, from);
+    if (at === -1) return false;
+    const before = at === 0 ? "" : haystack[at - 1];
+    const after = at + needle.length >= haystack.length ? "" : haystack[at + needle.length];
+    if (!isWordChar(before) && !isWordChar(after)) return true;
+    from = at + 1;
+  }
+}
+
+/**
+ * The person to write to, when a task is really "tell someone something".
+ *
+ * A ticket is the wrong offer for "Email Priya at Figma about the icons", and
+ * that is exactly what the product offered: the extractor had labelled it a
+ * plain task rather than a follow-up, so keying off `kind` alone missed it.
+ * The reliable signal is in the words: the task names somebody the meeting
+ * separately flagged as needing contact, and says to get in touch with them.
+ *
+ * Only the title is searched. Details often mention several people in passing,
+ * and a name in passing is not an instruction to write to them. The owner is
+ * skipped too: they are the one doing the task, not the one written to.
+ */
+export function personToEmail(
+  task: { title: string; details?: string | null; owner: string | null; kind: TaskKind },
+  people: ContactPerson[],
+): string | null {
+  const title = task.title ?? "";
+  // A follow-up already declares its intent; anything else has to say so.
+  if (task.kind !== "follow_up" && !CONTACT_INTENT.test(title)) return null;
+
+  const owner = (task.owner ?? "").trim().toLowerCase();
+  for (const person of people) {
+    const name = (person.name ?? "").trim();
+    if (name.length < 2 || name.toLowerCase() === owner) continue;
+    if (namedIn(title, name)) return name;
+  }
+  return null;
+}
+
 const RANK: Record<TaskPriority, number> = { high: 0, medium: 1, low: 2 };
 
 /** Open first, then by priority, then newest. Stable and pure. */

@@ -49,6 +49,8 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
   const [draftBody, setDraftBody] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
 
+  // Nothing here writes "dismissed" any more, but rows saved before Dismiss
+  // became Delete still carry it, so "All" keeps hiding them.
   const visible = useMemo(
     () => sortDrafts(drafts.filter((d) => (filter === "all" ? d.status !== "dismissed" : d.status === filter))),
     [drafts, filter],
@@ -59,14 +61,14 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
     setDrafts((list) => list.map((d) => (d.id === next.id ? next : d)));
   }
 
-  async function setStatus(d: PublicDraft, status: DraftStatus) {
+  async function approve(d: PublicDraft) {
     setBusy(d.id);
     const previous = d.status;
-    replace({ ...d, status });
+    replace({ ...d, status: "approved" });
     try {
-      const { draft } = await patchJson<{ draft: PublicDraft }>(`/api/drafts/${d.id}`, { status });
+      const { draft } = await patchJson<{ draft: PublicDraft }>(`/api/drafts/${d.id}`, { status: "approved" });
       replace(draft);
-      toast(status === "approved" ? "Approved" : "Dismissed", "ok");
+      toast("Approved", "ok");
     } catch (err) {
       replace({ ...d, status: previous });
       toast(err instanceof Error ? err.message : "Could not update that draft", "error");
@@ -92,12 +94,15 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
     }
   }
 
+  /* No confirmation step: a draft is cheap to make again with one press of
+     "draft ticket" or "draft email", so an extra click would cost more than
+     the mistake it prevents. A recording would be a different matter. */
   async function remove(d: PublicDraft) {
     setBusy(d.id);
     try {
       await deleteJson(`/api/drafts/${d.id}`);
       setDrafts((list) => list.filter((x) => x.id !== d.id));
-      toast("Deleted", "ok");
+      toast("Draft deleted", "ok");
     } catch (err) {
       toast(err instanceof Error ? err.message : "Could not delete that draft", "error");
     } finally {
@@ -198,7 +203,7 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
                   <DraftBody markdown={d.body} />
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-panel-border pt-4">
                     {d.status === "pending" ? (
-                      <button className="btn btn-primary !py-1.5 text-xs" disabled={busy === d.id} onClick={() => setStatus(d, "approved")}>
+                      <button className="btn btn-approve !py-1.5 text-xs" disabled={busy === d.id} onClick={() => approve(d)}>
                         Approve
                       </button>
                     ) : null}
@@ -215,15 +220,9 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
                     >
                       Edit
                     </button>
-                    {d.status === "pending" ? (
-                      <button className="btn btn-ghost !py-1.5 text-xs text-muted hover:!text-danger" disabled={busy === d.id} onClick={() => setStatus(d, "dismissed")}>
-                        Dismiss
-                      </button>
-                    ) : (
-                      <button className="btn btn-ghost !py-1.5 text-xs text-muted hover:!text-danger" disabled={busy === d.id} onClick={() => remove(d)}>
-                        Delete
-                      </button>
-                    )}
+                    <button className="btn btn-danger-outline !py-1.5 text-xs" disabled={busy === d.id} onClick={() => remove(d)}>
+                      Delete
+                    </button>
                   </div>
                 </>
               )}

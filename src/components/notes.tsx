@@ -73,7 +73,7 @@ export function NotesView({ notes, meetingId, tier }: { notes: MeetingNotes; mee
           </span>
         </div>
         {meetingId ? (
-          <ActionItems meetingId={meetingId} fallback={notes.action_items} tier={tier} />
+          <ActionItems meetingId={meetingId} fallback={notes.action_items} people={notes.people_to_contact} tier={tier} />
         ) : notes.action_items.length === 0 ? (
           <p className="band-empty text-sm text-muted">Nothing to do came out of this one.</p>
         ) : (

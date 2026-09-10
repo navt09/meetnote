@@ -6,7 +6,16 @@ import { useEffect, useMemo, useState } from "react";
 import { patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState, PageHead } from "@/components/ui";
-import { filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
+import {
+  filterTasks,
+  kindLabel,
+  ownersOf,
+  personToEmail,
+  sortTasks,
+  type ContactPerson,
+  type PublicTask,
+  type TaskFilter,
+} from "@/lib/task";
 import { PriorityFlag } from "@/components/priority";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
 import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
@@ -25,6 +34,8 @@ export default function TasksView({
   loadError,
   drafted,
   due,
+  people,
+  me,
   requestedTaskId,
   tier,
 }: {
@@ -33,6 +44,10 @@ export default function TasksView({
   drafted: string[];
   due: DueEntry[];
   tier: Tier;
+  /** Each task's meeting's people_to_contact, keyed by meeting id. */
+  people: Record<string, ContactPerson[]>;
+  /** The reader's own name, as set in Settings. Null if they never set one. */
+  me: string | null;
   /** A task linked to from elsewhere, e.g. Home's "Top of the list". */
   requestedTaskId: string | null;
 }) {
@@ -45,8 +60,20 @@ export default function TasksView({
   // asked for may well be done. Derived at mount rather than set from an
   // effect, so the first render is already right.
   const [filter, setFilter] = useState<TaskFilter>(requestedTaskId ? "all" : "open");
-  const [owner, setOwner] = useState<string | null>(null);
+  // This tab is "my tasks": it opens on the reader's own. Only when their name
+  // is actually one of the owners, though. Opening on a filter that matches
+  // nothing looks like a broken page rather than a filtered one. Derived at
+  // mount for the same reason the filter above is. Needing a second owner is
+  // not pedantry: the chips, and with them the way back to Everyone, are only
+  // drawn when there is more than one, and a filter you cannot lift is a trap.
+  const [owner, setOwner] = useState<string | null>(() => {
+    const list = ownersOf(initial);
+    return me && list.length > 1 && list.includes(me) ? me : null;
+  });
   const [hasDraft, setHasDraft] = useState<Set<string>>(new Set(drafted));
+  // Email drafts carry no task id, so unlike tickets they cannot be read back
+  // from the drafts table against a task. This remembers the ones drafted here.
+  const [emailed, setEmailed] = useState<Set<string>>(new Set());
   const [drafting, setDrafting] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState<string | null>(null);
   // The row to jump to. Carries a counter so picking the same deadline twice
@@ -88,6 +115,22 @@ export default function TasksView({
     }
   }
 
+  /** The recipient is one that meeting itself flagged; the route refuses any other. */
+  async function draftEmail(task: PublicTask, name: string) {
+    setDrafting(task.id);
+    try {
+      await postJson(`/api/meetings/${task.meetingId}/draft-email`, { name });
+      setEmailed((s) => new Set(s).add(task.id));
+      toast("Email drafted. Check it in Approvals.", "ok");
+      router.refresh();
+    } catch (err) {
+      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that email";
+      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
+    } finally {
+      setDrafting(null);
+    }
+  }
+
   // Built from the current tasks rather than the server's list, so ticking one
   // off drops it out of the deadlines without a round trip.
   const schedule = useMemo(() => {
@@ -104,7 +147,10 @@ export default function TasksView({
 
   const owners = useMemo(() => ownersOf(tasks), [tasks]);
   const visible = useMemo(() => sortTasks(filterTasks(tasks, filter, owner)), [tasks, filter, owner]);
-  const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
+  // Counted over whoever is being shown, not over everything, so the meta line
+  // never claims a number the list below it does not contain.
+  const scoped = useMemo(() => filterTasks(tasks, "all", owner), [tasks, owner]);
+  const openCount = useMemo(() => scoped.filter((t) => t.status === "open").length, [scoped]);
 
   // Drop the parameter once it has been acted on, so a refresh does not flash
   // the same row again.
@@ -150,7 +196,10 @@ export default function TasksView({
         meta={
           <>
             {openCount === 0 ? "Nothing outstanding" : `${openCount} still to do`}
-            {tasks.length > openCount ? ` · ${tasks.length - openCount} done` : ""}
+            {scoped.length > openCount ? ` · ${scoped.length - openCount} done` : ""}
+            {/* Said plainly, with the total, so a short list reads as a
+                filtered view and not as an empty week. */}
+            {owner ? ` · ${owner} only, of ${tasks.length} from your meetings` : ""}
           </>
         }
         action={<Link href="/record" className="btn btn-primary">New meeting</Link>}
@@ -201,7 +250,13 @@ export default function TasksView({
       ) : visible.length === 0 ? (
         <EmptyState
           title={filter === "open" ? "All caught up" : "Nothing here"}
-          body={filter === "open" ? "Every task from your meetings is done." : "Try a different filter."}
+          body={
+            filter !== "open"
+              ? "Try a different filter."
+              : owner
+                ? `Every task assigned to ${owner} is done. Pick Everyone to see the rest.`
+                : "Every task from your meetings is done."
+          }
         />
       ) : null}
 
@@ -215,6 +270,8 @@ export default function TasksView({
           <ul className="band-body">
             {visible.map((t) => {
               const done = t.status === "done";
+              // "Email Priya about the icons" wants an email, not a ticket.
+              const emailTo = personToEmail(t, people[t.meetingId] ?? []);
               return (
                 <li key={t.id} id={`task-${t.id}`} className={`band-row scroll-mt-24 ${target?.id === t.id ? "task-flash" : ""}`}>
                   <div className="flex items-start gap-3">
@@ -252,7 +309,19 @@ export default function TasksView({
                       })()}
                         {/* Work already done stays visible even on a tier that
                             could not start it now. */}
-                        {hasDraft.has(t.id) ? (
+                        {emailTo ? (
+                          emailed.has(t.id) ? (
+                            <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">email drafted</Link>
+                          ) : mayDraft ? (
+                            <button
+                              onClick={() => draftEmail(t, emailTo)}
+                              disabled={drafting === t.id}
+                              className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                            >
+                              {drafting === t.id ? "drafting…" : "draft email"}
+                            </button>
+                          ) : null
+                        ) : hasDraft.has(t.id) ? (
                           <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
                         ) : mayDraft ? (
                           <button

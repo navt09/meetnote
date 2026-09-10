@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { actionItemsToRows, filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask } from "../task";
+import { actionItemsToRows, filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, personToEmail } from "../task";
 import type { ActionItem } from "../schema";
 
 const task = (over: Partial<PublicTask>): PublicTask => ({
@@ -102,5 +102,52 @@ describe("due_at is resolved once, at extraction", () => {
       new Date(2026, 8, 8),
     );
     expect(row.due_at).toBeNull();
+  });
+});
+
+describe("personToEmail", () => {
+  const people = [
+    { name: "Priya", role: "Figma contact", why: "Missing icons." },
+    { name: "Marcus", role: "Owner", why: "Payment webhook." },
+    { name: "Sam", role: null, why: "API change." },
+  ];
+  const t = (over: Partial<Parameters<typeof personToEmail>[0]>) =>
+    personToEmail({ title: "", details: null, owner: null, kind: "task", ...over }, people);
+
+  it("finds the person on the task the extractor mislabelled", () => {
+    // The real case: kind came back "task", not "follow_up", so kind alone
+    // would have offered a ticket for an email.
+    expect(t({ title: "Email Priya at Figma about missing icons", owner: "Naveen", kind: "task" })).toBe("Priya");
+  });
+
+  it("takes a follow-up at its word even with no contact verb", () => {
+    expect(t({ title: "Priya, dark mode icons", kind: "follow_up" })).toBe("Priya");
+  });
+
+  it("leaves ordinary work as a ticket", () => {
+    expect(t({ title: "Fix export crash", owner: "Naveen" })).toBeNull();
+    expect(t({ title: "Deliver payment webhook", owner: "Marcus" })).toBeNull();
+  });
+
+  it("does not offer to write to somebody merely named in the task", () => {
+    // Reviewing someone's work is not writing to them.
+    expect(t({ title: "Review Priya's pull request" })).toBeNull();
+  });
+
+  it("never offers to email the person doing the task", () => {
+    expect(t({ title: "Marcus to chase the payment webhook", owner: "Marcus" })).toBeNull();
+  });
+
+  it("matches whole names only", () => {
+    expect(t({ title: "Email Samantha about the rollout" })).toBeNull();
+    expect(t({ title: "Email Sam about the rollout" })).toBe("Sam");
+  });
+
+  it("ignores people the meeting never flagged", () => {
+    expect(personToEmail({ title: "Email Jordan about the demo", details: null, owner: null, kind: "task" }, people)).toBeNull();
+  });
+
+  it("returns null when nobody was flagged at all", () => {
+    expect(personToEmail({ title: "Email Priya about icons", details: null, owner: null, kind: "task" }, [])).toBeNull();
   });
 });

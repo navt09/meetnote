@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
-import { kindLabel, type PublicTask } from "@/lib/task";
+import { kindLabel, personToEmail, type ContactPerson, type PublicTask } from "@/lib/task";
 import type { ActionItem } from "@/lib/schema";
 import { PriorityFlag } from "@/components/priority";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
@@ -21,13 +21,29 @@ import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrad
  *
  * The actions are the same ones the Tasks page offers, put where people
  * actually read the meeting.
+ *
+ * `people` is this meeting's people_to_contact. A task that says to get in
+ * touch with one of them is an email, not a ticket, so it is offered as one.
  */
-export function ActionItems({ meetingId, fallback, tier }: { meetingId: string; fallback: ActionItem[]; tier: Tier }) {
+export function ActionItems({
+  meetingId,
+  fallback,
+  people,
+  tier,
+}: {
+  meetingId: string;
+  fallback: ActionItem[];
+  people: ContactPerson[];
+  tier: Tier;
+}) {
   const toast = useToast();
   const mayDraft = canDraft(tier);
   const mayConnect = canConnect(tier);
   const [tasks, setTasks] = useState<PublicTask[] | null>(null);
   const [drafted, setDrafted] = useState<Set<string>>(new Set());
+  // Email drafts carry no task id, so unlike tickets they cannot be read back
+  // from /api/drafts against a task. This remembers the ones drafted here.
+  const [emailed, setEmailed] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,6 +83,21 @@ export function ActionItems({ meetingId, fallback, tier }: { meetingId: string; 
     }
   }
 
+  /** The recipient is one the meeting itself flagged; the route refuses any other. */
+  async function draftEmail(task: PublicTask, name: string) {
+    setBusy(task.id);
+    try {
+      await postJson(`/api/meetings/${meetingId}/draft-email`, { name });
+      setEmailed((prev) => new Set(prev).add(task.id));
+      toast("Email drafted. Read it in Approvals before it goes anywhere.", "ok");
+    } catch (err) {
+      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that email";
+      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function addToCalendar(task: PublicTask) {
     setBusy(task.id);
     try {
@@ -94,6 +125,8 @@ export function ActionItems({ meetingId, fallback, tier }: { meetingId: string; 
       {rows.map((row, i) => {
         const task = live ? (row as PublicTask) : null;
         const done = task?.status === "done";
+        // "Email Priya about the icons" wants an email, not a ticket.
+        const emailTo = task ? personToEmail(task, people) : null;
         return (
           <li key={task?.id ?? i} className="band-row">
             <div className="flex items-start justify-between gap-3">
@@ -111,7 +144,19 @@ export function ActionItems({ meetingId, fallback, tier }: { meetingId: string; 
                 <>
                   {/* Work already done stays visible even on a tier that could
                       not start it now, so a downgrade never hides a real ticket. */}
-                  {drafted.has(task.id) ? (
+                  {emailTo ? (
+                    emailed.has(task.id) ? (
+                      <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">email drafted</Link>
+                    ) : mayDraft ? (
+                      <button
+                        onClick={() => draftEmail(task, emailTo)}
+                        disabled={busy === task.id}
+                        className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                      >
+                        {busy === task.id ? "working…" : "draft email"}
+                      </button>
+                    ) : null
+                  ) : drafted.has(task.id) ? (
                     <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
                   ) : mayDraft ? (
                     <button

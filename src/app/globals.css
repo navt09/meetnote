@@ -139,6 +139,14 @@ body.app {
 
   --danger: #f2705f;
   --danger-ink: #1b0d0b;      /* dark type on a bright warning, never white */
+  /* Approve is the one filled colour in the product, because sending something
+     to another person deserves to look different from every other button. It
+     leans azure (hue 204) rather than the people hue's periwinkle (hue 222) so
+     the two do not read as the same blue sitting next to each other. Deep
+     enough that the hover can brighten and still clear 4.5:1 on white type. */
+  --approve: #0e6ba8;
+  --approve-hover: #1276b8;
+  --approve-ink: #ffffff;
   --ok: #45c795;
   --warn: #dda63f;
 
@@ -192,6 +200,11 @@ html[data-theme="light"] body.app {
 
   --danger: #c4443c;
   --danger-ink: #ffffff;
+  /* A step deeper than the dark surface's, because paper needs the fill to
+     hold the white type at the same margin. */
+  --approve: #0c5f96;
+  --approve-hover: #0e6ba8;
+  --approve-ink: #ffffff;
   --ok: #15704f;
   --warn: #8a5a06;
 
@@ -340,6 +353,18 @@ body.app .strip { border-radius: 12px; box-shadow: none; }
 
 .btn-danger { background: var(--danger); color: var(--danger-ink, #fff); font-weight: 600; }
 .btn-danger:hover:not(:disabled) { filter: brightness(1.12); }
+
+/* Outlined, not filled: this sits beside Approve, and two solid colours next
+   to each other make the destructive one shout louder than the one people
+   actually came to press. */
+.btn-danger-outline { color: var(--danger); border: 1px solid var(--pill-danger-border); background: transparent; }
+.btn-danger-outline:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border-color: var(--danger);
+}
+
+.btn-approve { background: var(--approve); color: var(--approve-ink); font-weight: 600; }
+.btn-approve:hover:not(:disabled) { background: var(--approve-hover); }
 
 /* ---------- pills ---------- */
 
