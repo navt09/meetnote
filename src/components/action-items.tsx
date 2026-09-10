@@ -6,7 +6,7 @@ import { getJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { kindLabel, type PublicTask } from "@/lib/task";
 import type { ActionItem } from "@/lib/schema";
-import { PRIORITY_STRIPE, PriorityTag } from "@/components/priority";
+import { PriorityFlag } from "@/components/priority";
 
 /**
  * A meeting's action items, with the things you can do to them.
@@ -78,60 +78,56 @@ export function ActionItems({ meetingId, fallback }: { meetingId: string; fallba
   const live = !!tasks && tasks.length > 0;
 
   if (rows.length === 0) {
-    return <p className="mt-4 text-sm text-muted">Nothing to do came out of this one.</p>;
+    return <p className="band-empty text-sm text-muted">Nothing to do came out of this one.</p>;
   }
 
   return (
-    <ul className="mt-4 flex flex-col gap-2.5">
+    <ul className="band-body">
       {rows.map((row, i) => {
         const task = live ? (row as PublicTask) : null;
         const done = task?.status === "done";
         return (
-          <li
-            key={task?.id ?? i}
-            className={`rounded-lg border border-panel-border bg-bg-elev p-4 ${done ? "opacity-60" : ""}`}
-            style={{ borderLeftWidth: "3px", borderLeftColor: done ? "var(--panel-border-hi)" : PRIORITY_STRIPE[row.priority] }}
-          >
-            <p className={`font-medium leading-snug ${done ? "line-through decoration-faint" : ""}`}>{row.title}</p>
+          <li key={task?.id ?? i} className="band-row">
+            <div className="flex items-start justify-between gap-3">
+              <p className={`font-medium leading-snug ${done ? "text-faint line-through" : ""}`}>{row.title}</p>
+              <PriorityFlag priority={row.priority} done={done} />
+            </div>
             {row.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{row.details}</p> : null}
 
-            {/* What it is. */}
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-              <PriorityTag priority={row.priority} dimmed={done} />
-              <span className={row.owner ? "font-medium text-fg" : "text-faint"}>{row.owner ?? "Unassigned"}</span>
-              <span className="text-faint">{kindLabel(row.kind)}</span>
-              {row.due ? <span className="text-warn">due {row.due}</span> : null}
-            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
+              <span className={row.owner ? "font-medium text-fg" : ""}>{row.owner ?? "Unassigned"}</span>
+              <span>{kindLabel(row.kind)}</span>
+              {row.due ? <span className="font-medium text-warn">due {row.due}</span> : null}
 
-            {/* What you can do about it, kept on its own line. */}
-            {task ? (
-              <div className="mt-2.5 flex flex-wrap items-center gap-3 border-t border-panel-border pt-2.5 text-xs">
-                {drafted.has(task.id) ? (
-                  <Link href="/approvals" className="text-accent transition-colors hover:underline">ticket drafted</Link>
-                ) : (
-                  <button
-                    onClick={() => draftTicket(task)}
-                    disabled={busy === task.id}
-                    className="text-muted transition-colors hover:text-fg disabled:opacity-50"
-                  >
-                    {busy === task.id ? "working…" : "draft ticket"}
-                  </button>
-                )}
-                {task.calendarEventUrl ? (
-                  <a href={task.calendarEventUrl} target="_blank" rel="noreferrer" className="text-accent transition-colors hover:underline">
-                    on your calendar
-                  </a>
-                ) : (
-                  <button
-                    onClick={() => addToCalendar(task)}
-                    disabled={busy === task.id}
-                    className="text-muted transition-colors hover:text-fg disabled:opacity-50"
-                  >
-                    add to calendar
-                  </button>
-                )}
-              </div>
-            ) : null}
+              {task ? (
+                <>
+                  {drafted.has(task.id) ? (
+                    <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
+                  ) : (
+                    <button
+                      onClick={() => draftTicket(task)}
+                      disabled={busy === task.id}
+                      className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                    >
+                      {busy === task.id ? "working…" : "draft ticket"}
+                    </button>
+                  )}
+                  {task.calendarEventUrl ? (
+                    <a href={task.calendarEventUrl} target="_blank" rel="noreferrer" className="font-medium text-accent transition-opacity hover:opacity-70">
+                      on your calendar
+                    </a>
+                  ) : (
+                    <button
+                      onClick={() => addToCalendar(task)}
+                      disabled={busy === task.id}
+                      className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                    >
+                      add to calendar
+                    </button>
+                  )}
+                </>
+              ) : null}
+            </div>
           </li>
         );
       })}

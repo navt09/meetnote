@@ -1,22 +1,18 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
+import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { tierFor } from "@/lib/account-store";
 import { ToastProvider } from "@/components/toast";
-import NavTabs from "@/components/nav-tabs";
+import Sidebar from "@/components/sidebar";
 import { Logo } from "@/components/logo";
 import "./globals.css";
 
-// Bricolage carries the headlines and the wordmark: its optical-size axis means
-// the display cut kicks in on its own at large sizes.
-//
-// Body and mono are both Plex. Most of this product is small text - owners,
-// dates, task meta - and Plex Sans holds its shape there where a softer
-// grotesk goes mushy: open apertures, a tall x-height, and an l that cannot be
-// mistaken for a 1. It also belongs to the same family as the mono already
-// used for transcripts, so the two sit together instead of merely coexisting.
-const display = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"], axes: ["opsz", "wdth"] });
+// Fraunces carries the headlines: a serif with an optical-size axis, which
+// gives the app warmth without softening the small text that does the work.
+// Body and mono are both Plex - most of this product is small text, and Plex
+// holds its shape there where a softer face goes mushy.
+const display = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], weight: ["600", "700"] });
 const body = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin"], weight: ["400", "500", "600"] });
 const mono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"] });
 
@@ -41,33 +37,44 @@ export default async function RootLayout({ children }: { children: React.ReactNo
 
   return (
     <html lang="en">
-      <body className={`${display.variable} ${body.variable} ${mono.variable} flex min-h-screen flex-col font-sans`}>
+      {/* Two surfaces: the shopfront is dark with a top header, the app is light
+          with a sidebar. globals.css scopes every token to this class. */}
+      <body
+        className={`${display.variable} ${body.variable} ${mono.variable} font-sans ${
+          email ? "app flex min-h-screen flex-col md:flex-row" : "marketing flex min-h-screen flex-col"
+        }`}
+      >
         <ToastProvider>
-          <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
-            <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
-              {/* The wordmark is three words, so it must not wrap, and it gives
-                  way to the mark alone once the nav needs the room. */}
-              <Link
-                href={email ? "/dashboard" : "/"}
-                className="font-display flex shrink-0 items-center gap-2 whitespace-nowrap text-[1.0625rem] font-semibold tracking-tight"
-              >
-                <Logo size={27} />
-                <span className={email ? "hidden lg:inline" : "inline"}>From the Call</span>
-              </Link>
-              <nav className="no-scrollbar flex min-w-0 items-center gap-3 overflow-x-auto text-sm text-muted">
-                {email ? (
-                  <>
-                    <NavTabs isOwner={isOwner} />
-                    <form action="/auth/signout" method="post" className="flex shrink-0 items-center gap-3 border-l border-panel-border pl-3">
-                      <span className="hidden max-w-[16ch] truncate text-xs text-faint sm:inline" title={email}>{email}</span>
-                      <button className="whitespace-nowrap text-xs transition-colors hover:text-fg" type="submit">Sign out</button>
-                    </form>
-                  </>
-                ) : (
-                  <>
-                    {/* Marketing nav. Anchors rather than routes: the landing
-                        page is one document, and a visitor should never lose
-                        their place in it. */}
+          {email ? (
+            <>
+              <Sidebar email={email} isOwner={isOwner} />
+              <div className="flex min-w-0 flex-1 flex-col">
+                <main className="mx-auto w-full max-w-4xl flex-1 px-5 pb-16 sm:px-8">{children}</main>
+                <footer className="border-t border-panel-border">
+                  <div className="mx-auto flex w-full max-w-4xl flex-wrap items-center justify-between gap-3 px-5 py-5 text-xs text-faint sm:px-8">
+                    <span>&copy; {new Date().getFullYear()} From the Call</span>
+                    <nav className="flex items-center gap-4">
+                      <Link className="transition-colors hover:text-fg" href="/privacy">Privacy</Link>
+                      <Link className="transition-colors hover:text-fg" href="/terms">Terms</Link>
+                    </nav>
+                  </div>
+                </footer>
+              </div>
+            </>
+          ) : (
+            <>
+              <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
+                <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
+                  <Link
+                    href="/"
+                    className="font-display flex shrink-0 items-center gap-2 whitespace-nowrap text-[1.0625rem] font-semibold tracking-tight"
+                  >
+                    <Logo size={27} />
+                    <span>From the Call</span>
+                  </Link>
+                  <nav className="no-scrollbar flex min-w-0 items-center gap-3 overflow-x-auto text-sm text-muted">
+                    {/* Anchors rather than routes: the landing page is one
+                        document, and a visitor should never lose their place. */}
                     <div className="hidden items-center gap-1 md:flex">
                       {[
                         ["Features", "/#features"],
@@ -75,35 +82,31 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                         ["About", "/#about"],
                         ["Contact", "/#contact"],
                       ].map(([label, href]) => (
-                        <Link
-                          key={href}
-                          href={href}
-                          className="rounded-md px-2.5 py-1.5 text-sm transition-colors hover:text-fg"
-                        >
+                        <Link key={href} href={href} className="rounded-md px-2.5 py-1.5 text-sm transition-colors hover:text-fg">
                           {label}
                         </Link>
                       ))}
                     </div>
                     <Link href="/login" className="btn btn-ghost whitespace-nowrap">Sign in</Link>
-                  </>
-                )}
-              </nav>
-            </div>
-          </header>
+                  </nav>
+                </div>
+              </header>
 
-          <main className="mx-auto w-full max-w-5xl px-6 pb-16">{children}</main>
+              <main className="mx-auto w-full max-w-5xl px-6 pb-16">{children}</main>
 
-          {/* Public and reachable from every page: Google's OAuth review fetches
-              the privacy policy and terms from the home page before approving. */}
-          <footer className="mt-auto border-t border-panel-border">
-            <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-faint">
-              <span>&copy; {new Date().getFullYear()} From the Call</span>
-              <nav className="flex items-center gap-4">
-                <Link className="transition-colors hover:text-fg" href="/privacy">Privacy</Link>
-                <Link className="transition-colors hover:text-fg" href="/terms">Terms</Link>
-              </nav>
-            </div>
-          </footer>
+              {/* Public and reachable from every page: Google's OAuth review
+                  fetches the privacy policy and terms before approving. */}
+              <footer className="mt-auto border-t border-panel-border">
+                <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-faint">
+                  <span>&copy; {new Date().getFullYear()} From the Call</span>
+                  <nav className="flex items-center gap-4">
+                    <Link className="transition-colors hover:text-fg" href="/privacy">Privacy</Link>
+                    <Link className="transition-colors hover:text-fg" href="/terms">Terms</Link>
+                  </nav>
+                </div>
+              </footer>
+            </>
+          )}
         </ToastProvider>
       </body>
     </html>

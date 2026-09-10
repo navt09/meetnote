@@ -29,20 +29,19 @@ export function PeopleToContact({ meetingId, people }: { meetingId: string; peop
   }
 
   return (
-    <div className="glass p-6">
-      {/* Matches SectionHead in notes.tsx; this card sits beside those. */}
-      <div className="flex items-baseline justify-between gap-3 border-b border-panel-border pb-3">
-        <h2 className="font-display text-base font-semibold tracking-tight">People to contact</h2>
-        <span className="font-mono text-xs text-faint">{people.length}</span>
+    <section className="band band-people">
+      <div className="band-head">
+        <h2 className="band-title">People to contact</h2>
+        <span className="band-count">{people.length}</span>
       </div>
-      <ul className="mt-4 flex flex-col gap-3.5 text-sm">
+      <ul className="band-body">
         {people.map((p, i) => (
-          <li key={i} className="border-l-2 border-accent/50 pl-3.5">
+          <li key={i} className="band-row">
             <p className="font-medium leading-snug">
               {p.name}
               {p.role ? <span className="font-normal text-faint"> · {p.role}</span> : null}
             </p>
-            <p className="mt-1 leading-relaxed text-muted">{p.why}</p>
+            <p className="mt-1 text-sm leading-relaxed text-muted">{p.why}</p>
             <p className="mt-2 text-xs">
               {drafted.has(p.name) ? (
                 <Link href="/approvals" className="text-accent transition-colors hover:underline">email drafted</Link>
@@ -58,8 +57,8 @@ export function PeopleToContact({ meetingId, people }: { meetingId: string; peop
             </p>
           </li>
         ))}
-        {people.length === 0 ? <li className="text-muted">Nobody flagged.</li> : null}
+        {people.length === 0 ? <li className="band-row text-sm text-muted">Nobody was flagged.</li> : null}
       </ul>
-    </div>
+    </section>
   );
 }

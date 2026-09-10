@@ -7,7 +7,7 @@ import { patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState } from "@/components/ui";
 import { filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
-import { PRIORITY_STRIPE, PriorityTag } from "@/components/priority";
+import { PriorityFlag } from "@/components/priority";
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "open", label: "To do" },
@@ -133,76 +133,76 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
         />
       ) : null}
 
-      <ul className="stagger flex flex-col gap-3">
-        {visible.map((t) => {
-          const done = t.status === "done";
-          return (
-            <li
-              key={t.id}
-              className={`glass glass-hover flex items-start gap-3 p-4 ${done ? "opacity-60" : ""}`}
-              style={{ borderLeftWidth: "3px", borderLeftColor: done ? "var(--panel-border-hi)" : PRIORITY_STRIPE[t.priority] }}
-            >
-              <button
-                onClick={() => toggle(t)}
-                aria-label={done ? `Mark "${t.title}" as not done` : `Mark "${t.title}" as done`}
-                className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded border text-[0.6rem] transition-colors ${
-                  done ? "border-accent bg-accent text-[color:var(--accent-ink)]" : "border-panel-border hover:border-accent"
-                }`}
-              >
-                {done ? "✓" : ""}
-              </button>
+      {visible.length > 0 ? (
+        <section className="band band-work">
+          <div className="band-head">
+            <h2 className="band-title">Needs doing</h2>
+            <span className="band-count">{visible.length}</span>
+          </div>
+          <ul className="band-body">
+            {visible.map((t) => {
+              const done = t.status === "done";
+              return (
+                <li key={t.id} className="band-row">
+                  <div className="flex items-start gap-3">
+                    <button
+                      onClick={() => toggle(t)}
+                      aria-label={done ? `Mark "${t.title}" as not done` : `Mark "${t.title}" as done`}
+                      className={`mt-0.5 grid h-4 w-4 flex-none place-items-center rounded border text-[0.6rem] transition-colors ${
+                        done ? "border-agreed bg-agreed text-[color:var(--bg)]" : "border-panel-border-hi hover:border-agreed"
+                      }`}
+                    >
+                      {done ? "✓" : ""}
+                    </button>
 
-              <div className="min-w-0 flex-1">
-                <p className={`font-medium leading-snug ${done ? "line-through decoration-faint" : ""}`}>{t.title}</p>
-                {t.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{t.details}</p> : null}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <p className={`font-medium leading-snug ${done ? "text-faint line-through" : ""}`}>{t.title}</p>
+                        <PriorityFlag priority={t.priority} done={done} />
+                      </div>
+                      {t.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{t.details}</p> : null}
 
-                {/* What the task is. */}
-                <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                  <PriorityTag priority={t.priority} dimmed={done} />
-                  <span className={t.owner ? "font-medium text-fg" : "text-faint"}>{t.owner ?? "Unassigned"}</span>
-                  <span className="text-faint">{kindLabel(t.kind)}</span>
-                  {t.due ? <span className="text-warn">due {t.due}</span> : null}
-                </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
+                        <span className={t.owner ? "font-medium text-fg" : ""}>{t.owner ?? "Unassigned"}</span>
+                        <span>{kindLabel(t.kind)}</span>
+                        {t.due ? <span className="font-medium text-warn">due {t.due}</span> : null}
+                        {hasDraft.has(t.id) ? (
+                          <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
+                        ) : (
+                          <button
+                            onClick={() => draft(t)}
+                            disabled={drafting === t.id}
+                            className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                          >
+                            {drafting === t.id ? "drafting…" : "draft ticket"}
+                          </button>
+                        )}
+                        {t.calendarEventUrl ? (
+                          <a href={t.calendarEventUrl} target="_blank" rel="noreferrer" className="font-medium text-accent transition-opacity hover:opacity-70">
+                            on your calendar
+                          </a>
+                        ) : (
+                          <button
+                            onClick={() => addToCalendar(t)}
+                            disabled={scheduling === t.id}
+                            className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                          >
+                            {scheduling === t.id ? "adding…" : "add to calendar"}
+                          </button>
+                        )}
+                      </div>
 
-                {/* What you can do about it. Kept apart from the line above:
-                    mixing a due date, a meeting name and two buttons into one
-                    run of grey text is what made these rows unreadable. */}
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-panel-border pt-2.5 text-xs">
-                  <Link href={`/meetings/${t.meetingId}`} className="min-w-0 truncate text-faint transition-colors hover:text-fg">
-                    from {t.meetingTitle}
-                  </Link>
-                  <span className="flex flex-none items-center gap-3">
-                    {hasDraft.has(t.id) ? (
-                      <Link href="/approvals" className="text-accent transition-colors hover:underline">ticket drafted</Link>
-                    ) : (
-                      <button
-                        onClick={() => draft(t)}
-                        disabled={drafting === t.id}
-                        className="text-muted transition-colors hover:text-fg disabled:opacity-50"
-                      >
-                        {drafting === t.id ? "drafting…" : "draft ticket"}
-                      </button>
-                    )}
-                    {t.calendarEventUrl ? (
-                      <a href={t.calendarEventUrl} target="_blank" rel="noreferrer" className="text-accent transition-colors hover:underline">
-                        on your calendar
-                      </a>
-                    ) : (
-                      <button
-                        onClick={() => addToCalendar(t)}
-                        disabled={scheduling === t.id}
-                        className="text-muted transition-colors hover:text-fg disabled:opacity-50"
-                      >
-                        {scheduling === t.id ? "adding…" : "add to calendar"}
-                      </button>
-                    )}
-                  </span>
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+                      <Link href={`/meetings/${t.meetingId}`} className="mt-2 block truncate text-xs text-faint transition-colors hover:text-fg">
+                        from {t.meetingTitle}
+                      </Link>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
     </section>
   );
 }

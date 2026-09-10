@@ -4,6 +4,8 @@ import { sortTasks, toPublicTask, type TaskRow } from "@/lib/task";
 
 export const runtime = "nodejs";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
 /** Every task across the caller's meetings, newest and highest priority first. */
 export async function GET(req: Request) {
   const auth = await getAuth(req);
@@ -12,6 +14,7 @@ export async function GET(req: Request) {
   // Optional filter, so the meeting page can show that meeting's tasks without
   // pulling every task the account has.
   const meetingId = new URL(req.url).searchParams.get("meetingId");
+  if (meetingId && !UUID_RE.test(meetingId)) return NextResponse.json({ error: "Invalid meeting id" }, { status: 400 });
   let query = auth.db.from("tasks").select("*, meetings(title)").order("created_at", { ascending: false }).limit(500);
   if (meetingId) query = query.eq("meeting_id", meetingId);
 

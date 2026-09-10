@@ -3,11 +3,13 @@
 /* Restraint over spectacle: one accent, flat surfaces, neutral greys, little
    motion. No gradient text, no glow, no drifting blobs. */
 
-:root {
-  /* Surfaces step up: page, card, then a row raised inside a card. They used
-     to sit within 1.06:1 of each other - bg-elev was byte-identical to panel -
-     so nested rows had no separation at all and hairline borders were doing
-     every bit of the work. */
+/* Two surfaces, not one theme.
+   Signed out is the shopfront: dark, animated, a top header. Signed in is the
+   tool you work in: warm light, a sidebar, and three colours that each mean
+   something. They are deliberately different places, so the tokens are scoped
+   to the body class layout.tsx sets rather than fought over in one palette. */
+
+body.marketing {
   --bg: #0a0a0b;
   --panel: #151519;
   --bg-elev: #1e1e24;
@@ -15,28 +17,73 @@
   --panel-border: #2b2b31;
   --panel-border-hi: #3d3d45;
 
-  /* All three clear 4.5:1 on both the card and a raised row. --faint was at
-     3.14:1 while carrying owners, dates and meta lines, which is what made
-     the notes hard to read. */
   --fg: #ededee;
   --muted: #a1a1aa;
   --faint: #85858f;
 
   --accent: #629bff;
-  --accent-ink: #0a0a0b; /* text on an accent fill */
-  /* The second colour, and the only one with a job: blue is sound, this is the
-     work pulled out of it. Used on the landing page's demo and nowhere else. */
-  --work: #e8824e;
+  --accent-ink: #0a0a0b;
+  --btn-bg: var(--accent);
+  --btn-fg: var(--accent-ink);
+  --btn-bg-hover: #7fadff;
+
   --danger: #f2557a;
   --ok: #43c07d;
   --warn: #d99a2b;
+  --work: #e8824e;
 
-  /* Chart series. Fixed order, never cycled. Dark-mode steps of a validated
-     categorical palette; all six checks pass against the panel surface.
-     Re-run the dataviz validator before changing them. */
+  --pill-ok-border: #1f3d2c;
+  --pill-danger-border: #46212c;
+  --pill-live-border: #24354f;
+  --pill-warn-border: #4a3a17;
+  --skeleton-sheen: rgba(255, 255, 255, 0.05);
+
   --chart-1: #3987e5;
   --chart-2: #d95926;
   --chart-grid: #2b2b31;
+}
+
+body.app {
+  --bg: #fcfbf9;              /* warm paper: white glares as badly as black */
+  --rail: #f6f3ee;
+  --panel: #fcfbf9;           /* flat on purpose - a panel is not a raised box */
+  --bg-elev: #fcfbf9;
+  --panel-hi: #f1ede7;
+  --panel-border: #e9e5df;
+  --panel-border-hi: #dcd6cc;
+
+  --fg: #1d1c1a;
+  --muted: #5f5c57;
+  --faint: #8b8781;
+
+  /* The interactive colour is the work hue, so a link to act on something and
+     the band that holds it agree. The primary button is ink instead: a fourth
+     colour would compete with the three that carry meaning. */
+  --accent: #c4443c;
+  --accent-ink: #fcfbf9;
+  --btn-bg: #1d1c1a;
+  --btn-fg: #fcfbf9;
+  --btn-bg-hover: #35322e;
+
+  --danger: #c4443c;
+  --ok: #15704f;
+  --warn: #8a5a06;
+
+  /* The three kinds of thing a meeting produces. */
+  --work: #c4443c;    --work-bg: #fdefed;   --work-line: #f3cdc7;
+  --agreed: #15704f;  --agreed-bg: #e7f4ef; --agreed-line: #bfe0d3;
+  --people: #2b58bd;  --people-bg: #eaf0fd; --people-line: #c9d7f4;
+
+  --pill-ok-border: #bfe0d3;
+  --pill-danger-border: #f3cdc7;
+  --pill-live-border: #c9d7f4;
+  --pill-warn-border: #ecd9b0;
+  --skeleton-sheen: rgba(0, 0, 0, 0.045);
+
+  /* Re-validated against the light panel; see the note by the chart component. */
+  --chart-1: #1f6fd0;
+  --chart-2: #b4460f;
+  --chart-grid: #e9e5df;
 }
 
 @theme inline {
@@ -55,8 +102,12 @@
   --color-work: var(--work);
   --color-chart-1: var(--chart-1);
   --color-chart-2: var(--chart-2);
+  --color-rail: var(--rail);
+  --color-work: var(--work);
+  --color-agreed: var(--agreed);
+  --color-people: var(--people);
   --font-sans: var(--font-plex-sans);
-  --font-display: var(--font-bricolage);
+  --font-display: var(--font-fraunces);
   --font-mono: var(--font-plex-mono);
 
   /* Text scale, one step up from the Tailwind defaults. text-xs and text-sm do
@@ -70,9 +121,9 @@
   --text-base--line-height: 1.6rem;
 }
 
-html {
-  color-scheme: dark;
-}
+html { color-scheme: light dark; }
+body.marketing { color-scheme: dark; }
+body.app { color-scheme: light; }
 
 html, body {
   /* The page never scrolls sideways. Anything wider than the viewport is a bug
@@ -121,14 +172,14 @@ body {
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 .btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
-.btn-primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
-.btn-primary:hover:not(:disabled) { background: #7fadff; }
+.btn-primary { background: var(--btn-bg); color: var(--btn-fg); font-weight: 600; }
+.btn-primary:hover:not(:disabled) { background: var(--btn-bg-hover); }
 
 .btn-ghost { color: var(--fg); border: 1px solid var(--panel-border); background: transparent; }
 .btn-ghost:hover:not(:disabled) { background: var(--panel-hi); border-color: var(--panel-border-hi); }
 
 .btn-danger { background: var(--danger); color: #fff; font-weight: 600; }
-.btn-danger:hover:not(:disabled) { background: #f5708c; }
+.btn-danger:hover:not(:disabled) { filter: brightness(1.12); }
 
 /* ---------- pills ---------- */
 
@@ -145,10 +196,10 @@ body {
   color: var(--muted);
   white-space: nowrap;
 }
-.pill-ok { color: var(--ok); border-color: #1f3d2c; }
-.pill-danger { color: var(--danger); border-color: #46212c; }
-.pill-live { color: var(--accent); border-color: #24354f; }
-.pill-warn { color: var(--warn); border-color: #4a3a17; }
+.pill-ok { color: var(--ok); border-color: var(--pill-ok-border); }
+.pill-danger { color: var(--danger); border-color: var(--pill-danger-border); }
+.pill-live { color: var(--accent); border-color: var(--pill-live-border); }
+.pill-warn { color: var(--warn); border-color: var(--pill-warn-border); }
 
 /* ---------- recording indicator ---------- */
 
@@ -188,7 +239,7 @@ body {
   content: "";
   position: absolute; inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.05), transparent);
+  background: linear-gradient(90deg, transparent, var(--skeleton-sheen), transparent);
   animation: shimmer 1.6s infinite;
 }
 @keyframes shimmer { 100% { transform: translateX(100%); } }
@@ -219,12 +270,12 @@ body {
   color: var(--accent-ink);
   transition: background-color 140ms ease, transform 120ms ease;
 }
-.record-btn:hover:not(:disabled) { background: #7fadff; }
+.record-btn:hover:not(:disabled) { filter: brightness(1.1); }
 .record-btn:active:not(:disabled) { transform: scale(0.96); }
 .record-btn:disabled { opacity: 0.4; }
 .record-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; }
 .record-btn-stop { background: var(--danger); color: #fff; }
-.record-btn-stop:hover:not(:disabled) { background: #f5708c; }
+.record-btn-stop:hover:not(:disabled) { filter: brightness(1.1); }
 
 /* ---------- toasts ---------- */
 
@@ -244,8 +295,8 @@ body {
   font-size: 0.875rem;
   animation: riseIn 200ms ease-out both;
 }
-.toast-ok { border-color: #1f3d2c; }
-.toast-error { border-color: #46212c; }
+.toast-ok { border-color: var(--pill-ok-border); }
+.toast-error { border-color: var(--pill-danger-border); }
 
 /* ---------- stepper ---------- */
 
@@ -326,3 +377,66 @@ body {
 /* Mouse-following tilt. The transform is written straight to the element by
    tilt.tsx; this is just the ease back to flat. */
 .tilt { transition: transform 160ms ease; transform-style: preserve-3d; will-change: transform; }
+
+/* ---------- the three bands ---------- */
+/* Work, what was agreed, and who to contact never look alike. Each band is a
+   tinted container with its own hue; the rows inside sit on the page colour so
+   the tint frames them rather than washing over the text. */
+
+.band {
+  border: 1px solid var(--band-line);
+  background: var(--band-bg);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.band-work   { --band-hue: var(--work);   --band-bg: var(--work-bg);   --band-line: var(--work-line); }
+.band-agreed { --band-hue: var(--agreed); --band-bg: var(--agreed-bg); --band-line: var(--agreed-line); }
+.band-people { --band-hue: var(--people); --band-bg: var(--people-bg); --band-line: var(--people-line); }
+
+.band-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 0.75rem; padding: 0.6rem 0.95rem;
+}
+.band-title {
+  font-family: var(--font-display), Georgia, serif;
+  font-size: 0.95rem; font-weight: 600; letter-spacing: -0.005em;
+  color: var(--band-hue);
+}
+.band-count {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.74rem; color: var(--band-hue); opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+.band-body { background: var(--bg); border-top: 1px solid var(--band-line); }
+.band-row { padding: 0.8rem 0.95rem; border-bottom: 1px solid var(--panel-hi); }
+.band-row:last-child { border-bottom: 0; }
+.band-empty { padding: 0.8rem 0.95rem; background: var(--bg); border-top: 1px solid var(--band-line); }
+
+/* A priority flag, filled rather than outlined: on a light ground an outline
+   reads as a disabled control. */
+.flag {
+  display: inline-flex; align-items: center;
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  padding: 0.15rem 0.55rem; border-radius: 999px; white-space: nowrap;
+}
+.flag-high { background: var(--work); color: #fff; }
+.flag-med { background: #f6e7c6; color: #7c5705; }
+.flag-off { background: var(--panel-hi); color: var(--faint); }
+
+/* ---------- sidebar ---------- */
+
+.rail-link {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.5rem; padding: 0.3rem 0.5rem; border-radius: 6px;
+  color: var(--muted); font-size: 0.9375rem;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+.rail-link:hover { color: var(--fg); }
+.rail-link[aria-current="page"] {
+  background: var(--bg); color: var(--fg); font-weight: 600;
+  box-shadow: inset 0 0 0 1px var(--panel-border);
+}
+.rail-key {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.6875rem; color: var(--faint);
+}

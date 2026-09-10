@@ -12,7 +12,7 @@ Meeting-notes SaaS. Read PLAN.md first for product, stack, phases, and the accou
 Tabs when signed in, in order: **Home** (`/dashboard`), **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Approvals** (`/approvals`), **Record** (`/record`), **Settings** (`/settings`), and **Owner** (`/owner`) for owner accounts only. Record sits before Settings because it is what people come to do. Signing in lands on `/dashboard`. `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/nav-tabs.tsx`.
 
 ## Charts
-- Series colours are `--chart-1` / `--chart-2` in `globals.css`, in that fixed order, never cycled. They are the dark-mode steps of a validated categorical palette and all six checks pass against the panel surface. **The UI accents fail the lightness band; do not use them for chart marks.**
+- Series colours are `--chart-1` / `--chart-2` in `globals.css`, in that fixed order, never cycled. Each surface has its own validated pair: the app's (`#1f6fd0` / `#b4460f`) pass all six checks against the light panel `#fcfbf9`, the marketing surface keeps the dark-mode steps. **The UI accents fail the lightness band; do not use them for chart marks.**
 - Before changing or adding a series colour, run the validator in the `dataviz` skill (`node scripts/validate_palette.js "<hex,...>" --mode dark --surface "#121214"`) and fix any FAIL. Don't eyeball it.
 - One axis only, never two y-scales. Bars: 4px rounded ends anchored to the baseline, 2px gap between adjacent bars, solid hairline gridlines (never dashed). Two or more series always get a legend. Every chart ships a hover tooltip and a "View as table" fallback.
 - Dashboard aggregation lives in `src/lib/stats.ts`, all pure and time-injectable so tests aren't date-dependent.
@@ -49,9 +49,13 @@ Action items are mirrored from `meetings.notes` into a real `tasks` table by `sy
 - Deleting a user does NOT delete their audio: storage has no cascade. Any account-deletion feature must clear `<user_id>/` in the bucket first (see `--clean` in `scripts/seed-demo.mjs`).
 
 ## UI
-- Design tokens and every animation live in `src/app/globals.css`. The look is deliberately restrained: one accent (`--accent`), flat surfaces, neutral greys, short entry-only motion. No gradients, no glow, no glass blur, no decorative icons. Reuse the classes rather than adding one-off styles: `.glass`, `.glass-hover`, `.btn`, `.pill`, `.rise`, `.stagger`, `.skeleton`, `.bar-track`, `.record-btn`, `.step-dot`, `.field`.
+- **Two surfaces, not one theme.** `layout.tsx` puts `marketing` or `app` on `<body>` and `globals.css` scopes every token to that class. Signed out is the shopfront: dark, animated, a top header, the landing page's live demo. Signed in is the tool: warm light paper (`#fcfbf9`), a sidebar, serif headings. They are deliberately different places; do not try to make one palette serve both.
+- **Three hues that mean something.** In the app, work is `--work` red, what was agreed is `--agreed` green, people to contact is `--people` blue, each rendered as a `.band` (tinted container, hue-coloured `.band-title`, rows on the page colour inside). The summary is deliberately uncoloured: it is the whole meeting, not one kind of thing in it.
+- **The primary button is ink, not a colour.** A fourth hue would compete with the three that carry meaning, so `--btn-bg` is near-black on paper. `--accent` is the work hue and is for interactive text (draft ticket, add to calendar).
+- Type: Fraunces for headings and the wordmark (`font-display`), IBM Plex Sans for body, IBM Plex Mono for counts and timestamps. Most of this product is small text, which is why the body face is Plex.
+- Priority is a filled `.flag` (`flag-high` / `flag-med` / `flag-off`), never an outlined chip: on a light ground an outline reads as a disabled control. Shared in `src/components/priority.tsx`.
 - Everything is disabled under `prefers-reduced-motion`; keep it that way.
-- Shared pieces: `src/components/ui.tsx` (skeletons, status pill, stepper, empty state), `src/components/toast.tsx` (`useToast()`), `src/components/notes.tsx`. Use a toast, never `alert()`.
+- Shared pieces: `src/components/ui.tsx` (skeletons, status pill, stepper, empty state), `src/components/toast.tsx` (`useToast()`), `src/components/notes.tsx`, `src/components/sidebar.tsx`. Use a toast, never `alert()`.
 - `npm run seed:demo` creates a demo account with a finished meeting for looking at the UI; `npm run seed:demo -- --clean` removes them and their audio.
 
 ## Conventions
