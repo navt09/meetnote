@@ -10,22 +10,26 @@
    to the body class layout.tsx sets rather than fought over in one palette. */
 
 body.marketing {
-  --bg: #0a0a0b;
-  --panel: #151519;
-  --bg-elev: #1e1e24;
-  --panel-hi: #232329;
-  --panel-border: #2b2b31;
-  --panel-border-hi: #3d3d45;
+  /* Warm black rather than blue-black: the light bands on this page are warm
+     paper, and a cool ink next to warm paper looks like two different sites. */
+  --bg: #0f0e0d;
+  --panel: #171614;
+  --bg-elev: #1e1d1a;
+  --panel-hi: #232220;
+  --panel-border: #2a2926;
+  --panel-border-hi: #3d3b36;
 
-  --fg: #ededee;
-  --muted: #a1a1aa;
-  --faint: #85858f;
+  --fg: #eeece8;
+  --muted: #a6a29b;
+  --faint: #827e77;
 
   --accent: #629bff;
-  --accent-ink: #0a0a0b;
-  --btn-bg: var(--accent);
-  --btn-fg: var(--accent-ink);
-  --btn-bg-hover: #7fadff;
+  --accent-ink: #0f0e0d;
+  /* The primary button is paper on ink. The accent is for the live parts of
+     the demo and the odd link; a blue button on every band would shout. */
+  --btn-bg: #f2f0ec;
+  --btn-fg: #141311;
+  --btn-bg-hover: #ffffff;
 
   --danger: #f2557a;
   --ok: #43c07d;
@@ -40,7 +44,47 @@ body.marketing {
 
   --chart-1: #3987e5;
   --chart-2: #d95926;
-  --chart-grid: #2b2b31;
+  --chart-grid: #2a2926;
+}
+
+/* A paper band inside the dark shopfront. Every token is redefined here, so
+   the same buttons, cards and pills work on either ground without a second
+   set of components. The values are the app's own palette, which is the point:
+   the light sections are a preview of the place you will work in. */
+body.marketing .light {
+  --bg: #eeeeec;
+  --panel: #fcfbf9;
+  --bg-elev: #fcfbf9;
+  --panel-hi: #f3f1ed;
+  --panel-border: #dedbd5;
+  --panel-border-hi: #c9c5bd;
+
+  --fg: #1d1c1a;
+  --muted: #5f5c57;
+  --faint: #8b8781;
+
+  --accent: #2b58bd;
+  --accent-ink: #fcfbf9;
+  --btn-bg: #1d1c1a;
+  --btn-fg: #fcfbf9;
+  --btn-bg-hover: #35322e;
+
+  --danger: #c4443c;
+  --ok: #15704f;
+  --warn: #8a5a06;
+
+  --work: #c4443c;    --work-bg: #fdefed;   --work-line: #f3cdc7;
+  --agreed: #15704f;  --agreed-bg: #e7f4ef; --agreed-line: #bfe0d3;
+  --people: #2b58bd;  --people-bg: #eaf0fd; --people-line: #c9d7f4;
+
+  --pill-ok-border: #bfe0d3;
+  --pill-danger-border: #f3cdc7;
+  --pill-live-border: #c9d7f4;
+  --pill-warn-border: #ecd9b0;
+
+  color-scheme: light;
+  background: var(--bg);
+  color: var(--fg);
 }
 
 body.app {
@@ -358,19 +402,82 @@ body {
 @keyframes wave { from { transform: scaleY(0.2); } to { transform: scaleY(1); } }
 .wave.is-live > i { animation: wave 620ms ease-in-out infinite alternate; animation-delay: calc(var(--i) * 47ms); }
 
-/* A still waveform used as a section rule. */
-.wave-rule { display: flex; align-items: flex-end; gap: 3px; height: 26px; }
-.wave-rule > i { flex: 1; border-radius: 2px 2px 0 0; background: var(--panel-border-hi); }
-
 @keyframes taskIn { from { opacity: 0; transform: translateX(-10px) scale(0.98); } to { opacity: 1; transform: none; } }
 .task-in { animation: taskIn 340ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 
 @keyframes ticketIn { from { opacity: 0; transform: translateY(10px) scale(0.985); } to { opacity: 1; transform: none; } }
 .ticket-in { animation: ticketIn 400ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 
-/* "Press me": a ring that grows out of the Approve button while a draft waits. */
-@keyframes pulseRing { 0% { box-shadow: 0 0 0 0 rgba(98, 155, 255, 0.5); } 100% { box-shadow: 0 0 0 12px rgba(98, 155, 255, 0); } }
+/* "Press me": a ring that grows out of the Approve button while a draft waits.
+   It takes the button's own colour, so it is right on either ground. */
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--btn-bg) 45%, transparent); }
+  100% { box-shadow: 0 0 0 12px color-mix(in srgb, var(--btn-bg) 0%, transparent); }
+}
 .pulse-ring { animation: pulseRing 1.4s ease-out infinite; }
+
+/* ---------- the shopfront's bones ---------- */
+/* Full-bleed bands, each with its own ground, and one measure inside them. */
+
+.wrap { width: 100%; max-width: 72rem; margin-inline: auto; padding-inline: 1.5rem; }
+
+.eyebrow {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.75rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--accent);
+}
+.eyebrow::before { content: "\203A\00a0"; }
+
+/* A section opens with its title on the left and the one thing to do on the
+   right, then a hairline. The same row every time is what makes a long page
+   feel short. */
+.sec-head {
+  display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem;
+  padding-bottom: 1.5rem; border-bottom: 1px solid var(--panel-border);
+}
+.display {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-weight: 400; letter-spacing: -0.02em; line-height: 1.05;
+  text-wrap: balance;
+}
+
+/* Cells: a strip of names in a shared frame, the way a row of logos is done. */
+.cells { display: grid; border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; }
+.cells > li {
+  display: grid; place-items: center; text-align: center;
+  padding: 1.1rem 0.75rem;
+  border-right: 1px solid var(--panel-border); border-bottom: 1px solid var(--panel-border);
+  font-family: var(--font-fraunces), Georgia, serif; font-size: 1.125rem; letter-spacing: -0.01em;
+  color: var(--muted);
+  transition: color 160ms ease, background-color 160ms ease;
+}
+.cells > li:hover { color: var(--fg); background: var(--panel); }
+
+/* Entrance on load: the hero lines arrive one after another, once. */
+@keyframes heroIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.hero-in > * { animation: heroIn 640ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.hero-in > *:nth-child(2) { animation-delay: 80ms; }
+.hero-in > *:nth-child(3) { animation-delay: 160ms; }
+.hero-in > *:nth-child(4) { animation-delay: 240ms; }
+.hero-in > *:nth-child(5) { animation-delay: 320ms; }
+.hero-in > *:nth-child(n + 6) { animation-delay: 420ms; }
+
+/* Entrance on scroll. reveal.tsx adds `.reveal` only to things that start off
+   screen, so the page is whole at rest and nothing is parked invisible. */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 720ms cubic-bezier(0.2, 0.7, 0.2, 1), transform 720ms cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reveal.is-in { opacity: 1; transform: none; }
+
+/* The how-it-works tabs. The line above the active one fills over the time the
+   step is shown; a key change in React restarts it. */
+.tab { text-align: left; padding: 0.9rem 0 0; color: var(--muted); transition: color 160ms ease; }
+.tab:hover { color: var(--fg); }
+.tab[aria-selected="true"] { color: var(--fg); }
+.tab-track { display: block; height: 2px; border-radius: 1px; background: var(--panel-border); overflow: hidden; }
+.tab-fill { display: block; height: 100%; background: var(--fg); transform-origin: left; transform: scaleX(0); }
+.tab[aria-selected="true"] .tab-fill { animation: tabFill var(--tab-ms, 6000ms) linear forwards; }
+@keyframes tabFill { to { transform: scaleX(1); } }
+@keyframes stageIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.stage-in { animation: stageIn 420ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 
 .type-cursor::after { content: ""; display: inline-block; width: 2px; height: 1em; margin-left: 2px; vertical-align: -0.15em; background: var(--fg); animation: blink 900ms steps(1) infinite; }
 

@@ -14,7 +14,7 @@ export function LegalPage({
   children: React.ReactNode;
 }) {
   return (
-    <article className="mx-auto flex max-w-2xl flex-col gap-6 pt-16 pb-24">
+    <article className="mx-auto flex max-w-2xl flex-col gap-6 px-6 pt-16 pb-24">
       <header className="flex flex-col gap-1">
         <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
         <p className="text-xs text-faint">Last updated {updated}</p>

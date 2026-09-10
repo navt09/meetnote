@@ -12,7 +12,9 @@ import "./globals.css";
 // gives the app warmth without softening the small text that does the work.
 // Body and mono are both Plex - most of this product is small text, and Plex
 // holds its shape there where a softer face goes mushy.
-const display = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], weight: ["600", "700"] });
+// The regular weight is for the shopfront, where the headlines are big enough
+// to carry themselves; the app's small headings stay at 600.
+const display = Fraunces({ variable: "--font-fraunces", subsets: ["latin"], weight: ["400", "600", "700"] });
 const body = IBM_Plex_Sans({ variable: "--font-plex-sans", subsets: ["latin"], weight: ["400", "500", "600"] });
 const mono = IBM_Plex_Mono({ variable: "--font-plex-mono", subsets: ["latin"], weight: ["400", "500"] });
 
@@ -64,7 +66,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           ) : (
             <>
               <header className="sticky top-0 z-40 border-b border-panel-border bg-bg/80 backdrop-blur-md">
-                <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-6 py-3">
+                <div className="wrap flex items-center justify-between gap-4 py-3">
                   <Link
                     href="/"
                     className="font-display flex shrink-0 items-center gap-2 whitespace-nowrap text-[1.0625rem] font-semibold tracking-tight"
@@ -92,17 +94,38 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                 </div>
               </header>
 
-              <main className="mx-auto w-full max-w-5xl px-6 pb-16">{children}</main>
+              {/* Full width: the landing page is a run of bands that each
+                  carry their own ground. Other pages bring their own measure. */}
+              <main className="flex-1">{children}</main>
 
               {/* Public and reachable from every page: Google's OAuth review
                   fetches the privacy policy and terms before approving. */}
               <footer className="mt-auto border-t border-panel-border">
-                <div className="mx-auto flex w-full max-w-5xl flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-faint">
-                  <span>&copy; {new Date().getFullYear()} From the Call</span>
-                  <nav className="flex items-center gap-4">
-                    <Link className="transition-colors hover:text-fg" href="/privacy">Privacy</Link>
-                    <Link className="transition-colors hover:text-fg" href="/terms">Terms</Link>
-                  </nav>
+                <div className="wrap grid gap-8 py-12 text-sm sm:grid-cols-[1.4fr_1fr_1fr_1fr]">
+                  <div>
+                    <Link href="/" className="font-display flex items-center gap-2 whitespace-nowrap text-[1.0625rem] font-semibold tracking-tight">
+                      <Logo size={22} />
+                      <span>From the Call</span>
+                    </Link>
+                    <p className="mt-3 max-w-xs text-xs leading-relaxed text-faint">
+                      Meeting notes that do the follow-up. No bot in the call, nothing sent without you.
+                    </p>
+                  </div>
+                  {[
+                    ["Product", [["How it works", "/#how"], ["Features", "/#features"], ["Pricing", "/#pricing"]]],
+                    ["Company", [["About", "/#about"], ["Contact", "/#contact"], ["Sign in", "/login"]]],
+                    ["Legal", [["Privacy", "/privacy"], ["Terms", "/terms"]]],
+                  ].map(([title, links]) => (
+                    <nav key={title as string} className="flex flex-col gap-2">
+                      <p className="text-xs text-faint">{title as string}</p>
+                      {(links as [string, string][]).map(([label, href]) => (
+                        <Link key={href} href={href} className="text-muted transition-colors hover:text-fg">{label}</Link>
+                      ))}
+                    </nav>
+                  ))}
+                </div>
+                <div className="wrap border-t border-panel-border py-5 text-xs text-faint">
+                  &copy; {new Date().getFullYear()} From the Call
                 </div>
               </footer>
             </>

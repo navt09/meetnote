@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { BrandMark } from "@/components/brand-marks";
 import { HeroDemo } from "@/components/hero-demo";
+import { HowItWorks } from "@/components/how-it-works";
+import { Reveal } from "@/components/reveal";
 import { Tilt } from "@/components/tilt";
 import { CONTACT_EMAIL, PLANS, WORKS_WITH } from "@/lib/site";
 
@@ -10,47 +12,64 @@ export const metadata = {
     "Record any meeting without a bot joining it. Get notes, action items, and drafted tickets and emails you approve before anything is sent.",
 };
 
-// Every line on this page is written to be skimmed, not read. A headline
-// carries the point; the line under it is there for anyone who slows down.
+/*
+ * The shopfront, as a run of full-width bands: ink, paper, ink, paper, ink.
+ * Each band has one job and opens the same way, a title on the left and the
+ * one thing to do on the right, so a visitor always knows where they are.
+ * Every line is written to be skimmed; the sentence under a headline is for
+ * whoever slows down.
+ */
 
-const STEPS = [
-  { title: "Hit record, pick a window", body: "Tick “Share audio”. Nothing joins the call." },
-  { title: "Talk normally", body: "Recorded in your browser, backed up as you go." },
-  { title: "Get notes and tasks", body: "Summary, owners, decisions, who to chase." },
-  { title: "Approve the follow-up", body: "Tickets and emails drafted. Nothing leaves until you say yes." },
-];
-
-const FEATURES = [
-  { title: "No bot in your meeting", body: "Records on your machine. Nothing to admit, nothing to explain." },
-  { title: "Real tickets, not a to-do list", body: "Action items become proper Linear or Jira issues." },
-  { title: "Nothing sends itself", body: "Every draft waits for you. No setting turns that off." },
-  { title: "Says when it doesn’t know", body: "A missing owner stays blank. It never guesses a name." },
-  { title: "Decisions, kept", body: "What was decided and why, searchable across every meeting." },
-  { title: "Yours, and deletable", body: "Delete a meeting and the audio is gone for good." },
+const FEATURE_GROUPS = [
+  {
+    eyebrow: "In the meeting",
+    items: [
+      { title: "No bot in your meeting", body: "Records on your machine. Nothing to admit, nothing to explain." },
+      { title: "Knows which lines were yours", body: "Your mic and the meeting are heard separately, so the notes are written for you." },
+    ],
+  },
+  {
+    eyebrow: "After it",
+    items: [
+      { title: "Real tickets, not a to-do list", body: "Action items become proper Linear or Jira issues." },
+      { title: "Decisions, kept", body: "What was decided and why, searchable across every meeting." },
+    ],
+  },
+  {
+    eyebrow: "Always",
+    items: [
+      { title: "Nothing sends itself", body: "Every draft waits for you. No setting turns that off." },
+      { title: "Says when it doesn’t know", body: "A missing owner stays blank. It never guesses a name." },
+      { title: "Yours, and deletable", body: "Delete a meeting and the audio is gone for good." },
+    ],
+  },
 ];
 
 const CONNECTS = [
   { provider: "linear" as const, name: "Linear", body: "Approved tickets become issues in the team you choose." },
   { provider: "jira" as const, name: "Jira", body: "Approved tickets become issues in your project." },
   { provider: "slack" as const, name: "Slack", body: "Summaries posted to the channel you pick." },
-  { provider: "google" as const, name: "Google", body: "Send follow-ups from your Gmail, block tasks out on your calendar." },
+  { provider: "google" as const, name: "Google", body: "Follow-ups from your Gmail, tasks on your calendar." },
 ];
 
-/** A still waveform, used as a rule between sections. Fixed heights: nothing on this page is random. */
-const RULE = [3, 6, 11, 18, 9, 14, 22, 12, 7, 16, 25, 10, 5, 13, 20, 8, 15, 24, 11, 6, 17, 9, 21, 12, 4, 14, 19, 7, 10, 23, 13, 5, 16, 8, 20, 11, 6, 15, 9, 12];
-
-function WaveRule() {
+function SectionHead({
+  eyebrow,
+  title,
+  action,
+}: {
+  eyebrow: string;
+  title: React.ReactNode;
+  action?: React.ReactNode;
+}) {
   return (
-    <div aria-hidden className="wave-rule my-20">
-      {RULE.map((h, i) => (
-        <i key={i} style={{ height: `${h}px` }} />
-      ))}
+    <div className="sec-head">
+      <div>
+        <p className="eyebrow">{eyebrow}</p>
+        <h2 className="display mt-3 text-4xl sm:text-[2.75rem]">{title}</h2>
+      </div>
+      {action ? <div className="hidden shrink-0 sm:block">{action}</div> : null}
     </div>
   );
-}
-
-function Heading({ children }: { children: React.ReactNode }) {
-  return <h2 className="font-display text-3xl font-semibold tracking-[-0.02em] text-balance sm:text-4xl">{children}</h2>;
 }
 
 /** The "you get this" tick on a pricing line. Green on Pro, quiet on Free. */
@@ -76,203 +95,247 @@ function Check({ strong }: { strong: boolean }) {
 export default function Home() {
   return (
     <>
-      {/* ---------- hero: the pitch on the left, the product running on the right ---------- */}
-      <section className="grid gap-10 pt-14 sm:pt-20 lg:grid-cols-[0.95fr_1.05fr] lg:items-center lg:gap-12">
-        <div className="flex flex-col items-start gap-6">
-          <span className="pill">No bot joins your call</span>
-
-          <h1 className="font-display text-5xl font-semibold leading-[0.98] tracking-[-0.035em] text-balance sm:text-6xl lg:text-[4.5rem]">
+      {/* ================= ink: the pitch, then the product running ================= */}
+      <section className="wrap pt-16 sm:pt-24">
+        <div className="hero-in mx-auto flex max-w-3xl flex-col items-center text-center">
+          <p className="eyebrow">No bot joins your call</p>
+          <h1 className="display mt-5 text-[2.75rem] sm:text-6xl lg:text-[4.75rem]">
             Record the meeting.
             <br />
-            <span className="text-muted">Get the work done.</span>
+            Get the work done.
           </h1>
-
-          <p className="max-w-lg text-lg leading-relaxed text-muted">
+          <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
             It listens to the call, writes the notes, pulls out every task, then drafts the tickets and emails.
             You read them and say yes.
           </p>
-
-          <div className="mt-1 flex flex-wrap items-center gap-3">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link href="/login" className="btn btn-primary">Try it on your next call</Link>
             <a href="#how" className="btn btn-ghost">See how it works</a>
           </div>
-
-          <p className="text-sm text-faint">Free for your first three meetings. No card, no install.</p>
+          <p className="mt-4 text-sm text-faint">Free for your first three meetings. No card, no install.</p>
         </div>
 
-        <div className="flex flex-col gap-2">
-          <HeroDemo />
-          <p className="text-xs text-faint">
-            That is a real loop of what happens. Press <span className="text-muted">Approve</span> if you can&apos;t wait.
-          </p>
+        <div className="hero-in mt-14 sm:mt-20">
+          <div>
+            <HeroDemo />
+            <p className="mt-3 text-center text-xs text-faint">
+              A real loop of what happens. Press <span className="text-muted">Approve</span> if you can&apos;t wait.
+            </p>
+          </div>
         </div>
+
+        {/* works with */}
+        <Reveal className="mt-16 sm:mt-20">
+          <p className="text-center text-sm text-faint">Works on whatever you already use. Chrome and Edge, nothing to install.</p>
+          <ul className="cells mt-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
+            {WORKS_WITH.map((w) => (
+              <li key={w}>{w}</li>
+            ))}
+          </ul>
+        </Reveal>
       </section>
 
-      <WaveRule />
-
-      {/* ---------- works with ---------- */}
-      <section>
-        <p className="text-sm text-faint">Works on whatever you already use</p>
-        <ul className="mt-3 flex flex-wrap gap-x-7 gap-y-2">
-          {WORKS_WITH.map((w) => (
-            <li key={w} className="font-display text-xl font-medium">{w}</li>
-          ))}
-        </ul>
-        <p className="mt-4 max-w-xl leading-relaxed text-muted">
-          If the sound comes out of your computer, it can be recorded. Chrome and Edge, nothing to install.
-        </p>
-      </section>
-
-      {/* ---------- steps: a strip you scan across, not a list you read down ---------- */}
-      <section id="how" className="mt-24 scroll-mt-20">
-        <Heading>Four steps</Heading>
-        <ol className="mt-8 grid gap-x-8 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
-          {STEPS.map((s, i) => (
-            <li key={s.title} className="border-t border-panel-border pt-4">
-              <span className="font-display text-4xl font-semibold leading-none text-accent">{i + 1}</span>
-              <h3 className="mt-3 font-semibold leading-snug">{s.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted">{s.body}</p>
-            </li>
-          ))}
-        </ol>
-      </section>
-
-      {/* ---------- features: six headlines, one line each ---------- */}
-      <section id="features" className="mt-24 scroll-mt-20">
-        <Heading>What it actually does</Heading>
-        <div className="mt-8 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map((f) => (
-            <div key={f.title} className="border-t border-panel-border pt-4">
-              <h3 className="font-display text-lg font-semibold leading-snug tracking-tight">{f.title}</h3>
-              <p className="mt-1 text-sm leading-relaxed text-muted">{f.body}</p>
-            </div>
-          ))}
+      {/* ================= paper: how it works ================= */}
+      <section id="how" className="light mt-20 scroll-mt-14 py-20 sm:mt-24 sm:py-24">
+        <div className="wrap">
+          <Reveal>
+            <SectionHead
+              eyebrow="How it works"
+              title={
+                <>
+                  Four steps.
+                  <br />
+                  You only do two of them.
+                </>
+              }
+              action={<Link href="/login" className="btn btn-primary">Try it free</Link>}
+            />
+          </Reveal>
+          <Reveal className="mt-10" delay={80}>
+            <HowItWorks />
+          </Reveal>
         </div>
       </section>
 
-      {/* ---------- connects to ---------- */}
-      <section className="mt-24">
-        <Heading>Where the work ends up</Heading>
-        <p className="mt-3 max-w-xl leading-relaxed text-muted">
-          One click each, and the narrowest permission that does the job.
-        </p>
-        <div className="mt-8 grid gap-3 sm:grid-cols-2">
-          {CONNECTS.map((c) => (
-            <div key={c.provider} className="glass glass-hover flex items-center gap-4 p-5">
-              <BrandMark provider={c.provider} />
-              <div className="min-w-0">
-                <h3 className="font-semibold">{c.name}</h3>
-                <p className="mt-0.5 text-sm leading-relaxed text-muted">{c.body}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
+      {/* ================= ink: what it does ================= */}
+      <section id="features" className="scroll-mt-14 py-20 sm:py-24">
+        <div className="wrap">
+          <Reveal>
+            <SectionHead
+              eyebrow="What it does"
+              title={
+                <>
+                  Built for the meeting
+                  <br />
+                  you actually have.
+                </>
+              }
+              action={<a href="#pricing" className="btn btn-ghost">See pricing</a>}
+            />
+          </Reveal>
 
-      <WaveRule />
-
-      {/* ---------- pricing ---------- */}
-      <section id="pricing" className="scroll-mt-20">
-        <Heading>Pricing</Heading>
-        <p className="mt-3 max-w-xl leading-relaxed text-muted">One price, everything included. No seat minimum.</p>
-
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 sm:items-start">
-          {PLANS.map((plan) => {
-            const pro = plan.highlight;
-            const card = (
-              <div
-                className={`flex h-full flex-col rounded-xl border p-6 sm:p-7 ${
-                  pro ? "border-accent/70 bg-panel-hi" : "border-panel-border bg-panel"
-                }`}
-              >
-                <div className="flex items-center justify-between gap-2">
-                  <h3 className="font-display text-2xl font-semibold tracking-tight">{plan.name}</h3>
-                  {pro ? <span className="pill pill-live">Most teams pick this</span> : null}
-                </div>
-                <p className="mt-1 text-sm text-muted">{plan.tagline}</p>
-
-                <p className="mt-6 flex items-baseline gap-1">
-                  <span className={`font-display font-semibold tracking-tight ${pro ? "text-6xl" : "text-5xl"}`}>{plan.price}</span>
-                  {plan.cadence ? <span className="text-lg text-muted">{plan.cadence}</span> : null}
-                </p>
-                <p className="mt-0.5 text-sm text-faint">{plan.note}</p>
-
-                <p className={`mt-6 text-sm ${pro ? "font-medium text-fg" : "text-muted"}`}>{plan.lead}</p>
-                <ul className="mt-3 flex flex-1 flex-col gap-2.5">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex gap-2.5 text-sm leading-snug">
-                      <Check strong={pro} />
-                      {f}
+          <div className="mt-10 grid gap-x-8 gap-y-10 md:grid-cols-3">
+            {FEATURE_GROUPS.map((g, gi) => (
+              <Reveal key={g.eyebrow} delay={gi * 90}>
+                <p className="eyebrow">{g.eyebrow}</p>
+                <ul className="mt-4 flex flex-col gap-2.5">
+                  {g.items.map((f) => (
+                    <li key={f.title} className="glass glass-hover p-4">
+                      <h3 className="font-medium leading-snug">{f.title}</h3>
+                      <p className="mt-1 text-sm leading-relaxed text-muted">{f.body}</p>
                     </li>
                   ))}
                 </ul>
-
-                <Link href="/login" className={`btn mt-7 justify-center ${pro ? "btn-primary" : "btn-ghost"}`}>
-                  {plan.cta}
-                </Link>
-                {pro ? <p className="mt-2.5 text-center text-xs text-faint">Your first three meetings are free.</p> : null}
-              </div>
-            );
-            return pro ? (
-              <Tilt key={plan.id} max={5}>
-                {card}
-              </Tilt>
-            ) : (
-              <div key={plan.id}>{card}</div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* ---------- about ---------- */}
-      <section id="about" className="mt-24 scroll-mt-20">
-        <Heading>About</Heading>
-        <div className="mt-6 flex max-w-2xl flex-col gap-4 text-[1.0625rem] leading-relaxed text-muted">
-          <p>
-            Every team has the same meeting. Somebody agrees to do a thing, everybody nods, and three weeks
-            later nobody can remember who said it or whether it was ever written down.
-          </p>
-          <p>
-            Plenty of tools will transcribe that meeting for you. Fewer will turn what was said into work that
-            exists somewhere your team actually looks. The ones that do tend to either send a bot into your
-            call, or file tickets automatically and leave you cleaning up after a model that misheard a name.
-          </p>
-          <p>
-            From the Call is built around the opposite trade. Nothing joins your meeting, and nothing is sent,
-            filed or emailed until a person has read it and said yes. The drafting is done by a model because
-            understanding language is what models are for. Everything else is ordinary code that behaves the
-            same way every time.
-          </p>
-          <p className="text-fg">
-            It is built and run by one person, which is why you can email and get a reply from someone who can
-            actually change the product.
-          </p>
-        </div>
-      </section>
-
-      {/* ---------- contact ---------- */}
-      <section id="contact" className="mt-24 scroll-mt-20">
-        <Heading>Contact</Heading>
-        <div className="glass mt-6 flex flex-wrap items-center justify-between gap-4 p-6">
-          <div>
-            <p className="font-medium">Questions, problems, or something you wish it did</p>
-            <p className="mt-1 text-sm text-muted">Feature requests from early users are the ones that get built.</p>
+              </Reveal>
+            ))}
           </div>
-          <a className="btn btn-ghost" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+
+          <Reveal className="mt-16 sm:mt-20">
+            <p className="display max-w-3xl text-2xl leading-snug sm:text-[2rem]">
+              <span className="text-fg">Plenty of tools will transcribe a meeting. </span>
+              <span className="text-muted">
+                Fewer will turn what was said into work that exists somewhere your team actually looks, and none
+                of them will wait for you to say yes first.
+              </span>
+            </p>
+          </Reveal>
         </div>
       </section>
 
-      {/* ---------- last word ---------- */}
-      <section className="mt-24">
-        <div className="glass flex flex-col items-start gap-4 p-8 sm:p-10">
-          <h2 className="font-display max-w-xl text-3xl font-semibold leading-[1.05] tracking-[-0.02em] text-balance sm:text-4xl">
-            You have a call today. Try it on that one.
-          </h2>
-          <p className="max-w-lg leading-relaxed text-muted">
-            Three meetings free, no card. If the notes are not better than what you would have written yourself,
-            you have lost ten minutes.
-          </p>
-          <Link href="/login" className="btn btn-primary">Try it on your next call</Link>
+      {/* ================= paper: where it goes, and what it costs ================= */}
+      <section className="light py-20 sm:py-24">
+        <div className="wrap">
+          <Reveal>
+            <SectionHead
+              eyebrow="Where the work ends up"
+              title="One click each, the narrowest permission that does the job."
+            />
+          </Reveal>
+          <div className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {CONNECTS.map((c, i) => (
+              <Reveal key={c.provider} delay={i * 70}>
+                <div className="glass glass-hover flex h-full flex-col gap-4 p-5">
+                  <BrandMark provider={c.provider} />
+                  <div>
+                    <h3 className="font-semibold">{c.name}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-muted">{c.body}</p>
+                  </div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <div id="pricing" className="scroll-mt-14 pt-20 sm:pt-24">
+            <Reveal>
+              <SectionHead
+                eyebrow="Pricing"
+                title="One price, everything included."
+                action={<span className="text-sm text-muted">No seat minimum. Cancel any time.</span>}
+              />
+            </Reveal>
+
+            <div className="mt-10 grid gap-4 md:grid-cols-2 md:items-start">
+              {PLANS.map((plan, i) => {
+                const pro = plan.highlight;
+                const card = (
+                  <div
+                    className={`flex h-full flex-col rounded-xl border bg-panel p-6 sm:p-8 ${
+                      pro ? "border-fg" : "border-panel-border"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="display text-3xl">{plan.name}</h3>
+                      {pro ? <span className="pill pill-live">Most teams pick this</span> : null}
+                    </div>
+                    <p className="mt-1 text-sm text-muted">{plan.tagline}</p>
+
+                    <p className="mt-7 flex items-baseline gap-1">
+                      <span className={`display ${pro ? "text-6xl" : "text-5xl"}`}>{plan.price}</span>
+                      {plan.cadence ? <span className="text-lg text-muted">{plan.cadence}</span> : null}
+                    </p>
+                    <p className="mt-1 text-sm text-faint">{plan.note}</p>
+
+                    <p className={`mt-7 text-sm ${pro ? "font-medium text-fg" : "text-muted"}`}>{plan.lead}</p>
+                    <ul className="mt-3 flex flex-1 flex-col gap-2.5">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex gap-2.5 text-sm leading-snug">
+                          <Check strong={pro} />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+
+                    <Link href="/login" className={`btn mt-8 justify-center ${pro ? "btn-primary" : "btn-ghost"}`}>
+                      {plan.cta}
+                    </Link>
+                    {pro ? <p className="mt-2.5 text-center text-xs text-faint">Your first three meetings are free.</p> : null}
+                  </div>
+                );
+                return (
+                  <Reveal key={plan.id} delay={i * 90} className="h-full">
+                    {pro ? <Tilt max={4} className="h-full">{card}</Tilt> : card}
+                  </Reveal>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================= ink: who makes it, how to reach them, last word ================= */}
+      <section id="about" className="scroll-mt-14 py-20 sm:py-24">
+        <div className="wrap">
+          <Reveal>
+            <SectionHead eyebrow="About" title="Built around the opposite trade." />
+          </Reveal>
+          <div className="mt-10 grid gap-10 md:grid-cols-[1.1fr_0.9fr] md:gap-16">
+            <Reveal>
+              <div className="flex flex-col gap-4 text-[1.0625rem] leading-relaxed text-muted">
+                <p>
+                  Every team has the same meeting. Somebody agrees to do a thing, everybody nods, and three weeks
+                  later nobody can remember who said it or whether it was ever written down.
+                </p>
+                <p>
+                  The tools that fix this tend to either send a bot into your call, or file tickets automatically
+                  and leave you cleaning up after a model that misheard a name.
+                </p>
+                <p>
+                  From the Call does neither. Nothing joins your meeting, and nothing is sent, filed or emailed
+                  until a person has read it and said yes. A model does the drafting, because understanding
+                  language is what models are for. Everything else is ordinary code that behaves the same way
+                  every time.
+                </p>
+                <p className="text-fg">
+                  It is built and run by one person, which is why you can email and get a reply from someone who
+                  can actually change the product.
+                </p>
+              </div>
+            </Reveal>
+
+            <Reveal delay={120}>
+              <div id="contact" className="glass scroll-mt-14 p-6 sm:p-7">
+                <p className="eyebrow">Contact</p>
+                <p className="mt-3 font-medium">Questions, problems, or something you wish it did</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted">
+                  Feature requests from early users are the ones that get built.
+                </p>
+                <a className="btn btn-ghost mt-5" href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>
+              </div>
+            </Reveal>
+          </div>
+
+          <Reveal className="mt-20 sm:mt-24">
+            <div className="flex flex-col gap-6 border-t border-panel-border pt-10 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 className="display max-w-xl text-3xl sm:text-[2.75rem]">You have a call today. Try it on that one.</h2>
+                <p className="mt-3 max-w-lg leading-relaxed text-muted">
+                  Three meetings free, no card. If the notes are not better than the ones you would have written,
+                  you have lost ten minutes.
+                </p>
+              </div>
+              <Link href="/login" className="btn btn-primary shrink-0">Try it on your next call</Link>
+            </div>
+          </Reveal>
         </div>
       </section>
     </>

@@ -5,7 +5,7 @@ export const metadata = { title: "Sign in · From the Call" };
 
 export default function LoginPage() {
   return (
-    <section className="mx-auto mt-16 max-w-md">
+    <section className="mx-auto mt-16 max-w-md px-6 pb-16">
       <div className="glass p-8">
         <Suspense fallback={<p className="mt-6 text-sm text-muted">Loading…</p>}>
           <LoginForm />
