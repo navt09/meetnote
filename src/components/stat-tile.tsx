@@ -4,25 +4,28 @@ import type { Delta } from "@/lib/stats";
  * label · value · optional delta against a named period.
  * Proportional figures at display size; tabular is for columns.
  */
+/**
+ * Up is green and down is red, on every tile.
+ *
+ * There used to be a `goodDirection` prop deciding which way counted as an
+ * improvement, which meant two tiles could show the same "+1" in different
+ * colours. Nobody reads a dashboard that carefully. The direction of the
+ * number is what the colour says, and the sign in the text says it too, so
+ * the colour is reinforcement rather than the only signal.
+ */
 export function StatTile({
   label,
   value,
   delta,
   deltaText,
-  goodDirection = "up",
 }: {
   label: string;
   value: string;
   delta?: Delta;
   deltaText?: string;
-  goodDirection?: "up" | "down" | "none";
 }) {
   const tone =
-    !delta || delta.direction === "flat" || goodDirection === "none"
-      ? "text-faint"
-      : delta.direction === goodDirection
-        ? "text-ok"
-        : "text-warn";
+    !delta || delta.direction === "flat" ? "text-faint" : delta.direction === "up" ? "text-ok" : "text-danger";
 
   return (
     <div>

@@ -172,7 +172,6 @@ export default async function DashboardPage() {
             value={String(meetingsPerWeek[last])}
             delta={dMeetings}
             deltaText={deltaLabel(dMeetings)}
-            goodDirection="none"
           />
           <StatTile
             label="Recorded this week"
@@ -183,14 +182,12 @@ export default async function DashboardPage() {
                 ? "same as last week"
                 : `${dSeconds.change > 0 ? "+" : "-"}${humanDuration(Math.abs(dSeconds.change))} vs last week`
             }
-            goodDirection="none"
           />
           <StatTile
             label="Tasks done this week"
             value={String(donePerWeek[last])}
             delta={dDone}
             deltaText={deltaLabel(dDone)}
-            goodDirection="up"
           />
         </div>
           </div>
