@@ -4,7 +4,7 @@
 // It also keeps a timeline of when the microphone is the loud one, which is
 // how the notes know which lines were the user's. See self-speech.ts.
 
-import { audibleSeconds, isSelfSample, rmsDb, SAMPLE_MS, SIGNAL_FLOOR_DB, windowsFromMarks, type Mark, type Window } from "./self-speech";
+import { audibleSeconds, isHeard, isSelfSample, rmsDb, SAMPLE_MS, SIGNAL_FLOOR_DB, windowsFromMarks, type Mark, type Window } from "./self-speech";
 
 export const CHUNK_MS = 5000;
 export const AUDIO_BITRATE = 32_000; // opus at 32 kbps: clear speech, ~14 MB per hour
@@ -223,11 +223,15 @@ export class MeetingRecorder {
         this.sysAnalyser.getFloatTimeDomainData(sysFrame);
         meetingDb = rmsDb(sysFrame);
       }
-      // Either source counts: this asks whether anything is being captured at
-      // all, not who is talking.
+      // Two different questions, and they need two different floors.
+      // `sound` asks whether anything is arriving, which is what catches a
+      // recording that is capturing nothing. `heard` asks whether anyone is
+      // speaking, which is what a lull means. An open microphone answers yes
+      // to the first at all times, so the second is the one silence hangs off.
       const sound = Math.max(micDb, meetingDb) > SIGNAL_FLOOR_DB;
+      const heard = isHeard(micDb, meetingDb);
 
-      if (sound) {
+      if (heard) {
         this.silentSince = null;
         this.resumeCapture(now);
       } else {

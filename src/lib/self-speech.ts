@@ -51,6 +51,31 @@ export const MAX_WINDOWS = 5000;
  */
 export const SIGNAL_FLOOR_DB = -70;
 
+/**
+ * Above this somebody is talking; below it for long enough, nobody is.
+ *
+ * SIGNAL_FLOOR_DB cannot answer this question, and its own comment above says
+ * why: a silent office reads well above it. That is exactly right for "is
+ * anything being captured at all" and exactly wrong for "is anyone speaking".
+ * Using it to find a lull meant an open microphone kept the room permanently
+ * loud, so no silence was ever trimmed and the still-there prompt could never
+ * fire, on any recording with a live mic. Which is all of them.
+ *
+ * The same -50 that decides the microphone is a person rather than background
+ * noise decides it here, for the same reason.
+ */
+export const SPEECH_FLOOR_DB = SELF_MIN_DB;
+
+/**
+ * True when either side is loud enough to be somebody speaking.
+ *
+ * Read over a long window, never one sample: a single quiet moment is a breath,
+ * and it takes 45 seconds of these in a row before anything is trimmed.
+ */
+export function isHeard(micDb: number, meetingDb: number): boolean {
+  return Math.max(micDb, meetingDb) > SPEECH_FLOOR_DB;
+}
+
 /** RMS loudness in dBFS of one analyser frame. Floors at -100 rather than -Infinity. */
 export function rmsDb(frame: Float32Array): number {
   let sum = 0;

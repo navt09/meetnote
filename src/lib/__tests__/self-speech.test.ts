@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { audibleSeconds, isSelfSample, parseSelfSpeech, rmsDb, tagSelf, trailingSilenceSeconds, windowsFromMarks } from "../self-speech";
+import { audibleSeconds, isSelfSample, parseSelfSpeech, rmsDb, tagSelf, trailingSilenceSeconds, windowsFromMarks, isHeard, SPEECH_FLOOR_DB, SIGNAL_FLOOR_DB } from "../self-speech";
 import type { TranscriptSegment } from "../schema";
 
 describe("isSelfSample", () => {
@@ -141,5 +141,29 @@ describe("tagSelf", () => {
     const s = [seg("Speaker 0", "x", 0, 1)];
     tagSelf(s, [[0, 1]]);
     expect(s[0].speaker).toBe("Speaker 0");
+  });
+});
+
+describe("isHeard", () => {
+  it("is true while somebody is talking on either side", () => {
+    expect(isHeard(-35, -100)).toBe(true); // the user
+    expect(isHeard(-100, -30)).toBe(true); // the meeting
+    expect(isHeard(-32, -34)).toBe(true); // both
+  });
+
+  it("is false for a room that is merely occupied", () => {
+    // The bug this exists to fix: room tone through an open mic sits well
+    // above the digital-silence floor, so the old test never saw a lull and
+    // nothing was ever trimmed.
+    expect(isHeard(-62, -100)).toBe(false);
+    expect(isHeard(-55, -80)).toBe(false);
+  });
+
+  it("is false when nothing is arriving at all", () => {
+    expect(isHeard(-100, -100)).toBe(false);
+  });
+
+  it("sits above the floor that only asks whether anything is captured", () => {
+    expect(SPEECH_FLOOR_DB).toBeGreaterThan(SIGNAL_FLOOR_DB);
   });
 });
