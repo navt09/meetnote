@@ -62,6 +62,17 @@ function isSmokeEmail(email) {
 
 const MEETING_TITLE = "Smoke Test: Login Refactor and the Export Bug";
 
+/**
+ * The name on the account. Not optional any more: the Record page asks for one
+ * before it offers the recorder, so a nameless fixture would open the name
+ * prompt where the smoke pass expects the window picker.
+ *
+ * It is also what the Tasks page filters by, so the fixture's own work is
+ * owned by this name and somebody else's work is owned by somebody else. That
+ * is the shape of a real account, and it means the pass covers both.
+ */
+const FIXTURE_NAME = "Alex";
+
 function notes(dayOffset) {
   const due = new Date(Date.now() + dayOffset * 86_400_000);
   due.setHours(9, 0, 0, 0);
@@ -80,7 +91,7 @@ function notes(dayOffset) {
       {
         title: "Fix the export crash on large files",
         details: "Crashes above ten thousand rows.",
-        owner: "Priya",
+        owner: FIXTURE_NAME,
         due: "Friday",
         priority: "high",
         kind: "bug",
@@ -97,7 +108,7 @@ function notes(dayOffset) {
         quote: "Login refactor is merged, so I am picking up the payment webhook today.",
         first_step: null,
       },
-      { title: "Chase the design team for the dark mode icons", details: "", owner: "You", due: "Monday", priority: "medium", kind: "follow_up", quote: null, first_step: null },
+      { title: "Chase the design team for the dark mode icons", details: "", owner: FIXTURE_NAME, due: "Monday", priority: "medium", kind: "follow_up", quote: null, first_step: null },
     ],
     decisions: [
       { decision: "Dark mode launch moves to next sprint", context: "The icons are not ready and shipping half of it would look worse than waiting." },
@@ -118,8 +129,9 @@ function notes(dayOffset) {
 
 const TRANSCRIPT = [
   { start: 0, end: 6, speaker: "Marcus", text: "Login refactor is merged, so I am picking up the payment webhook today." },
-  { start: 6, end: 13, speaker: "Priya", text: "I found a crash in the export on anything over ten thousand rows. I will have a fix by Friday." },
-  { start: 13, end: 19, speaker: "You", text: "Good. Then dark mode waits, we still have no icons. I will chase design on Monday." },
+  { start: 6, end: 13, speaker: FIXTURE_NAME, text: "I found a crash in the export on anything over ten thousand rows. I will have a fix by Friday." },
+  { start: 13, end: 17, speaker: "Priya", text: "Then dark mode waits. We still have no icons." },
+  { start: 17, end: 22, speaker: FIXTURE_NAME, text: "Agreed. I will chase design on Monday." },
 ];
 
 /** Creates the account and everything the pages need to render. */
@@ -133,6 +145,12 @@ export async function createFixture() {
   // Recording needs an active account, so the Record page shows the recorder
   // rather than the upgrade notice.
   await admin.from("accounts").upsert({ user_id: userId, tier: "active", note: "smoke test" }, { onConflict: "user_id" });
+
+  // Recording also needs a name, for the same reason: without one the Record
+  // page asks for it instead of offering the recorder.
+  await admin
+    .from("user_settings")
+    .upsert({ user_id: userId, display_name: FIXTURE_NAME }, { onConflict: "user_id" });
 
   const body = notes(2);
   const dueAt = body._due_at;
@@ -174,7 +192,7 @@ export async function createFixture() {
   }));
   await withRetry("could not create the smoke tasks", () => admin.from("tasks").insert(rows));
 
-  return { email, password: SMOKE_PASSWORD, userId, meetingId: meeting.id, meetingTitle: MEETING_TITLE };
+  return { email, password: SMOKE_PASSWORD, userId, name: FIXTURE_NAME, meetingId: meeting.id, meetingTitle: MEETING_TITLE };
 }
 
 /** Removes one account. Refuses anything that is not a smoke account. */

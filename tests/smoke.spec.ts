@@ -20,6 +20,7 @@ const fixture: {
   email: string;
   password: string;
   userId: string;
+  name: string;
   meetingId: string;
   meetingTitle: string;
 } = JSON.parse(readFileSync(FIXTURE_FILE, "utf8"));
@@ -80,6 +81,9 @@ test.describe("every page renders what it was given", () => {
     await expect(page.getByRole("heading", { name: "Tasks" })).toBeVisible();
     await expect(page.getByText("Due", { exact: true }).first()).toBeVisible();
     await expect(page.getByRole("button", { name: /Go to Fix the export crash/ })).toBeVisible();
+    // Tasks is this person's list. Marcus's webhook was in the same meeting and
+    // is on the meeting page above; it has no business here.
+    await expect(page.getByText("Start the payment webhook")).toHaveCount(0);
 
     // Approvals, Record, Settings
     await page.getByRole("link", { name: "Approvals", exact: true }).click();
@@ -206,5 +210,23 @@ test.describe("every page renders what it was given", () => {
     }
 
     expect(problems, `console problems:\n${problems.join("\n")}`).toEqual([]);
+  });
+
+  test("recording is not offered until there is a name to put on it", async ({ page }) => {
+    // Clear the name the fixture arrives with, which is the state a brand new
+    // account is in. Done through the API rather than the Settings form, so the
+    // test is about the Record page and nothing else.
+    await page.request.put("/api/settings/display-name", { data: { name: "" } });
+
+    await page.goto("/record");
+    await expect(page.getByRole("button", { name: /Choose a window/ })).toHaveCount(0);
+    await expect(page.getByText("What should the notes call you?")).toBeVisible();
+
+    await page.getByLabel("Your first name").fill(fixture.name);
+    await page.getByRole("button", { name: "Save and record" }).click();
+
+    // The recorder appears in place, without a trip to Settings and back.
+    await expect(page.getByRole("button", { name: /Choose a window/ })).toBeVisible();
+    await expect(page.getByText("What should the notes call you?")).toHaveCount(0);
   });
 });

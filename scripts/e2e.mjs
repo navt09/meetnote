@@ -82,6 +82,21 @@ try {
     const { data: sess } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
     const freeToken = sess.session.access_token;
 
+    // Nothing can be saved before there is a name to put on it. The Record page
+    // asks for one before it offers the button; this is the boundary behind
+    // that prompt, and it is what stops a direct API call skipping it.
+    const nameless = await api(
+      "/api/meetings",
+      { method: "POST", body: JSON.stringify({ mimeType: "audio/wav", bytes: 1000, durationSeconds: 5, recordedAt: new Date().toISOString() }) },
+      freeToken,
+    );
+    if (nameless.status !== 428) throw new Error(`a nameless account should be refused with 428, got ${nameless.status}`);
+    if (nameless.json.needsName !== true) throw new Error(`expected needsName true, got ${JSON.stringify(nameless.json)}`);
+
+    const named = await api("/api/settings/display-name", { method: "PUT", body: JSON.stringify({ name: "Alex" }) }, freeToken);
+    if (named.status !== 200 || named.json.name !== "Alex") throw new Error(`set name: ${named.status} ${JSON.stringify(named.json)}`);
+    log("no meeting can be saved without a name, and setting one clears the way");
+
     // Recording is metered, not forbidden: the first meetings must be allowed.
     const allowed = [];
     for (let i = 0; i < FREE_MEETINGS_PER_MONTH; i++) {

@@ -65,6 +65,13 @@ const { error: tierErr } = await admin
   .from("accounts")
   .upsert({ user_id: newUser.user.id, tier: "active", note: "demo account" }, { onConflict: "user_id" });
 if (tierErr) throw new Error(`set tier: ${tierErr.message}`);
+
+// Saving a meeting also needs a name, so the demo account has one: it is what
+// the notes put on this person's lines and what the Tasks page filters by.
+const { error: nameErr } = await admin
+  .from("user_settings")
+  .upsert({ user_id: newUser.user.id, display_name: "Alex" }, { onConflict: "user_id" });
+if (nameErr) throw new Error(`set name: ${nameErr.message}`);
 const { data: sess, error: sErr } = await anon.auth.signInWithPassword({ email, password });
 if (sErr) throw new Error(`signIn: ${sErr.message}`);
 const token = sess.session.access_token;

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { parseSelfSpeech } from "@/lib/self-speech";
 import { isBlocked, requireMeetingAllowance } from "@/lib/guard";
 import { getAuth } from "@/lib/supabase/server";
+import { getDisplayName } from "@/lib/settings-store";
 import { MAX_UPLOAD_BYTES, mintUploadUrl } from "@/lib/storage";
 import { baseMime, buildStoragePath, extForMime } from "@/lib/paths";
 import { isOwnerEmail } from "@/lib/admin";
@@ -36,6 +37,18 @@ export async function POST(req: Request) {
   const gate = await requireMeetingAllowance(req);
   if (isBlocked(gate)) return gate;
   const { auth } = gate;
+
+  // The Record page asks for a name before it offers the button, so this is
+  // the boundary rather than the prompt. It is reachable by clearing the name
+  // in another tab mid-recording, and by anything calling the API directly.
+  // Refusing here is safe: the browser still holds the audio and offers Retry
+  // save, so the cost of the refusal is a sentence, not a lost meeting.
+  if (!(await getDisplayName(auth.user.id))) {
+    return NextResponse.json(
+      { error: "Add your name in Settings before saving a meeting. It is what puts your words on your lines.", needsName: true },
+      { status: 428 },
+    );
+  }
 
   let body: { mimeType?: string; bytes?: number; durationSeconds?: number; recordedAt?: string; selfSpeech?: unknown; sources?: unknown };
   try {
