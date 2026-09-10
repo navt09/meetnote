@@ -7,6 +7,13 @@ Free is metered, not locked out: `FREE_MEETINGS_PER_MONTH` (2) meetings a calend
 
 **A static route shadows `[provider]`.** `/api/connectors/linear|jira|slack` have their own files, so they never reach `[provider]/route.ts`; each needs its own `DELETE` via `disconnectRoute()`. Disconnecting those three answered 405 and silently did nothing until the tier check found it.
 
+## Billing
+**The webhook is the only thing that moves a tier for money.** Checkout finishing in a browser is not proof of payment: the success URL is a page anyone can visit and the card can still fail afterwards. `POST /api/billing/webhook` verifies Stripe's signature over the raw bytes (`req.text()`, never `req.json()`), then **re-reads the subscription from Stripe** rather than trusting the state in the event body, because Stripe retries and does not promise order: an old `past_due` arriving after a new `active` would otherwise downgrade someone who had just paid. Every path is idempotent, and a database failure answers 500 so Stripe retries.
+
+`applySubscription` in `src/lib/billing-store.ts` **never writes over an owner**: owner comes from `OWNER_EMAILS` and is not for sale, so neither a payment nor a cancellation may move it. `grantsPro` keeps access through `past_due`, because Stripe retries a failed card for days and cutting someone off on the first failure loses a customer who was about to pay; access stops at `unpaid` or `canceled`.
+
+Set-up lives in `.env.example`: secret key, **price** id (not the product id), webhook signing secret, and `NEXT_PUBLIC_SITE_URL` so the return address is not read from a request header. Without them `stripeConfigured()` is false and every button says so rather than 503ing. Test and live mode have separate prices and webhooks; a price from one will not work with a key from the other.
+
 ## Hard rules
 - This product is separate from Protegion Life. Never deploy to the "Protegion Life's projects" Vercel team or create resources in the "Protegion" Supabase organization. From the Call's Supabase project and Vercel project live in separate accounts that are not reachable from the MCP connectors in this session.
 - Secrets live only in `.env.local` (git-ignored). Template: `.env.example`. Never write real values into `.env.example`.

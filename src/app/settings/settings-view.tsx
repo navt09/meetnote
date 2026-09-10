@@ -7,13 +7,17 @@ import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
 import { BrandMark } from "@/components/brand-marks";
 import { canConnect, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
-import { UpgradePanel } from "@/components/upgrade";
+import { ManageBillingButton, UpgradeButton, UpgradePanel } from "@/components/upgrade";
+import { PLANS } from "@/lib/site";
 import { settingsFlash } from "@/lib/flash";
 import type { Theme } from "@/lib/settings-store";
 import { PageHead } from "@/components/ui";
 
 type Team = { id: string; name: string };
 type Project = { id: string; key: string; name: string };
+
+/** How Stripe's checkout page sent the browser back here, if it did. */
+export type CheckoutOutcome = "done" | "cancelled" | null;
 
 export default function SettingsView({
   initial,
@@ -22,6 +26,10 @@ export default function SettingsView({
   googleReady,
   oauthReady,
   tier,
+  paymentsReady,
+  subscriptionStatus,
+  hasStripeCustomer,
+  checkout,
   email,
   displayName,
   theme,
@@ -33,6 +41,10 @@ export default function SettingsView({
   googleReady: boolean;
   oauthReady: { linear: boolean; jira: boolean; slack: boolean };
   tier: Tier;
+  paymentsReady: boolean;
+  subscriptionStatus: string | null;
+  hasStripeCustomer: boolean;
+  checkout: CheckoutOutcome;
   email: string | null;
   displayName: string | null;
 }) {
@@ -112,6 +124,14 @@ export default function SettingsView({
         <ThemeField initial={theme} />
       </div>
 
+      <Billing
+        tier={tier}
+        paymentsReady={paymentsReady}
+        subscriptionStatus={subscriptionStatus}
+        hasStripeCustomer={hasStripeCustomer}
+        checkout={checkout}
+      />
+
       {!storageReady ? (
         <p className="glass border-danger/40 p-4 text-sm text-danger">
           The server has no credential encryption key set, so connections can&apos;t be saved yet. Set CREDENTIALS_KEY and redeploy.
@@ -164,6 +184,105 @@ export default function SettingsView({
     </section>
   );
 }
+
+/**
+ * What this account pays, and the two ways to change it.
+ *
+ * Both buttons only ever hand the browser to Stripe. Nothing about money is
+ * decided here: the tier moves when Stripe's webhook arrives, so this page
+ * reports what the account row says and never guesses ahead of it.
+ */
+function Billing({
+  tier,
+  paymentsReady,
+  subscriptionStatus,
+  hasStripeCustomer,
+  checkout,
+}: {
+  tier: Tier;
+  paymentsReady: boolean;
+  subscriptionStatus: string | null;
+  hasStripeCustomer: boolean;
+  checkout: CheckoutOutcome;
+}) {
+  // The price is quoted from the same list the landing page reads, so the two
+  // cannot drift apart.
+  const pro = PLANS.find((p) => p.id === "pro");
+  const perks = pro ? pro.features.slice(0, 4) : [];
+  // "active" is the ordinary case and saying it adds nothing. Anything else is
+  // worth showing plainly: somebody whose card is failing should see past_due
+  // here rather than be told all is well.
+  const oddStatus = subscriptionStatus && subscriptionStatus !== "active" ? subscriptionStatus : null;
+
+  return (
+    <div className="glass p-5">
+      <p className="text-sm font-medium">Billing</p>
+
+      {checkout === "done" ? (
+        <p className="mt-3 rounded-lg border border-panel-border bg-panel-hi p-3 text-xs leading-relaxed text-muted">
+          Payment received, thank you. Your account updates as soon as the payment provider confirms it, which is
+          usually a few seconds. If it still says Free below, refresh this page.
+        </p>
+      ) : null}
+      {checkout === "cancelled" ? (
+        <p className="mt-3 rounded-lg border border-panel-border bg-panel-hi p-3 text-xs leading-relaxed text-muted">
+          Checkout was cancelled and nothing was charged. Your account is unchanged.
+        </p>
+      ) : null}
+
+      {tier === "owner" ? (
+        <p className="mt-2 text-xs leading-relaxed text-muted">
+          This account is an owner account, which is not billed. There is nothing to pay and nothing to manage here.
+        </p>
+      ) : tier === "active" ? (
+        <>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            You are on Pro: unlimited meetings, drafting, and the connected apps below.
+          </p>
+          {oddStatus ? (
+            <p className="mt-2 text-xs text-warn">
+              The payment provider reports this subscription as <span className="font-mono">{oddStatus}</span>. Check
+              your card in the billing portal.
+            </p>
+          ) : null}
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            Changing your card, reading invoices and cancelling all happen in the payment provider&apos;s own portal,
+            not here, so there is one record of what you are paying.
+          </p>
+          {paymentsReady && hasStripeCustomer ? (
+            <ManageBillingButton className="btn btn-ghost mt-3" />
+          ) : (
+            <p className="mt-3 text-xs text-faint">
+              {paymentsReady ? "There's nothing to manage on this account yet." : NO_PAYMENTS}
+            </p>
+          )}
+        </>
+      ) : (
+        <>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            You are on Free. Pro is {pro?.price}
+            {pro?.cadence} per person, and adds:
+          </p>
+          <ul className="mt-2 flex flex-col gap-1 text-xs text-muted">
+            {perks.map((perk) => (
+              <li key={perk}>· {perk}</li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs leading-relaxed text-muted">
+            You can cancel any time from the payment provider&apos;s own portal, which appears here once you subscribe.
+          </p>
+          {paymentsReady ? (
+            <UpgradeButton className="btn btn-primary mt-3" />
+          ) : (
+            <p className="mt-3 text-xs text-faint">{NO_PAYMENTS}</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+const NO_PAYMENTS = "Payments aren't set up on this server yet, so there is nothing to buy here.";
 
 /**
  * Which surface the app is rendered on.
