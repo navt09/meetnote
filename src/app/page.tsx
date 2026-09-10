@@ -112,7 +112,7 @@ export default function Home() {
             <Link href="/login" className="btn btn-primary">Try it on your next call</Link>
             <a href="#how" className="btn btn-ghost">See how it works</a>
           </div>
-          <p className="mt-4 text-sm text-faint">Free for your first three meetings. No card, no install.</p>
+          <p className="mt-4 text-sm text-faint">Two meetings a month, free. No card, no install.</p>
         </div>
 
         <div className="hero-in mt-14 sm:mt-20">
@@ -277,7 +277,7 @@ export default function Home() {
                     <Link href="/login" className={`btn mt-8 justify-center ${pro ? "btn-primary" : "btn-ghost"}`}>
                       {plan.cta}
                     </Link>
-                    {pro ? <p className="mt-2.5 text-center text-xs text-faint">Your first three meetings are free.</p> : null}
+                    {pro ? <p className="mt-2.5 text-center text-xs text-faint">Start free with two meetings a month.</p> : null}
                   </div>
                 );
                 return (
@@ -338,8 +338,8 @@ export default function Home() {
               <div>
                 <h2 className="display max-w-xl text-3xl sm:text-[2.75rem]">You have a call today. Try it on that one.</h2>
                 <p className="mt-3 max-w-lg leading-relaxed text-muted">
-                  Three meetings free, no card. If the notes are not better than the ones you would have written,
-                  you have lost ten minutes.
+                  Two meetings a month free, no card. If the notes are not better than the ones you would have
+                  written, you have lost ten minutes.
                 </p>
               </div>
               <Link href="/login" className="btn btn-primary shrink-0">Try it on your next call</Link>

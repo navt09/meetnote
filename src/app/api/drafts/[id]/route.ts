@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requireDrafting } from "@/lib/guard";
 import { deliverDraft, DeliveryError } from "@/lib/deliver";
 import { toPublicDraft, type DraftRow, type DraftStatus } from "@/lib/draft";
 
@@ -18,8 +18,9 @@ type Joined = DraftRow & { meetings: { title: string } | null };
  * send anything anywhere, and it only sends if a connector is set up.
  */
 export async function PATCH(req: Request, ctx: Ctx) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requireDrafting(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
@@ -91,8 +92,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
 }
 
 export async function DELETE(req: Request, ctx: Ctx) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requireDrafting(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 

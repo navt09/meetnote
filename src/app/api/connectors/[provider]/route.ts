@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requireConnections } from "@/lib/guard";
 import { deleteConnector } from "@/lib/connector-store";
 import { PROVIDERS, type Provider } from "@/lib/connectors";
 
@@ -9,8 +9,9 @@ type Ctx = { params: Promise<{ provider: string }> };
 
 /** Disconnect. Removes the stored credentials entirely. */
 export async function DELETE(req: Request, ctx: Ctx) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requireConnections(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
 
   const { provider } = await ctx.params;
   if (!PROVIDERS.includes(provider as Provider)) return NextResponse.json({ error: "Unknown connection" }, { status: 400 });

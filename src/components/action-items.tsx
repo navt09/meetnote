@@ -7,6 +7,8 @@ import { useToast } from "@/components/toast";
 import { kindLabel, type PublicTask } from "@/lib/task";
 import type { ActionItem } from "@/lib/schema";
 import { PriorityFlag } from "@/components/priority";
+import { canConnect, canDraft, type Tier } from "@/lib/account";
+import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 
 /**
  * A meeting's action items, with the things you can do to them.
@@ -20,8 +22,10 @@ import { PriorityFlag } from "@/components/priority";
  * The actions are the same ones the Tasks page offers, put where people
  * actually read the meeting.
  */
-export function ActionItems({ meetingId, fallback }: { meetingId: string; fallback: ActionItem[] }) {
+export function ActionItems({ meetingId, fallback, tier }: { meetingId: string; fallback: ActionItem[]; tier: Tier }) {
   const toast = useToast();
+  const mayDraft = canDraft(tier);
+  const mayConnect = canConnect(tier);
   const [tasks, setTasks] = useState<PublicTask[] | null>(null);
   const [drafted, setDrafted] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
@@ -54,7 +58,10 @@ export function ActionItems({ meetingId, fallback }: { meetingId: string; fallba
       setDrafted((prev) => new Set(prev).add(task.id));
       toast("Ticket drafted. Read it in Approvals before it goes anywhere.", "ok");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not draft that ticket", "error");
+      // The tier can change between this page loading and this click, so a
+      // refusal is explained rather than shown as a raw failure.
+      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that ticket";
+      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
     } finally {
       setBusy(null);
     }
@@ -67,7 +74,8 @@ export function ActionItems({ meetingId, fallback }: { meetingId: string; fallba
       setTasks((list) => (list ?? []).map((t) => (t.id === task.id ? { ...t, calendarEventUrl: res.url } : t)));
       toast("Blocked out on your calendar. Nobody else was invited.", "ok");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not add that to your calendar", "error");
+      const fallbackMessage = err instanceof Error ? err.message : "Could not add that to your calendar";
+      toast(isUpgradeError(err) ? upgradeMessage("connect", fallbackMessage) : fallbackMessage, "error");
     } finally {
       setBusy(null);
     }
@@ -101,9 +109,11 @@ export function ActionItems({ meetingId, fallback }: { meetingId: string; fallba
 
               {task ? (
                 <>
+                  {/* Work already done stays visible even on a tier that could
+                      not start it now, so a downgrade never hides a real ticket. */}
                   {drafted.has(task.id) ? (
                     <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
-                  ) : (
+                  ) : mayDraft ? (
                     <button
                       onClick={() => draftTicket(task)}
                       disabled={busy === task.id}
@@ -111,12 +121,12 @@ export function ActionItems({ meetingId, fallback }: { meetingId: string; fallba
                     >
                       {busy === task.id ? "working…" : "draft ticket"}
                     </button>
-                  )}
+                  ) : null}
                   {task.calendarEventUrl ? (
                     <a href={task.calendarEventUrl} target="_blank" rel="noreferrer" className="font-medium text-accent transition-opacity hover:opacity-70">
                       on your calendar
                     </a>
-                  ) : (
+                  ) : mayConnect ? (
                     <button
                       onClick={() => addToCalendar(task)}
                       disabled={busy === task.id}
@@ -124,7 +134,11 @@ export function ActionItems({ meetingId, fallback }: { meetingId: string; fallba
                     >
                       add to calendar
                     </button>
-                  )}
+                  ) : null}
+                  {/* One line per row, not one per missing button: both walls
+                      open on the same tier, and saying it twice on every task
+                      would drown the tasks. */}
+                  {!mayDraft || !mayConnect ? <UpgradeNote reason={!mayDraft ? "draft" : "connect"} /> : null}
                 </>
               ) : null}
             </div>

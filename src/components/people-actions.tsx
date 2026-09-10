@@ -5,6 +5,8 @@ import { useState } from "react";
 import { postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import type { MeetingNotes } from "@/lib/schema";
+import { canDraft, type Tier } from "@/lib/account";
+import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 
 /**
  * Kept in step with DRAFT_NOTE_MAX in src/lib/agent.ts by hand: importing it
@@ -18,8 +20,17 @@ const NOTE_MAX = 500;
  * The people a meeting said to contact, each with a button that drafts a
  * follow-up email. The draft goes to Approvals; nothing is ever sent from here.
  */
-export function PeopleToContact({ meetingId, people }: { meetingId: string; people: MeetingNotes["people_to_contact"] }) {
+export function PeopleToContact({
+  meetingId,
+  people,
+  tier,
+}: {
+  meetingId: string;
+  people: MeetingNotes["people_to_contact"];
+  tier: Tier;
+}) {
   const toast = useToast();
+  const mayDraft = canDraft(tier);
   const [drafting, setDrafting] = useState<string | null>(null);
   const [drafted, setDrafted] = useState<Set<string>>(new Set());
   const [noting, setNoting] = useState<string | null>(null);
@@ -32,7 +43,10 @@ export function PeopleToContact({ meetingId, people }: { meetingId: string; peop
       setDrafted((s) => new Set(s).add(name));
       toast("Email drafted. Check it in Approvals.", "ok");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not draft that email", "error");
+      // The tier can change between this page loading and this click, so a
+      // refusal is explained rather than shown as a raw failure.
+      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that email";
+      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
     } finally {
       setDrafting(null);
     }
@@ -56,6 +70,10 @@ export function PeopleToContact({ meetingId, people }: { meetingId: string; peop
               <p className="mt-2 text-xs">
                 <Link href="/approvals" className="text-accent transition-colors hover:underline">email drafted</Link>
               </p>
+            ) : !mayDraft ? (
+              /* The note box goes with the button: it only exists to steer a
+                 draft nobody on this tier can ask for. */
+              <UpgradeNote reason="draft" className="mt-2" />
             ) : (
               <>
                 {noting === p.name ? (

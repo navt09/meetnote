@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requireConnections } from "@/lib/guard";
+import { disconnectRoute } from "@/lib/disconnect-route";
 import { loadConnector, saveConnector, updateConnectorConfig } from "@/lib/connector-store";
 import { credentialsKeyConfigured } from "@/lib/crypto";
 import { verify } from "@/lib/providers/linear";
@@ -13,8 +14,9 @@ export const maxDuration = 60;
  * the teams it can see come back so the person can pick one.
  */
 export async function POST(req: Request) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requireConnections(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
   if (!credentialsKeyConfigured()) {
     return NextResponse.json({ error: "Credential storage isn't configured on the server yet." }, { status: 503 });
   }
@@ -50,8 +52,9 @@ export async function POST(req: Request) {
 
 /** Choose which team new issues go into. */
 export async function PATCH(req: Request) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requireConnections(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
 
   let body: { teamId?: string };
   try {
@@ -77,8 +80,10 @@ export async function PATCH(req: Request) {
 
 /** Teams for the picker, using the already-stored key. */
 export async function GET(req: Request) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  // Verifying a stored connection is a connected-app action like any other.
+  const gate = await requireConnections(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
 
   const stored = await loadConnector<LinearCredentials, LinearConfig>(auth.user.id, "linear");
   if (!stored) return NextResponse.json({ error: "Connect Linear first." }, { status: 404 });
@@ -87,3 +92,6 @@ export async function GET(req: Request) {
   if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 });
   return NextResponse.json({ teams: result.teams, config: stored.config });
 }
+
+/** Disconnect. Bound here because the static route shadows [provider]. */
+export const DELETE = disconnectRoute("linear");

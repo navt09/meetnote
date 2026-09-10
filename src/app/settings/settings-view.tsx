@@ -6,7 +6,8 @@ import { deleteJson, deleteJsonWithBody, getJson, patchJson, postJson, putJson }
 import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
 import { BrandMark } from "@/components/brand-marks";
-import { canUseAi, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
+import { canConnect, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
+import { UpgradePanel } from "@/components/upgrade";
 import { settingsFlash } from "@/lib/flash";
 import type { Theme } from "@/lib/settings-store";
 import { PageHead } from "@/components/ui";
@@ -41,6 +42,7 @@ export default function SettingsView({
   const [connectors, setConnectors] = useState<PublicConnector[]>(initial);
   const [ticketProvider, setTicketProviderState] = useState<TicketProvider | null>(initialTicketProvider);
   const [busy, setBusy] = useState<string | null>(null);
+  const mayConnect = canConnect(tier);
 
   const byProvider = useMemo(() => new Map(connectors.map((c) => [c.provider, c])), [connectors]);
   const get = (p: Provider) => byProvider.get(p) ?? null;
@@ -106,11 +108,6 @@ export default function SettingsView({
             <p className="mt-1 text-xs text-muted">{TIER_BLURB[tier]}</p>
           </div>
         </div>
-        {!canUseAi(tier) ? (
-          <p className="mt-3 border-t border-panel-border pt-3 text-xs text-warn">
-            Recording and AI notes are turned off for free accounts. Everything already in your account stays readable.
-          </p>
-        ) : null}
         <DisplayNameField initial={displayName} />
         <ThemeField initial={theme} />
       </div>
@@ -121,15 +118,19 @@ export default function SettingsView({
         </p>
       ) : null}
 
+      {/* Shown rather than hidden: somebody deciding whether to pay should be
+          able to see the four apps they would be buying, not an absence. */}
+      {!mayConnect ? <UpgradePanel reason="connect" title="Connected apps are part of Pro" /> : null}
+
       <div className="glass divide-y divide-panel-border overflow-hidden">
         <div className="px-5 py-3">
           <p className="text-sm font-medium">Connections</p>
           <p className="mt-0.5 text-xs text-muted">Where your approved notes, tickets and follow-ups go.</p>
         </div>
-        <LinearCard oauthReady={oauthReady.linear} connector={get("linear")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
-        <JiraCard oauthReady={oauthReady.jira} connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
-        <SlackCard oauthReady={oauthReady.slack} connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
-        <GoogleCard connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
+        <LinearCard locked={!mayConnect} oauthReady={oauthReady.linear} connector={get("linear")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
+        <JiraCard locked={!mayConnect} oauthReady={oauthReady.jira} connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
+        <SlackCard locked={!mayConnect} oauthReady={oauthReady.slack} connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
+        <GoogleCard locked={!mayConnect} connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
       </div>
 
       <DangerZone email={email} />
@@ -352,6 +353,8 @@ type CardProps = {
   setBusy: (v: string | null) => void;
   onChanged: () => Promise<void>;
   disconnect: (p: Provider, label: string) => Promise<void>;
+  /** The tier cannot connect anything, so every way in is dead on this row. */
+  locked: boolean;
 };
 
 /**
@@ -403,7 +406,17 @@ function Row({
  * Starts a provider's consent flow. Deliberately a plain anchor: these endpoints
  * redirect out to the provider's own screen, which next/link cannot do.
  */
-function ConnectButton({ href, label = "Connect" }: { href: string; label?: string }) {
+function ConnectButton({ href, label = "Connect", locked = false }: { href: string; label?: string; locked?: boolean }) {
+  // A disabled anchor is not a thing, so a locked row gets a real disabled
+  // button. The shape of the row stays the same, which is the point: the
+  // control is visibly there and visibly unavailable.
+  if (locked) {
+    return (
+      <button type="button" disabled className="btn btn-primary !py-1.5 text-xs">
+        {label}
+      </button>
+    );
+  }
   return (
     <a className="btn btn-primary !py-1.5 text-xs" href={href}>
       {label}
@@ -443,7 +456,7 @@ function NotSetUp({ what }: { what: string }) {
 
 // ---- Linear -----------------------------------------------------------------
 
-function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady }: CardProps & { oauthReady: boolean }) {
+function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady, locked }: CardProps & { oauthReady: boolean }) {
   const toast = useToast();
   const [apiKey, setApiKey] = useState("");
   const [teams, setTeams] = useState<Team[]>([]);
@@ -497,6 +510,8 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthRead
       action={
         connector ? (
           <DisconnectButton busy={working} onClick={() => disconnect("linear", "Linear")} />
+        ) : locked ? (
+          <ConnectButton href="/api/connectors/linear/start" locked />
         ) : oauthReady ? (
           <ConnectButton href="/api/connectors/linear/start" />
         ) : (
@@ -517,7 +532,7 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthRead
             {config.teamName ? "Change team" : "Choose a team"}
           </button>
         )
-      ) : !oauthReady ? (
+      ) : !oauthReady && !locked ? (
         <Manual label="Use an API key instead">
           <div className="flex flex-col gap-2 sm:flex-row">
             <input
@@ -541,7 +556,7 @@ function LinearCard({ connector, busy, setBusy, onChanged, disconnect, oauthRead
 
 // ---- Jira -------------------------------------------------------------------
 
-function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady }: CardProps & { oauthReady: boolean }) {
+function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady, locked }: CardProps & { oauthReady: boolean }) {
   const toast = useToast();
   const [form, setForm] = useState({ siteUrl: "", email: "", apiToken: "" });
   const [projects, setProjects] = useState<Project[]>([]);
@@ -595,6 +610,8 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady 
       action={
         connector ? (
           <DisconnectButton busy={working} onClick={() => disconnect("jira", "Jira")} />
+        ) : locked ? (
+          <ConnectButton href="/api/connectors/jira/start" locked />
         ) : oauthReady ? (
           <ConnectButton href="/api/connectors/jira/start" />
         ) : (
@@ -615,7 +632,7 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady 
             {config.projectKey ? "Change project" : "Choose a project"}
           </button>
         )
-      ) : !oauthReady ? (
+      ) : !oauthReady && !locked ? (
         <Manual label="Use an API token instead">
           <input value={form.siteUrl} onChange={(e) => setForm({ ...form, siteUrl: e.target.value })} placeholder="acme.atlassian.net" className="field text-sm" aria-label="Jira site" />
           <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@company.com" className="field text-sm" aria-label="Jira email" />
@@ -632,7 +649,7 @@ function JiraCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady 
 
 // ---- Slack ------------------------------------------------------------------
 
-function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady }: CardProps & { oauthReady: boolean }) {
+function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady, locked }: CardProps & { oauthReady: boolean }) {
   const toast = useToast();
   const [webhookUrl, setWebhookUrl] = useState("");
   const working = busy === "slack";
@@ -661,6 +678,8 @@ function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady
       action={
         connector ? (
           <DisconnectButton busy={working} onClick={() => disconnect("slack", "Slack")} />
+        ) : locked ? (
+          <ConnectButton href="/api/connectors/slack/start" locked />
         ) : oauthReady ? (
           <ConnectButton href="/api/connectors/slack/start" />
         ) : (
@@ -668,7 +687,7 @@ function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady
         )
       }
     >
-      {!connector && !oauthReady ? (
+      {!connector && !oauthReady && !locked ? (
         <Manual label="Use a webhook URL instead">
           <div className="flex flex-col gap-2 sm:flex-row">
             <input value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} placeholder="https://hooks.slack.com/services/…" className="field text-sm" aria-label="Slack webhook URL" />
@@ -692,11 +711,13 @@ function GoogleCard({
   googleReady,
   busy,
   disconnect,
+  locked,
 }: {
   connector: PublicConnector | null;
   googleReady: boolean;
   busy: string | null;
   disconnect: (p: Provider, label: string) => Promise<void>;
+  locked: boolean;
 }) {
   const scopes = ((connector?.config ?? {}) as { scopes?: string[] }).scopes ?? [];
   const canSend = scopes.some((s) => s.includes("gmail.send"));
@@ -717,7 +738,9 @@ function GoogleCard({
           : undefined
       }
       action={
-        !googleReady ? (
+        locked && !connector ? (
+          <ConnectButton href="/api/connectors/google/start" locked />
+        ) : !googleReady ? (
           <NotSetUp what="GOOGLE_CLIENT_ID" />
         ) : !connector ? (
           <ConnectButton href="/api/connectors/google/start" />

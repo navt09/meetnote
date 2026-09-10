@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requireConnections } from "@/lib/guard";
+import { disconnectRoute } from "@/lib/disconnect-route";
 import { saveConnector } from "@/lib/connector-store";
 import { credentialsKeyConfigured } from "@/lib/crypto";
 import { verify } from "@/lib/providers/slack";
@@ -10,8 +11,9 @@ export const maxDuration = 60;
 
 /** Saves a Slack incoming webhook, after posting a hello to prove it works. */
 export async function POST(req: Request) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  const gate = await requireConnections(req);
+  if (isBlocked(gate)) return gate;
+  const { auth } = gate;
   if (!credentialsKeyConfigured()) {
     return NextResponse.json({ error: "Credential storage isn't configured on the server yet." }, { status: 503 });
   }
@@ -43,3 +45,6 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ ok: true, config });
 }
+
+/** Disconnect. Bound here because the static route shadows [provider]. */
+export const DELETE = disconnectRoute("slack");

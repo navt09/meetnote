@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/supabase/server";
+import { tierFor } from "@/lib/account-store";
 import { sortTasks, toPublicTask, type TaskRow } from "@/lib/task";
 import { dueLabel, isOverdue, parseDue } from "@/lib/schedule";
 import TasksView from "./tasks-view";
@@ -17,10 +18,14 @@ export default async function TasksPage({
   // opening state from it instead of setting state inside an effect.
   const { task: requestedTaskId } = await searchParams;
   const db = await supabaseServer();
+  const { data: userData } = await db.auth.getUser();
 
-  const [tasksRes, draftsRes] = await Promise.all([
+  // The tier rides down with the rows so the page knows, on its first render,
+  // which of the per-task actions it may offer at all.
+  const [tasksRes, draftsRes, tier] = await Promise.all([
     db.from("tasks").select("*, meetings(title)").order("created_at", { ascending: false }).limit(500),
     db.from("drafts").select("task_id").not("task_id", "is", null).limit(500),
+    userData.user ? tierFor(userData.user.id, userData.user.email) : Promise.resolve("free" as const),
   ]);
 
   const tasks = sortTasks(((tasksRes.data ?? []) as Joined[]).map((r) => toPublicTask(r, r.meetings?.title ?? "Untitled meeting")));
@@ -49,6 +54,7 @@ export default async function TasksPage({
       initial={tasks}
       drafted={drafted}
       requestedTaskId={requestedTaskId ?? null}
+      tier={tier}
       due={due}
       loadError={tasksRes.error ? "Could not load your tasks. Refresh to try again." : null}
     />

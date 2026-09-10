@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "./supabase-admin";
-import { isTier, type Tier } from "./account";
+import { isTier, monthStart, type Tier } from "./account";
 
 /**
  * Reading and writing account tiers. Uses the service role: the accounts table
@@ -51,4 +51,31 @@ export async function setTier(userId: string, tier: Tier, note?: string): Promis
   const admin = supabaseAdmin();
   const { error } = await admin.from("accounts").upsert({ user_id: userId, tier, note: note ?? null }, { onConflict: "user_id" });
   if (error) throw new Error(`Could not set the tier: ${error.message}`);
+}
+
+/**
+ * How many meetings this account has recorded in the current calendar month.
+ *
+ * Counted from `recorded_at`, not from `created_at`, so a recording that
+ * failed and was retried does not spend two of someone's two meetings.
+ *
+ * Deleting a meeting gives the slot back. That is a loophole, and a deliberate
+ * one: the alternative is a ledger that outlives the data it counts, which
+ * would mean keeping rows for accounts that asked us to delete them.
+ */
+export async function meetingsUsedThisMonth(userId: string, now: Date = new Date()): Promise<number> {
+  const admin = supabaseAdmin();
+  const { count, error } = await admin
+    .from("meetings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .gte("recorded_at", monthStart(now).toISOString());
+
+  if (error) {
+    // Fail closed. Being told the allowance is spent when it is not is a
+    // nuisance; letting an unmetered account through is a bill.
+    console.error(JSON.stringify({ event: "allowance_read_error", message: error.message }));
+    return Number.POSITIVE_INFINITY;
+  }
+  return count ?? 0;
 }

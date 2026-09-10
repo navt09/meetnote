@@ -8,12 +8,16 @@ import type { ActionItem, MeetingNotes, TranscriptSegment } from "./schema";
 export const DRAFT_MODEL = "claude-haiku-4-5";
 
 /**
- * Reasoning tokens are billed as output. Drafting is a short rephrasing job
- * from notes we already have, and a person reads and approves the result
- * before anything is sent, so the cheaper setting is an acceptable trade here
- * for the same reason Haiku is.
+ * Drafting sends no effort at all, and must not.
+ *
+ * Low effort was the obvious saving here, for the same reason Haiku is: a
+ * draft is a short rephrasing of notes we already have, read and approved by a
+ * person before anything is sent. But claude-haiku-4-5 rejects the parameter
+ * outright, with "This model does not support the effort parameter", and the
+ * request 400s. The SDK's types accept it, so nothing but a real call catches
+ * this; the end-to-end run did. If drafting ever moves to a model that
+ * supports effort, low is the level to ask for.
  */
-export const DRAFT_EFFORT = "low";
 
 /** The cap on the optional note a sender adds to an email draft. */
 export const DRAFT_NOTE_MAX = 500;
@@ -73,7 +77,7 @@ async function run<T>(system: string, prompt: string, schema: Parameters<typeof 
     max_tokens: 8000,
     system,
     messages: [{ role: "user", content: prompt }],
-    output_config: { format: zodOutputFormat(schema), effort: DRAFT_EFFORT },
+    output_config: { format: zodOutputFormat(schema) },
   });
 
   if (response.stop_reason === "refusal") throw new Error("The model declined to draft this.");

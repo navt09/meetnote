@@ -25,6 +25,13 @@ body.marketing {
 
   --accent: #629bff;
   --accent-ink: #0f0e0d;
+  /* The mark is the one thing that must not change when you sign in, so it has
+     its own pair rather than following --accent. On the shopfront the two
+     happen to be the same blue; in the app the accent is coral and the mark
+     stays this. It also matches the favicon in app/icon.svg, which is a fixed
+     file and cannot follow a token at all. */
+  --brand: #629bff;
+  --brand-ink: #0f0e0d;
   /* The primary button is paper on ink. The accent is for the live parts of
      the demo and the odd link; a blue button on every band would shout. */
   --btn-bg: #f2f0ec;
@@ -69,6 +76,9 @@ body.marketing .light {
 
   --accent: #2b58bd;
   --accent-ink: #fcfbf9;
+  /* The darker blue, because the mark sits on paper here. */
+  --brand: #2b58bd;
+  --brand-ink: #fcfbf9;
   --btn-bg: #1d1c1a;
   --btn-fg: #fcfbf9;
   --btn-bg-hover: #35322e;
@@ -118,6 +128,11 @@ body.app {
      three that carry meaning. */
   --accent: #ef6a5a;
   --accent-ink: #16150f;
+  /* Not the accent: the mark keeps the shopfront's blue so signing in does not
+     recolour the logo. In practice it renders on the rail, which overrides
+     these below; this pair is what any other placement would get. */
+  --brand: #629bff;
+  --brand-ink: #131211;
   --btn-bg: #f2efe9;
   --btn-fg: #16150f;
   --btn-bg-hover: #ffffff;
@@ -169,6 +184,8 @@ html[data-theme="light"] body.app {
 
   --accent: #c4443c;
   --accent-ink: #faf8f4;
+  --brand: #2b58bd;
+  --brand-ink: #faf8f4;
   --btn-bg: #1d1c1a;
   --btn-fg: #faf8f4;
   --btn-bg-hover: #35322e;
@@ -698,6 +715,10 @@ body.app .eyebrow { color: var(--faint); }
   --rail-fg: #f4f1ec;
   --rail-muted: #99938a;
   --rail-line: #262320;
+  /* The rail is ink in both themes, so the mark on it gets the dark-ground
+     blue either way, and its bars are cut from whatever the rail is made of. */
+  --brand: #629bff;
+  --brand-ink: var(--rail);
   background: var(--rail);
   color: var(--rail-fg);
   /* One hairline so the rail reads as its own plane against a ground that is

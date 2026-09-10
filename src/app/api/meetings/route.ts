@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseSelfSpeech } from "@/lib/self-speech";
-import { isBlocked, requirePaid } from "@/lib/guard";
+import { isBlocked, requireMeetingAllowance } from "@/lib/guard";
 import { getAuth } from "@/lib/supabase/server";
 import { MAX_UPLOAD_BYTES, mintUploadUrl } from "@/lib/storage";
 import { baseMime, buildStoragePath, extForMime } from "@/lib/paths";
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
  * The browser uploads straight to storage; nothing large passes through here.
  */
 export async function POST(req: Request) {
-  const gate = await requirePaid(req);
+  const gate = await requireMeetingAllowance(req);
   if (isBlocked(gate)) return gate;
   const { auth } = gate;
 

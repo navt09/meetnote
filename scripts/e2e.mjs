@@ -29,6 +29,10 @@ if (!URL_ || !ANON || !SERVICE) {
 }
 
 const admin = createClient(URL_, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+
+// Read from the module that enforces it, so raising the allowance cannot leave
+// this check quietly asserting the old number.
+const { FREE_MEETINGS_PER_MONTH } = await import("../src/lib/account.ts");
 const anon = createClient(URL_, ANON, { auth: { persistSession: false, autoRefreshToken: false } });
 const email = `e2e-${Date.now()}@fromthecall.invalid`;
 let userId = null;
@@ -70,17 +74,60 @@ try {
   if (cuErr) throw new Error(`createUser: ${cuErr.message}`);
   userId = cu.user.id;
 
-  // A brand new account is on the free tier and is blocked from anything that
-  // costs money. Check that first, then promote so the rest of the run works.
+  // What a free account may and may not do, checked before the account is
+  // promoted so the rest of the run can use the paid paths. This is the wall the product sells
+  // against, so it is checked against the running server rather than trusted to
+  // the pure helpers alone: a route that forgot its guard would pass those.
   {
     const { data: sess } = await anon.auth.signInWithPassword({ email, password: PASSWORD });
-    const res = await fetch(`${BASE}/api/meetings`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${sess.session.access_token}` },
-      body: JSON.stringify({ mimeType: "audio/wav", bytes: 1000 }),
-    });
-    if (res.status !== 402) throw new Error(`a free account should be refused with 402, got ${res.status}`);
-    log("free account refused (402) before being made active");
+    const freeToken = sess.session.access_token;
+
+    // Recording is metered, not forbidden: the first meetings must be allowed.
+    const allowed = [];
+    for (let i = 0; i < FREE_MEETINGS_PER_MONTH; i++) {
+      const res = await api(
+        "/api/meetings",
+        { method: "POST", body: JSON.stringify({ mimeType: "audio/wav", bytes: 1000, durationSeconds: 5, recordedAt: new Date().toISOString() }) },
+        freeToken,
+      );
+      if (res.status !== 201) throw new Error(`free meeting ${i + 1} should have been allowed, got ${res.status}`);
+      allowed.push(res.json.meetingId);
+    }
+
+    // One past the allowance is refused, and says why.
+    const over = await api(
+      "/api/meetings",
+      { method: "POST", body: JSON.stringify({ mimeType: "audio/wav", bytes: 1000, durationSeconds: 5, recordedAt: new Date().toISOString() }) },
+      freeToken,
+    );
+    if (over.status !== 402) throw new Error(`meeting ${FREE_MEETINGS_PER_MONTH + 1} should be refused with 402, got ${over.status}`);
+    if (over.json.upgrade !== "allowance") throw new Error(`expected upgrade "allowance", got ${JSON.stringify(over.json.upgrade)}`);
+    log(`free account: ${FREE_MEETINGS_PER_MONTH} meetings allowed, the next refused (402 allowance)`);
+
+    // Drafting and connected apps are refused outright, whatever the allowance.
+    const walls = [
+      ["draft a ticket", "/api/tasks/00000000-0000-4000-8000-000000000000/draft", "POST", "draft"],
+      ["draft an email", `/api/meetings/${allowed[0]}/draft-email`, "POST", "draft"],
+      ["put a task on a calendar", "/api/tasks/00000000-0000-4000-8000-000000000000/calendar", "POST", "connect"],
+      ["post to Slack", `/api/meetings/${allowed[0]}/share/slack`, "POST", "connect"],
+      ["connect Linear", "/api/connectors/linear", "POST", "connect"],
+      ["connect Jira", "/api/connectors/jira", "POST", "connect"],
+      ["connect Slack", "/api/connectors/slack", "POST", "connect"],
+      ["start the Google flow", "/api/connectors/google/start", "GET", "connect"],
+      ["start the Linear flow", "/api/connectors/linear/start", "GET", "connect"],
+      ["start the Jira flow", "/api/connectors/jira/start", "GET", "connect"],
+      ["start the Slack flow", "/api/connectors/slack/start", "GET", "connect"],
+      ["drop a connector", "/api/connectors/linear", "DELETE", "connect"],
+    ];
+    for (const [what, path, method, reason] of walls) {
+      const res = await api(path, { method, body: method === "GET" ? undefined : "{}" }, freeToken);
+      if (res.status !== 402) throw new Error(`free account could ${what}: expected 402, got ${res.status}`);
+      if (res.json.upgrade !== reason) throw new Error(`${what}: expected upgrade "${reason}", got ${JSON.stringify(res.json.upgrade)}`);
+    }
+    log(`free account refused all ${walls.length} paid actions with 402 and a reason`);
+
+    // Clear the fixtures so the paid run below starts from nothing.
+    for (const id of allowed) await admin.from("meetings").delete().eq("id", id);
   }
   const { error: tierErr } = await admin
     .from("accounts")

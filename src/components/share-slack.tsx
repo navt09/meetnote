@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
+import { canConnect, type Tier } from "@/lib/account";
+import { isUpgradeError, UpgradeNote } from "@/components/upgrade";
 
 /**
  * Post these notes to the connected Slack channel.
@@ -15,10 +17,15 @@ import { useToast } from "@/components/toast";
  *
  * Hidden until it works: pressing it when Slack is not connected says so once
  * and then stays quiet, rather than the page having to know about connectors.
+ *
+ * A tier that cannot connect anything is a different case, and says so instead
+ * of vanishing: there is something to buy here, not something broken.
  */
-export function ShareToSlack({ meetingId }: { meetingId: string }) {
+export function ShareToSlack({ meetingId, tier }: { meetingId: string; tier: Tier }) {
   const toast = useToast();
-  const [state, setState] = useState<"idle" | "sending" | "sent" | "unavailable">("idle");
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "unavailable" | "upgrade">(
+    canConnect(tier) ? "idle" : "upgrade",
+  );
 
   if (state === "unavailable") return null;
 
@@ -30,6 +37,11 @@ export function ShareToSlack({ meetingId }: { meetingId: string }) {
       toast("Posted to Slack.", "ok");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Could not post to Slack";
+      // The tier can change between this page loading and this click.
+      if (isUpgradeError(err)) {
+        setState("upgrade");
+        return;
+      }
       toast(message, "error");
       // "Connect Slack in Settings first" is not worth a button that stays on
       // the page nagging about it.
@@ -39,7 +51,9 @@ export function ShareToSlack({ meetingId }: { meetingId: string }) {
 
   return (
     <div className="mt-4 flex items-center gap-3 border-t border-panel-border pt-4">
-      {state === "sent" ? (
+      {state === "upgrade" ? (
+        <UpgradeNote reason="connect" />
+      ) : state === "sent" ? (
         <span className="text-xs text-ok">Posted to Slack</span>
       ) : (
         <button
@@ -50,7 +64,7 @@ export function ShareToSlack({ meetingId }: { meetingId: string }) {
           {state === "sending" ? "Posting…" : "Post to Slack"}
         </button>
       )}
-      <span className="text-xs text-faint">Sends these notes to your channel.</span>
+      {state === "upgrade" ? null : <span className="text-xs text-faint">Sends these notes to your channel.</span>}
     </div>
   );
 }

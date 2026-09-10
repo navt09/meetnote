@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isBlocked, requirePaid } from "@/lib/guard";
+import { isBlocked, requireConnections } from "@/lib/guard";
 import { loadConnector, noteConnectorError } from "@/lib/connector-store";
 import { postMessage, SlackGoneError } from "@/lib/providers/slack";
 import { notesToMarkdown } from "@/lib/markdown";
@@ -22,7 +22,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * does not go through the approvals queue.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const gate = await requirePaid(req);
+  const gate = await requireConnections(req);
   if (isBlocked(gate)) return gate;
   const { auth } = gate;
 

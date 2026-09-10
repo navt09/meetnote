@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
@@ -36,7 +37,11 @@ let cachedSupport: SupportCheck | null = null;
 const getSupport = () => (cachedSupport ??= checkSupport());
 const noSubscribe = () => () => {};
 
-export default function RecordView() {
+/**
+ * `meetingsLeft` is only passed for a free account, and is counted on the
+ * server: a client component must not read the database to find out.
+ */
+export default function RecordView({ meetingsLeft }: { meetingsLeft?: number }) {
   const router = useRouter();
   const toast = useToast();
   const support = useSyncExternalStore(noSubscribe, getSupport, () => null);
@@ -335,6 +340,17 @@ export default function RecordView() {
   return (
     <section className="flex flex-col gap-6 pt-10">
       <PageHead title="Record" meta="Nothing joins the call. Your browser does the recording, on this machine." />
+
+      {meetingsLeft !== undefined ? (
+        <p className="rise text-sm text-muted">
+          <span className="font-mono">{meetingsLeft}</span>{" "}
+          {meetingsLeft === 1 ? "free meeting" : "free meetings"} left this month.{" "}
+          <Link href="/#pricing" className="font-medium text-accent transition-opacity hover:opacity-70">
+            Pro records as many as you like
+          </Link>
+          .
+        </p>
+      ) : null}
 
       {support && !support.ok ? (
         <div className="glass pop border-danger/40 p-5 text-sm text-danger">{support.reason}</div>

@@ -8,6 +8,8 @@
  * provider, and this file stops them drifting in the meantime.
  */
 
+import { FREE_MEETINGS_PER_MONTH } from "@/lib/account";
+
 /** One address for everything. It must actually receive mail before launch. */
 export const CONTACT_EMAIL = "hello@fromthecall.com";
 
@@ -20,7 +22,15 @@ export const PLANS = [
     note: "No card, ever",
     tagline: "See what it does with your own meetings.",
     lead: "What you get",
-    features: ["3 meetings a month", "Notes, decisions and action items", "Everything stays in your account"],
+    // The number comes from the code that enforces it, so the shopfront cannot
+    // promise an allowance the product does not give.
+    features: [
+      `${FREE_MEETINGS_PER_MONTH} meetings a month`,
+      "Recorded in your browser, nothing joins the call",
+      "Full transcript, with who said what",
+      "Notes, decisions and action items",
+      "Everything stays in your account",
+    ],
     cta: "Get started",
     highlight: false,
   },
@@ -32,12 +42,14 @@ export const PLANS = [
     note: "per person",
     tagline: "The follow-up done, not just written down.",
     lead: "Everything in Free, plus",
+    // Ordered by what free does not get, because that is the reason to pay.
     features: [
       "Unlimited meetings",
       "Tickets drafted into Linear and Jira",
       "Follow-up emails drafted from your Gmail",
       "Tasks blocked out on your calendar",
       "Summaries posted to Slack",
+      "Every draft read and approved by you first",
     ],
     cta: "Start with Pro",
     highlight: true,

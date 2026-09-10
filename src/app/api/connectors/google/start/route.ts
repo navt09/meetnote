@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { cookies } from "next/headers";
-import { getAuth } from "@/lib/supabase/server";
+import { isBlocked, requireConnections } from "@/lib/guard";
 import { authUrl, googleConfigured } from "@/lib/providers/google";
 
 export const runtime = "nodejs";
@@ -10,8 +10,11 @@ export const STATE_COOKIE = "google_oauth_state";
 
 /** Begins the Google consent flow. */
 export async function GET(req: Request) {
-  const auth = await getAuth(req);
-  if (!auth) return NextResponse.json({ error: "Sign in required" }, { status: 401 });
+  // The gate is the whole point of the call here: this route only needs to
+  // know the caller may connect an app, not who they are. The identity comes
+  // back on the callback with the state cookie.
+  const gate = await requireConnections(req);
+  if (isBlocked(gate)) return gate;
   if (!googleConfigured()) {
     return NextResponse.json({ error: "Google isn't configured on this server yet." }, { status: 503 });
   }

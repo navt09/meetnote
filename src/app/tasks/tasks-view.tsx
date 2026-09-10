@@ -8,6 +8,8 @@ import { useToast } from "@/components/toast";
 import { EmptyState, PageHead } from "@/components/ui";
 import { filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, type TaskFilter } from "@/lib/task";
 import { PriorityFlag } from "@/components/priority";
+import { canConnect, canDraft, type Tier } from "@/lib/account";
+import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "open", label: "To do" },
@@ -24,16 +26,20 @@ export default function TasksView({
   drafted,
   due,
   requestedTaskId,
+  tier,
 }: {
   initial: PublicTask[];
   loadError: string | null;
   drafted: string[];
   due: DueEntry[];
+  tier: Tier;
   /** A task linked to from elsewhere, e.g. Home's "Top of the list". */
   requestedTaskId: string | null;
 }) {
   const toast = useToast();
   const router = useRouter();
+  const mayDraft = canDraft(tier);
+  const mayConnect = canConnect(tier);
   const [tasks, setTasks] = useState<PublicTask[]>(initial);
   // Landing on a particular task opens on every task, because the one being
   // asked for may well be done. Derived at mount rather than set from an
@@ -58,7 +64,10 @@ export default function TasksView({
       setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, calendarEventUrl: res.url } : t)));
       toast(`Blocked out ${res.when}`, "ok");
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not add that to your calendar", "error");
+      // The tier can change between this page loading and this click, so a
+      // refusal is explained rather than shown as a raw failure.
+      const fallbackMessage = err instanceof Error ? err.message : "Could not add that to your calendar";
+      toast(isUpgradeError(err) ? upgradeMessage("connect", fallbackMessage) : fallbackMessage, "error");
     } finally {
       setScheduling(null);
     }
@@ -72,7 +81,8 @@ export default function TasksView({
       toast("Ticket drafted. Check it in Approvals.", "ok");
       router.refresh();
     } catch (err) {
-      toast(err instanceof Error ? err.message : "Could not draft that ticket", "error");
+      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that ticket";
+      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
     } finally {
       setDrafting(null);
     }
@@ -240,9 +250,11 @@ export default function TasksView({
                         // Nothing concrete was said, so the words stand as they were.
                         return t.due ? <span className="font-medium text-warn">due {t.due}</span> : null;
                       })()}
+                        {/* Work already done stays visible even on a tier that
+                            could not start it now. */}
                         {hasDraft.has(t.id) ? (
                           <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
-                        ) : (
+                        ) : mayDraft ? (
                           <button
                             onClick={() => draft(t)}
                             disabled={drafting === t.id}
@@ -250,12 +262,12 @@ export default function TasksView({
                           >
                             {drafting === t.id ? "drafting…" : "draft ticket"}
                           </button>
-                        )}
+                        ) : null}
                         {t.calendarEventUrl ? (
                           <a href={t.calendarEventUrl} target="_blank" rel="noreferrer" className="font-medium text-accent transition-opacity hover:opacity-70">
                             on your calendar
                           </a>
-                        ) : (
+                        ) : mayConnect ? (
                           <button
                             onClick={() => addToCalendar(t)}
                             disabled={scheduling === t.id}
@@ -263,7 +275,11 @@ export default function TasksView({
                           >
                             {scheduling === t.id ? "adding…" : "add to calendar"}
                           </button>
-                        )}
+                        ) : null}
+                        {/* One line per row, not one per missing button: both
+                            walls open on the same tier, and saying it twice on
+                            every task would drown the tasks. */}
+                        {!mayDraft || !mayConnect ? <UpgradeNote reason={!mayDraft ? "draft" : "connect"} /> : null}
                       </div>
 
                       <Link href={`/meetings/${t.meetingId}`} className="mt-2 block truncate text-xs text-faint transition-colors hover:text-fg">

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { isBlocked, requirePaid } from "@/lib/guard";
+import { isBlocked, requireConnections } from "@/lib/guard";
 import { loadConnector, noteConnectorError } from "@/lib/connector-store";
 import { createEvent, GoogleReconnectError, hasScope, SCOPE_CALENDAR_WRITE } from "@/lib/providers/google";
 import { describeSlot, parseDue, slotFor, toIso } from "@/lib/schedule";
@@ -20,7 +20,7 @@ const MINUTES: Record<string, number> = { bug: 60, feature: 90, task: 60, follow
  * nobody is emailed; it is a private block on their own calendar.
  */
 export async function POST(req: Request, ctx: Ctx) {
-  const gate = await requirePaid(req);
+  const gate = await requireConnections(req);
   if (isBlocked(gate)) return gate;
   const { auth } = gate;
   const { id } = await ctx.params;

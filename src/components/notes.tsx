@@ -6,6 +6,7 @@ import { ActionItems } from "./action-items";
 import { ShareToSlack } from "./share-slack";
 import Link from "next/link";
 import { PriorityFlag } from "./priority";
+import type { Tier } from "@/lib/account";
 
 /**
  * Colour here is semantic, never decorative: it is the status tokens doing the
@@ -57,7 +58,7 @@ function ForYouPanel({ fy }: { fy: MeetingNotes["for_you"] | undefined }) {
   );
 }
 
-export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId?: string }) {
+export function NotesView({ notes, meetingId, tier }: { notes: MeetingNotes; meetingId?: string; tier: Tier }) {
   return (
     <div className="flex flex-col gap-5">
       <ForYouPanel fy={notes.for_you} />
@@ -72,7 +73,7 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
           </span>
         </div>
         {meetingId ? (
-          <ActionItems meetingId={meetingId} fallback={notes.action_items} />
+          <ActionItems meetingId={meetingId} fallback={notes.action_items} tier={tier} />
         ) : notes.action_items.length === 0 ? (
           <p className="band-empty text-sm text-muted">Nothing to do came out of this one.</p>
         ) : (
@@ -110,7 +111,7 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
             ))}
           </ul>
         ) : null}
-        {meetingId ? <ShareToSlack meetingId={meetingId} /> : null}
+        {meetingId ? <ShareToSlack meetingId={meetingId} tier={tier} /> : null}
       </section>
 
       {/* ---- what was settled ---- */}
@@ -135,7 +136,7 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
 
       {/* ---- who to talk to ---- */}
       {meetingId ? (
-        <PeopleToContact meetingId={meetingId} people={notes.people_to_contact} />
+        <PeopleToContact meetingId={meetingId} people={notes.people_to_contact} tier={tier} />
       ) : (
         <section id="people" className="band band-people scroll-mt-24">
           <div className="band-head">
