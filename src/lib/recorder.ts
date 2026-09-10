@@ -4,7 +4,7 @@
 // It also keeps a timeline of when the microphone is the loud one, which is
 // how the notes know which lines were the user's. See self-speech.ts.
 
-import { isSelfSample, rmsDb, SAMPLE_MS, windowsFromMarks, type Mark, type Window } from "./self-speech";
+import { audibleSeconds, isSelfSample, rmsDb, SAMPLE_MS, SIGNAL_FLOOR_DB, trailingSilenceSeconds, windowsFromMarks, type Mark, type Window } from "./self-speech";
 
 export const CHUNK_MS = 5000;
 export const AUDIO_BITRATE = 32_000; // opus at 32 kbps: clear speech, ~14 MB per hour
@@ -167,23 +167,44 @@ export class MeetingRecorder {
     const t0 = ctx.currentTime;
     this.sampler = window.setInterval(() => {
       const t = ctx.currentTime - t0;
-      if (!this.micAnalyser) {
-        this.marks.push({ t, self: false });
-        return;
+      let micDb = -100;
+      if (this.micAnalyser) {
+        this.micAnalyser.getFloatTimeDomainData(micFrame);
+        micDb = rmsDb(micFrame);
       }
-      this.micAnalyser.getFloatTimeDomainData(micFrame);
       let meetingDb = -100;
       if (this.sysAnalyser) {
         this.sysAnalyser.getFloatTimeDomainData(sysFrame);
         meetingDb = rmsDb(sysFrame);
       }
-      this.marks.push({ t, self: isSelfSample(rmsDb(micFrame), meetingDb, !!this.sysAnalyser) });
+      this.marks.push({
+        t,
+        self: this.micAnalyser ? isSelfSample(micDb, meetingDb, !!this.sysAnalyser) : false,
+        // Either source counts: this asks whether anything is being captured
+        // at all, not who is talking.
+        sound: Math.max(micDb, meetingDb) > SIGNAL_FLOOR_DB,
+      });
     }, SAMPLE_MS);
   }
 
   /** When the user was the one speaking, as [start, end] seconds. Valid after stop. */
   selfSpeech(): Window[] {
     return windowsFromMarks(this.marks);
+  }
+
+  /** Seconds in which anything at all was audible. */
+  audibleSeconds(): number {
+    return audibleSeconds(this.marks);
+  }
+
+  /** Length of the recording as the audio clock measured it. */
+  measuredSeconds(): number {
+    return this.marks.length ? this.marks[this.marks.length - 1].t : 0;
+  }
+
+  /** How long it has been silent right now. Live, for warning mid-recording. */
+  silentForSeconds(): number {
+    return trailingSilenceSeconds(this.marks);
   }
 
   stop(): void {

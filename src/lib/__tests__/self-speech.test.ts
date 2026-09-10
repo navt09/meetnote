@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isSelfSample, parseSelfSpeech, rmsDb, tagSelf, windowsFromMarks } from "../self-speech";
+import { audibleSeconds, isSelfSample, parseSelfSpeech, rmsDb, tagSelf, trailingSilenceSeconds, windowsFromMarks } from "../self-speech";
 import type { TranscriptSegment } from "../schema";
 
 describe("isSelfSample", () => {
@@ -28,7 +28,7 @@ describe("rmsDb", () => {
 describe("windowsFromMarks", () => {
   /** Readings taken every `everyS` seconds, self while `self(i)` says so. */
   const series = (n: number, everyS: number, self: (i: number) => boolean) =>
-    Array.from({ length: n }, (_, i) => ({ t: i * everyS, self: self(i) }));
+    Array.from({ length: n }, (_, i) => ({ t: i * everyS, self: self(i), sound: true }));
 
   it("turns runs into windows on the real clock", () => {
     // sampled every 200ms: self for the first second, silent, then self again
@@ -50,14 +50,14 @@ describe("windowsFromMarks", () => {
 
   it("does not stretch one reading across a long gap in sampling", () => {
     // A 30s hole between two readings means we do not know what happened.
-    const marks = [{ t: 0, self: true }, { t: 0.2, self: true }, { t: 30, self: true }, { t: 30.2, self: true }];
+    const marks = [{ t: 0, self: true, sound: true }, { t: 0.2, self: true, sound: true }, { t: 30, self: true, sound: true }, { t: 30.2, self: true, sound: true }];
     const [first, second] = windowsFromMarks(marks);
     expect(first[1] - first[0]).toBeCloseTo(1.7, 3); // 0.2s of readings + a capped 1.5s bridge, not 30s
     expect(second[0]).toBeCloseTo(30, 3);
   });
 
   it("drops blips shorter than the minimum", () => {
-    expect(windowsFromMarks([{ t: 0, self: false }, { t: 0.2, self: true }, { t: 0.4, self: false }])).toEqual([]);
+    expect(windowsFromMarks([{ t: 0, self: false, sound: true }, { t: 0.2, self: true, sound: true }, { t: 0.4, self: false, sound: true }])).toEqual([]);
   });
 
   it("bridges a short gap between two words", () => {
@@ -67,6 +67,33 @@ describe("windowsFromMarks", () => {
 
   it("handles an empty series", () => {
     expect(windowsFromMarks([])).toEqual([]);
+  });
+});
+
+describe("audibleSeconds and trailingSilenceSeconds", () => {
+  const at = (t: number, sound: boolean) => ({ t, self: false, sound });
+
+  it("counts only the time anything was audible", () => {
+    // sound for the first second, then silence
+    const marks = [at(0, true), at(0.5, true), at(1, false), at(1.5, false), at(2, false)];
+    expect(audibleSeconds(marks)).toBeCloseTo(1, 3);
+  });
+
+  it("reports nothing audible in a wholly silent recording", () => {
+    expect(audibleSeconds([at(0, false), at(1, false), at(2, false)])).toBe(0);
+  });
+
+  it("measures how long it has been silent at the end", () => {
+    const marks = [at(0, true), at(1, true), at(2, false), at(60, false)];
+    expect(trailingSilenceSeconds(marks)).toBeCloseTo(59, 3);
+  });
+
+  it("treats a recording that never had sound as silent throughout", () => {
+    expect(trailingSilenceSeconds([at(0, false), at(90, false)])).toBeCloseTo(90, 3);
+  });
+
+  it("is not silent when sound is still arriving", () => {
+    expect(trailingSilenceSeconds([at(0, true), at(1, true)])).toBe(0);
   });
 });
 

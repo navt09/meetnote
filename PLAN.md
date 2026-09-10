@@ -108,7 +108,7 @@ These are ordered by what unblocks what, not by size. The domain is the keystone
 ### Known gaps worth naming
 
 - ~~No account deletion.~~ Done 2026-09-09: Settings has a delete-account section guarded by typing your own email, checked on the server too. It clears `<user_id>/` from the bucket first and only then deletes the account, because the cascade does not reach storage. Verified against a real uploaded recording.
-- **No usage cap.** Unchanged from the Phase 2 decision below.
+- **No usage cap, deliberately.** Decided 2026-09-09: a cap punishes the customer who uses the product most, and the exposure was never long meetings - it was recordings with nothing in them, since transcription is billed by length rather than content. The recorder already measures loudness, so it now says so at the time: a banner after 45 seconds of silence from both sources while recording, a refusal to save a recording with no audio in it at all, and a warning when a recording was almost entirely silence. That removes the waste without limiting anyone. A spend ceiling is still worth having before strangers can sign up, as a backstop rather than a cap.
 - **Delivery untested end to end.** See Phase 3.
 
 ## Decisions and deferred work

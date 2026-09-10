@@ -44,6 +44,8 @@ export default function RecordView() {
   const [download, setDownload] = useState<DownloadLink | null>(null);
   const [created, setCreated] = useState<CreatedMeeting | null>(null);
   const [sources, setSources] = useState<{ system: boolean; mic: boolean } | null>(null);
+  // Seconds of continuous silence right now. Nonzero for long means nothing is being captured.
+  const [silentFor, setSilentFor] = useState(0);
   const [recoverable, setRecoverable] = useState<RecordingMeta[]>([]);
 
   const recorderRef = useRef<MeetingRecorder | null>(null);
@@ -172,8 +174,23 @@ export default function RecordView() {
         const out = new Blob(memChunksRef.current, { type: recorder.mimeType });
         assignBlob(out);
         setPhase("stopped");
+        setSilentFor(0);
         if (idbOkRef.current) updateRecording(id, { status: "stopped" }).catch(() => {});
-        if (out.size < 2048) setError("The recording came out empty. Nothing was captured.");
+        if (out.size < 2048) {
+          setError("The recording came out empty. Nothing was captured.");
+        } else {
+          // Transcription is billed by the length of the audio, not by what is
+          // in it, so an hour of silence costs the same as an hour of meeting
+          // and can only produce an empty set of notes. Say so before it is
+          // paid for, rather than after.
+          const audible = recorder.audibleSeconds();
+          const measured = recorder.measuredSeconds();
+          if (audible < 1) {
+            setError("There is no audio in this recording at all. Saving it would cost money and produce nothing, so it is worth recording again with the audio sorted.");
+          } else if (measured > 30 && audible < measured * 0.05) {
+            setWarning(`Only about ${Math.round(audible)}s of this ${Math.round(measured)}s recording had any sound in it. You can still save it, but it will mostly be silence.`);
+          }
+        }
       },
       onSourceEnded: () => setWarning("Screen sharing was ended from the browser, so the recording stopped."),
       onError: (msg) => setError(msg),
@@ -201,6 +218,7 @@ export default function RecordView() {
 
     setPhase("recording");
     timerRef.current = window.setInterval(() => {
+      setSilentFor(recorderRef.current?.silentForSeconds() ?? 0);
       setElapsed((s) => {
         const next = s + 1;
         if (next === WARN_RECORDING_SECONDS) setWarning("This is getting long. Recording stops automatically at 3.5 hours.");
@@ -375,6 +393,19 @@ export default function RecordView() {
             <p className="text-xs text-muted">
               Capturing meeting audio{sources.mic ? " and your mic" : " only, no microphone"}
             </p>
+          ) : null}
+
+          {/* Silence is the one thing worth interrupting a recording over.
+              Transcription is billed by length, not by content, so an hour of
+              nothing costs the same as an hour of meeting. */}
+          {phase === "recording" && silentFor >= 45 ? (
+            <div className="max-w-sm rounded-lg border border-danger/50 bg-danger/10 px-4 py-3 text-center">
+              <p className="text-sm font-medium text-danger">Nothing has been heard for {Math.round(silentFor)}s</p>
+              <p className="mt-1 text-xs leading-relaxed text-muted">
+                No sound is reaching the recording from either source. Stop and check that the right window is shared
+                and your microphone is not muted, rather than recording more of this.
+              </p>
+            </div>
           ) : null}
 
           {phase === "stopped" && blob && blob.size >= 2048 ? (

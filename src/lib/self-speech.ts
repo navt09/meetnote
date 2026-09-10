@@ -42,6 +42,15 @@ export const SELF_MARGIN_DB = 6;
 /** Hard cap on stored windows, so a hostile client cannot pad a row. */
 export const MAX_WINDOWS = 5000;
 
+/**
+ * Below this there is no signal at all, as opposed to a quiet room. A muted
+ * microphone or a shared window with no audio reads near -100; even a silent
+ * office reads well above this. Used to catch a recording that is capturing
+ * nothing, which is the only kind of long recording worth stopping - it costs
+ * real money to transcribe and cannot produce anything.
+ */
+export const SIGNAL_FLOOR_DB = -70;
+
 /** RMS loudness in dBFS of one analyser frame. Floors at -100 rather than -Infinity. */
 export function rmsDb(frame: Float32Array): number {
   let sum = 0;
@@ -56,8 +65,12 @@ export function isSelfSample(micDb: number, meetingDb: number, hasMeetingAudio: 
   return micDb - meetingDb >= SELF_MARGIN_DB;
 }
 
-/** One reading of who was talking, stamped with when it was taken. */
-export type Mark = { t: number; self: boolean };
+/**
+ * One reading, stamped with when it was taken. `self` is whether the user was
+ * the one speaking; `sound` is whether there was any signal at all, from
+ * either source, which is a different and much cruder question.
+ */
+export type Mark = { t: number; self: boolean; sound: boolean };
 
 /**
  * Turns timestamped readings into merged windows.
@@ -97,6 +110,32 @@ export function windowsFromMarks(marks: Mark[], minMs = 400, joinMs = 300): Wind
   // clock, and a window of exactly minMs can measure a hair under it purely
   // by where it sits on the timeline (30.4 - 30 is 0.39999999999999858).
   return joined.filter((w) => (w[1] - w[0]) * 1000 >= minMs - 1e-6);
+}
+
+/** Seconds of the recording in which anything at all was audible. */
+export function audibleSeconds(marks: Mark[]): number {
+  let total = 0;
+  for (let i = 0; i < marks.length; i++) {
+    if (!marks[i].sound) continue;
+    const next = marks[i + 1]?.t;
+    total += next === undefined ? SAMPLE_MS / 1000 : Math.min(next - marks[i].t, MAX_SAMPLE_SPAN_S);
+  }
+  return total;
+}
+
+/**
+ * How long it has been silent at the end of the run. This is the live signal:
+ * a minute of nothing means the capture is wrong, not that the room went
+ * quiet, and it is worth interrupting someone over before they record an hour
+ * of it.
+ */
+export function trailingSilenceSeconds(marks: Mark[]): number {
+  if (marks.length === 0) return 0;
+  const last = marks[marks.length - 1].t;
+  for (let i = marks.length - 1; i >= 0; i--) {
+    if (marks[i].sound) return last - marks[i].t;
+  }
+  return last - marks[0].t;
 }
 
 /**
