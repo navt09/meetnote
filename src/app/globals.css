@@ -88,17 +88,22 @@ body.marketing .light {
 }
 
 body.app {
-  --bg: #fcfbf9;              /* warm paper: white glares as badly as black */
-  --rail: #f6f3ee;
-  --panel: #fcfbf9;           /* flat on purpose - a panel is not a raised box */
-  --bg-elev: #fcfbf9;
-  --panel-hi: #f1ede7;
-  --panel-border: #e9e5df;
-  --panel-border-hi: #dcd6cc;
+  /* Three grounds, not one. The page is warm paper you could not mistake for
+     white, cards are the sheets laid on it, and anything recessed - a field,
+     the waveform, a hover - drops back toward the page. The old palette had
+     the page and the card set to the same value, which is why every card
+     dissolved into the background. */
+  --bg: #edeae4;              /* the page */
+  --rail: #e5e1d9;            /* the sidebar, one step deeper again */
+  --panel: #fdfcfa;           /* a card sits on the page and reads as a sheet */
+  --bg-elev: #f2efe9;         /* recessed: inputs, the waveform, toasts */
+  --panel-hi: #f2efe9;
+  --panel-border: #dcd7ce;
+  --panel-border-hi: #c4bdb1;
 
   --fg: #1d1c1a;
   --muted: #5f5c57;
-  --faint: #8b8781;
+  --faint: #7d7972;
 
   /* The interactive colour is the work hue, so a link to act on something and
      the band that holds it agree. The primary button is ink instead: a fourth
@@ -427,6 +432,32 @@ body {
   color: var(--accent);
 }
 .eyebrow::before { content: "\203A\00a0"; }
+/* The same label without its chevron, for a strip of them where four
+   chevrons in a row would be noise. */
+.eyebrow-bare::before { content: none; }
+
+/* Anything counted, timed or measured. Fraunces draws lovely letters and
+   awkward numbers, so figures are set in the mono face with tabular digits:
+   a 1 takes the width of an 8, and a ticking number stops jittering. */
+.figure {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+/* A row of facts divided by hairlines rather than boxed separately: one
+   object, read across. The gap is the border colour showing through. */
+.strip {
+  display: grid;
+  gap: 1px;
+  background: var(--panel-border);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.strip > * { background: var(--panel); padding: 0.6rem 0.8rem; }
 
 /* A section opens with its title on the left and the one thing to do on the
    right, then a hairline. The same row every time is what makes a long page
@@ -519,10 +550,10 @@ body.app .eyebrow { color: var(--faint); }
   font-size: 0.74rem; color: var(--band-hue); opacity: 0.7;
   font-variant-numeric: tabular-nums;
 }
-.band-body { background: var(--bg); border-top: 1px solid var(--band-line); }
+.band-body { background: var(--panel); border-top: 1px solid var(--band-line); }
 .band-row { padding: 0.8rem 0.95rem; border-bottom: 1px solid var(--panel-hi); }
 .band-row:last-child { border-bottom: 0; }
-.band-empty { padding: 0.8rem 0.95rem; background: var(--bg); border-top: 1px solid var(--band-line); }
+.band-empty { padding: 0.8rem 0.95rem; background: var(--panel); border-top: 1px solid var(--band-line); }
 
 /* A priority flag, filled rather than outlined: on a light ground an outline
    reads as a disabled control. */
@@ -545,7 +576,7 @@ body.app .eyebrow { color: var(--faint); }
 }
 .rail-link:hover { color: var(--fg); }
 .rail-link[aria-current="page"] {
-  background: var(--bg); color: var(--fg); font-weight: 600;
+  background: var(--panel); color: var(--fg); font-weight: 600;
   box-shadow: inset 0 0 0 1px var(--panel-border);
 }
 .rail-key {

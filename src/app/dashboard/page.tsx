@@ -99,9 +99,11 @@ export default async function DashboardPage() {
 
   const totalSpend = meetings.reduce((n, m) => n + Number(m.transcription_cost_usd ?? 0) + Number(m.llm_cost_usd ?? 0), 0);
 
-  // The layout is the same whether or not there is anything yet; each section
-  // says its own "nothing here". A first-time user sees the shape of the app.
+  // A brand new account gets told what to do instead of being shown three
+  // zeroes and an empty graph; every other section still says its own
+  // "nothing here" so the shape of the app stays visible.
   const firstRun = meetings.length === 0;
+  const weeksWithData = meetingsPerWeek.filter((n) => n > 0).length;
   const heroSub = firstRun
     ? "Record a meeting and the tasks people agree to will land here."
     : openTasks.length === 0
@@ -110,45 +112,82 @@ export default async function DashboardPage() {
 
   return (
     <section className="flex flex-col gap-6 pt-10">
-      <div className="rise flex flex-wrap items-end justify-between gap-6">
-        <HeroFigure label="Still to do" value={String(openTasks.length)} sub={heroSub} />
-        <div className="flex gap-2">
-          {firstRun ? null : <Link href="/tasks" className="btn btn-ghost">View tasks</Link>}
-          <Link href="/record" className="btn btn-primary">New meeting</Link>
+      {/* A brand new account is not shown a big zero and a button it has no
+          reason to trust; the panel below is the whole page until there is
+          something to count. */}
+      {firstRun ? null : (
+        <div className="rise flex flex-wrap items-end justify-between gap-6">
+          <HeroFigure label="Still to do" value={String(openTasks.length)} sub={heroSub} />
+          <div className="flex gap-2">
+            <Link href="/tasks" className="btn btn-ghost">View tasks</Link>
+            <Link href="/record" className="btn btn-primary">New meeting</Link>
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="stagger grid gap-3 sm:grid-cols-3">
-        <StatTile
-          label="Meetings this week"
-          value={String(meetingsPerWeek[last])}
-          delta={dMeetings}
-          deltaText={deltaLabel(dMeetings)}
-          goodDirection="none"
-        />
-        <StatTile
-          label="Recorded this week"
-          value={humanDuration(secondsPerWeek[last])}
-          delta={dSeconds}
-          deltaText={
-            dSeconds.direction === "flat"
-              ? "same as last week"
-              : `${dSeconds.change > 0 ? "+" : "-"}${humanDuration(Math.abs(dSeconds.change))} vs last week`
-          }
-          goodDirection="none"
-        />
-        <StatTile
-          label="Tasks done this week"
-          value={String(donePerWeek[last])}
-          delta={dDone}
-          deltaText={deltaLabel(dDone)}
-          goodDirection="up"
-        />
-      </div>
+      {firstRun ? (
+        <div className="glass rise p-6 sm:p-8">
+          <p className="eyebrow">Start here</p>
+          <h2 className="display mt-3 text-3xl">Nothing recorded yet.</h2>
+          <p className="mt-3 max-w-xl leading-relaxed text-muted">
+            Record any call from this browser. Nothing joins the meeting, and nothing is filed or sent until you have
+            read it and pressed Approve.
+          </p>
+          <ol className="strip mt-7 sm:grid-cols-3">
+            {[
+              { n: "01", title: "Record the call", body: "Pick the window your meeting is in and tick \u201cShare audio\u201d." },
+              { n: "02", title: "Read what came out", body: "A summary, what was agreed, and every task with an owner." },
+              { n: "03", title: "Approve the follow-up", body: "Tickets and emails drafted for you to check and send." },
+            ].map((s) => (
+              <li key={s.n} className="!p-5">
+                <p className="figure text-sm text-faint">{s.n}</p>
+                <p className="mt-2 font-medium leading-snug">{s.title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{s.body}</p>
+              </li>
+            ))}
+          </ol>
+          <Link href="/record" className="btn btn-primary mt-7">Record your first meeting</Link>
+        </div>
+      ) : (
+        <>
+        <div className="stagger grid gap-3 sm:grid-cols-3">
+          <StatTile
+            label="Meetings this week"
+            value={String(meetingsPerWeek[last])}
+            delta={dMeetings}
+            deltaText={deltaLabel(dMeetings)}
+            goodDirection="none"
+          />
+          <StatTile
+            label="Recorded this week"
+            value={humanDuration(secondsPerWeek[last])}
+            delta={dSeconds}
+            deltaText={
+              dSeconds.direction === "flat"
+                ? "same as last week"
+                : `${dSeconds.change > 0 ? "+" : "-"}${humanDuration(Math.abs(dSeconds.change))} vs last week`
+            }
+            goodDirection="none"
+          />
+          <StatTile
+            label="Tasks done this week"
+            value={String(donePerWeek[last])}
+            delta={dDone}
+            deltaText={deltaLabel(dDone)}
+            goodDirection="up"
+          />
+        </div>
 
-      <div className="glass rise p-6">
-        <ActivityChart weeks={weeks} />
-      </div>
+          {/* Eight weeks of empty columns behind one bar reads as a broken
+              chart rather than a new account. It appears once there is
+              something to compare across weeks. */}
+          {weeksWithData >= 2 ? (
+            <div className="glass rise p-6">
+              <ActivityChart weeks={weeks} />
+            </div>
+          ) : null}
+        </>
+      )}
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="glass rise p-6">

@@ -339,9 +339,7 @@ export default function RecordView() {
               {phase === "stopped" && "Stopped"}
               {phase === "saving" && "Saving"}
             </span>
-            <span className="font-mono text-3xl font-semibold tabular-nums tracking-tight">
-              {formatTimestamp(elapsed)}
-            </span>
+            <span className="figure text-4xl">{formatTimestamp(elapsed)}</span>
           </div>
 
           <canvas
@@ -392,10 +390,31 @@ export default function RecordView() {
               </p>
             </div>
           ) : null}
-          {phase === "recording" && sources && sources.system ? (
-            <p className="text-xs text-muted">
-              Capturing meeting audio{sources.mic ? " and your mic" : " only, no microphone"}
-            </p>
+          {/* While a meeting runs there is nothing to look at but a timer, and
+              no way to tell a working recording from a broken one. This says
+              what is actually arriving, and keeps counting since the last
+              sound, so silence is visible long before the alarm fires. */}
+          {phase === "recording" ? (
+            <dl className="strip w-full max-w-md grid-cols-3 text-center">
+              <div>
+                <dt className="eyebrow eyebrow-bare">Meeting</dt>
+                <dd className={`mt-1.5 text-sm font-medium ${sources?.system ? "" : "text-warn"}`}>
+                  {sources?.system ? "Captured" : "Not shared"}
+                </dd>
+              </div>
+              <div>
+                <dt className="eyebrow eyebrow-bare">Your mic</dt>
+                <dd className={`mt-1.5 text-sm font-medium ${sources?.mic ? "" : "text-warn"}`}>
+                  {sources?.mic ? "Captured" : "Off"}
+                </dd>
+              </div>
+              <div>
+                <dt className="eyebrow eyebrow-bare">Last heard</dt>
+                <dd className={`figure mt-1.5 text-sm ${silentFor >= 60 ? "text-warn" : ""}`}>
+                  {silentFor < 2 ? "just now" : `${Math.round(silentFor)}s ago`}
+                </dd>
+              </div>
+            </dl>
           ) : null}
 
           {/* Silence is the one thing worth interrupting a recording over,
@@ -427,9 +446,41 @@ export default function RecordView() {
         {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
 
         <p className="mt-6 border-t border-panel-border pt-4 text-xs leading-relaxed text-muted">
-          Make sure everyone on the call knows they are being recorded. Audio is backed up in this browser as you go, and only uploaded when you save.
+          Make sure everyone on the call knows they are being recorded. Audio is backed up in this browser as you go, and
+          only uploaded when you save. If nothing is heard from either side for three minutes, this page says so rather
+          than letting you record an hour of nothing.
         </p>
       </div>
+
+      {/* The page used to be a button and a timer, which told a first-time
+          visitor nothing about what they were agreeing to. */}
+      {phase === "idle" ? (
+        <ol className="strip rise sm:grid-cols-3">
+          {[
+            {
+              n: "01",
+              title: "Pick the window",
+              body: "Tick \u201cShare audio\u201d in the picker. Without it only your own voice is recorded, and everyone in the room counts as you.",
+            },
+            {
+              n: "02",
+              title: "Leave this tab open",
+              body: "Audio is written to this browser every few seconds. A crash, a closed lid or a flat battery costs you nothing.",
+            },
+            {
+              n: "03",
+              title: "Stop, then save",
+              body: "Notes, tasks and drafted follow-ups are ready a few minutes later. Nothing is sent anywhere until you approve it.",
+            },
+          ].map((s) => (
+            <li key={s.n} className="!p-5">
+              <p className="figure text-sm text-faint">{s.n}</p>
+              <p className="mt-2 font-medium leading-snug">{s.title}</p>
+              <p className="mt-1 text-sm leading-relaxed text-muted">{s.body}</p>
+            </li>
+          ))}
+        </ol>
+      ) : null}
     </section>
   );
 }

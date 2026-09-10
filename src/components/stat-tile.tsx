@@ -27,7 +27,7 @@ export function StatTile({
   return (
     <div className="glass p-4">
       <p className="eyebrow">{label}</p>
-      <p className="display mt-2.5 text-3xl">{value}</p>
+      <p className="figure mt-2.5 text-3xl">{value}</p>
       {deltaText ? <p className={`mt-2 text-xs ${tone}`}>{deltaText}</p> : null}
     </div>
   );
@@ -38,7 +38,7 @@ export function HeroFigure({ value, label, sub }: { value: string; label: string
   return (
     <div>
       <p className="eyebrow">{label}</p>
-      <p className="display mt-2 text-6xl">{value}</p>
+      <p className="figure mt-2.5 text-6xl">{value}</p>
       {sub ? <p className="mt-2.5 text-sm text-muted">{sub}</p> : null}
     </div>
   );

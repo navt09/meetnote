@@ -95,6 +95,32 @@ export function ProcessingStepper({ status }: { status: MeetingStatus }) {
  * Fraunces at regular weight rather than the body face, which is what makes
  * the tool and the shopfront read as one product without sharing a palette.
  */
+/**
+ * What a meeting produced, in one line: work, what was agreed, who to contact.
+ * The same three hues the notes page uses, so the list and the page agree
+ * without the list having to spell the words out.
+ */
+export function Tally({ tasks, decisions, people }: { tasks: number; decisions: number; people: number }) {
+  const parts = [
+    { n: tasks, label: tasks === 1 ? "task" : "tasks", hue: "var(--work)" },
+    { n: decisions, label: decisions === 1 ? "decision" : "decisions", hue: "var(--agreed)" },
+    { n: people, label: people === 1 ? "to contact" : "to contact", hue: "var(--people)" },
+  ].filter((x) => x.n > 0);
+
+  if (parts.length === 0) return null;
+  return (
+    <span className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+      {parts.map((x) => (
+        <span key={x.label} className="flex items-center gap-1.5" style={{ color: x.hue }}>
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full" style={{ background: x.hue }} />
+          <span className="figure">{x.n}</span>
+          <span className="text-muted">{x.label}</span>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 export function PageHead({
   title,
   meta,
