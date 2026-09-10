@@ -4,6 +4,28 @@ export function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`skeleton ${className}`} />;
 }
 
+/**
+ * A stand-in for a list of rows while the real ones are on their way.
+ *
+ * Every page in the app has a `loading.tsx` that renders its real title and
+ * one of these, so a navigation paints instantly and only the part that needs
+ * a database answer arrives late. Widths vary per row on purpose: a column of
+ * identical bars reads as a broken layout rather than as loading.
+ */
+export function RowsSkeleton({ rows = 4, className = "" }: { rows?: number; className?: string }) {
+  const widths = ["w-3/5", "w-4/5", "w-2/5", "w-3/4", "w-1/2", "w-5/6"];
+  return (
+    <div className={`flex flex-col gap-4 ${className}`} aria-hidden>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i}>
+          <Skeleton className={`h-4 ${widths[i % widths.length]}`} />
+          <Skeleton className="mt-2 h-3 w-1/4" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export function MeetingListSkeleton({ rows = 3 }: { rows?: number }) {
   return (
     <ul className="flex flex-col gap-2" aria-hidden>

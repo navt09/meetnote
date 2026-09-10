@@ -149,6 +149,56 @@ body.app {
   --chart-grid: #2c2a26;
 }
 
+/* The other surface, chosen in Settings and stamped on <html> by the server so
+   it is right in the first paint rather than after one.
+   Every value the dark block sets and this one does not would leak through, so
+   this list has to stay complete. The rail stays ink either way: it is the one
+   thing that makes both look like the same product. */
+html[data-theme="light"] body.app {
+  --bg: #e4e0d7;
+  --rail: #1c1b18;
+  --panel: #faf8f4;
+  --bg-elev: #f0ece4;
+  --panel-hi: #f0ece4;
+  --panel-border: #d9d3c8;
+  --panel-border-hi: #bdb5a7;
+
+  --fg: #1d1c1a;
+  --muted: #5f5c57;
+  --faint: #7d7972;
+
+  --accent: #c4443c;
+  --accent-ink: #faf8f4;
+  --btn-bg: #1d1c1a;
+  --btn-fg: #faf8f4;
+  --btn-bg-hover: #35322e;
+
+  --danger: #c4443c;
+  --danger-ink: #ffffff;
+  --ok: #15704f;
+  --warn: #8a5a06;
+
+  --work: #c4443c;    --work-bg: #fdefed;   --work-line: #f3cdc7;
+  --agreed: #15704f;  --agreed-bg: #e7f4ef; --agreed-line: #bfe0d3;
+  --people: #2b58bd;  --people-bg: #eaf0fd; --people-line: #c9d7f4;
+
+  --pill-ok-border: #bfe0d3;
+  --pill-danger-border: #f3cdc7;
+  --pill-live-border: #c9d7f4;
+  --pill-warn-border: #ecd9b0;
+  --skeleton-sheen: rgba(0, 0, 0, 0.05);
+  --flag-high-ink: #ffffff;
+  --flag-med-bg: #f6e7c6;
+  --flag-med-ink: #7c5705;
+
+  /* Revalidated against this surface's panel (#faf8f4): all six checks pass. */
+  --chart-1: #1f6fd0;
+  --chart-2: #b4460f;
+  --chart-grid: #d9d3c8;
+
+  color-scheme: light;
+}
+
 @theme inline {
   --color-bg: var(--bg);
   --color-bg-elev: var(--bg-elev);
@@ -683,3 +733,16 @@ body.app .eyebrow { color: var(--faint); }
 }
 .rail-link:hover { color: var(--rail-fg); }
 .rail-link[aria-current="page"] { color: #1c1b18; font-weight: 600; }
+
+/* ---------- segmented choice ---------- */
+/* Two or three options where exactly one is on. Shares its edges rather than
+   sitting as separate buttons, so it reads as one control. */
+.seg { display: inline-flex; border: 1px solid var(--panel-border); border-radius: 9px; padding: 2px; gap: 2px; }
+.seg > button {
+  padding: 0.3rem 0.75rem; border-radius: 7px;
+  font-size: 0.875rem; color: var(--muted);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+.seg > button:hover { color: var(--fg); }
+.seg > button[aria-pressed="true"] { background: var(--panel-hi); color: var(--fg); font-weight: 600; }
+.seg > button:disabled { opacity: 0.5; }

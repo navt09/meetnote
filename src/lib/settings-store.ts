@@ -42,3 +42,34 @@ export async function setDisplayName(userId: string, name: string | null): Promi
   const { error } = await admin.from("user_settings").upsert({ user_id: userId, display_name: name }, { onConflict: "user_id" });
   if (error) throw new Error(`Could not save the name: ${error.message}`);
 }
+
+/* ---------- which surface the app is rendered on ---------- */
+
+/**
+ * Two surfaces, chosen once. Not "system": supporting it means writing the
+ * light palette a second time inside a prefers-color-scheme block, and two
+ * copies of the same thirty colours drift apart. Dark is what an unset
+ * account gets.
+ */
+export type Theme = "light" | "dark";
+
+export function cleanTheme(input: unknown): Theme | null {
+  return input === "light" || input === "dark" ? input : null;
+}
+
+export async function getTheme(userId: string): Promise<Theme> {
+  const admin = supabaseAdmin();
+  const { data, error } = await admin.from("user_settings").select("theme").eq("user_id", userId).maybeSingle();
+  if (error) {
+    // A missing preference only costs the wrong surface; log and carry on.
+    console.error(JSON.stringify({ event: "theme_read_error", message: error.message }));
+    return "dark";
+  }
+  return cleanTheme((data as { theme: string | null } | null)?.theme) ?? "dark";
+}
+
+export async function setTheme(userId: string, theme: Theme): Promise<void> {
+  const admin = supabaseAdmin();
+  const { error } = await admin.from("user_settings").upsert({ user_id: userId, theme }, { onConflict: "user_id" });
+  if (error) throw new Error(`Could not save the theme: ${error.message}`);
+}

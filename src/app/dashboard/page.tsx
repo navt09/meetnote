@@ -14,6 +14,9 @@ export const metadata = { title: "Dashboard · From the Call" };
 
 const WEEKS = 8;
 
+/** How many meetings are worth pulling the notes column for. */
+const NOTES_FETCHED = 8;
+
 type MeetingRow = {
   id: string;
   title: string;
@@ -22,8 +25,9 @@ type MeetingRow = {
   duration_seconds: number | null;
   transcription_cost_usd: number;
   llm_cost_usd: number;
-  notes: { summary?: string; people_to_contact?: { name: string; role: string | null; why: string }[] } | null;
 };
+
+type MeetingNotesRow = { summary?: string; people_to_contact?: { name: string; role: string | null; why: string }[] };
 
 type TaskRow = {
   id: string;
@@ -44,12 +48,20 @@ export default async function DashboardPage() {
   const { data: userData } = await db.auth.getUser();
   const owner = isOwnerEmail(userData.user?.email);
 
-  const [meetingsRes, tasksRes] = await Promise.all([
+  // Two queries over meetings rather than one, because only the newest handful
+  // need their notes and that column holds the whole extraction. Fetching it
+  // for three hundred rows moved megabytes to render a bar chart.
+  const [meetingsRes, notesRes, tasksRes] = await Promise.all([
     db
       .from("meetings")
-      .select("id,title,status,recorded_at,duration_seconds,transcription_cost_usd,llm_cost_usd,notes")
+      .select("id,title,status,recorded_at,duration_seconds,transcription_cost_usd,llm_cost_usd")
       .order("recorded_at", { ascending: false })
       .limit(300),
+    db
+      .from("meetings")
+      .select("id,notes")
+      .order("recorded_at", { ascending: false })
+      .limit(NOTES_FETCHED),
     db
       .from("tasks")
       .select("id,title,status,priority,kind,owner,due,completed_at,created_at,meeting_id,meetings(title)")
@@ -57,6 +69,9 @@ export default async function DashboardPage() {
   ]);
 
   const meetings = (meetingsRes.data ?? []) as MeetingRow[];
+  const notesById = new Map(
+    ((notesRes.data ?? []) as { id: string; notes: MeetingNotesRow | null }[]).map((r) => [r.id, r.notes]),
+  );
   const tasks = (tasksRes.data ?? []) as unknown as TaskRow[];
 
   const now = new Date();
@@ -89,8 +104,8 @@ export default async function DashboardPage() {
 
   // People named across the three most recent meetings, most recent first.
   const people: { name: string; role: string | null; why: string; meetingId: string }[] = [];
-  for (const m of meetings.slice(0, 8)) {
-    for (const p of m.notes?.people_to_contact ?? []) {
+  for (const m of meetings.slice(0, NOTES_FETCHED)) {
+    for (const p of notesById.get(m.id)?.people_to_contact ?? []) {
       if (!people.some((x) => x.name.toLowerCase() === p.name.toLowerCase())) {
         people.push({ ...p, meetingId: m.id });
       }

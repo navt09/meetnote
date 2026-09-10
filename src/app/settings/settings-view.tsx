@@ -8,6 +8,7 @@ import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvi
 import { BrandMark } from "@/components/brand-marks";
 import { canUseAi, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
 import { settingsFlash } from "@/lib/flash";
+import type { Theme } from "@/lib/settings-store";
 import { PageHead } from "@/components/ui";
 
 type Team = { id: string; name: string };
@@ -22,8 +23,10 @@ export default function SettingsView({
   tier,
   email,
   displayName,
+  theme,
 }: {
   initial: PublicConnector[];
+  theme: Theme;
   initialTicketProvider: TicketProvider | null;
   storageReady: boolean;
   googleReady: boolean;
@@ -109,6 +112,7 @@ export default function SettingsView({
           </p>
         ) : null}
         <DisplayNameField initial={displayName} />
+        <ThemeField initial={theme} />
       </div>
 
       {!storageReady ? (
@@ -157,6 +161,66 @@ export default function SettingsView({
       ) : null}
 
     </section>
+  );
+}
+
+/**
+ * Which surface the app is rendered on.
+ *
+ * The choice is stored on the account, not in this browser, so it follows the
+ * person to their other machines and so the server can stamp it on <html>
+ * before anything paints. The switch is applied to the document immediately
+ * and saved behind that: waiting for a round trip to change a colour is the
+ * kind of lag people notice.
+ */
+function ThemeField({ initial }: { initial: Theme }) {
+  const toast = useToast();
+  const [theme, setTheme] = useState<Theme>(initial);
+  const [busy, setBusy] = useState(false);
+
+  // The document follows the state rather than being written to inside the
+  // handler, so a failed save reverting the state also reverts the screen.
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+  }, [theme]);
+
+  async function choose(next: Theme) {
+    if (next === theme || busy) return;
+    const previous = theme;
+    setTheme(next);
+    setBusy(true);
+    try {
+      await putJson<{ theme: Theme }>("/api/settings/theme", { theme: next });
+    } catch (err) {
+      // Put it back rather than leaving the screen disagreeing with what is
+      // actually stored.
+      setTheme(previous);
+      toast(err instanceof Error ? err.message : "Could not save your choice", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border-t border-panel-border pt-4">
+      <p className="text-sm font-medium">Appearance</p>
+      <p className="mt-1 text-xs text-muted">
+        Saved to your account, so it follows you to any machine you sign in on.
+      </p>
+      <div className="seg mt-3" role="group" aria-label="Appearance">
+        {(["dark", "light"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={theme === option}
+            disabled={busy}
+            onClick={() => choose(option)}
+          >
+            {option === "dark" ? "Dark" : "Light"}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -3,6 +3,7 @@ import { Fraunces, IBM_Plex_Mono, IBM_Plex_Sans } from "next/font/google";
 import Link from "next/link";
 import { supabaseServer } from "@/lib/supabase/server";
 import { tierFor } from "@/lib/account-store";
+import { getTheme, type Theme } from "@/lib/settings-store";
 import { ToastProvider } from "@/components/toast";
 import Sidebar from "@/components/sidebar";
 import { Logo } from "@/components/logo";
@@ -26,19 +27,26 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let email: string | null = null;
   let isOwner = false;
+  let theme: Theme = "dark";
   try {
     const db = await supabaseServer();
     const { data } = await db.auth.getUser();
     email = data.user?.email ?? null;
-    // The Owner tab is only rendered for the owner, so nobody else is shown a
-    // door they cannot open. The route guards itself regardless.
-    if (data.user) isOwner = (await tierFor(data.user.id, data.user.email)) === "owner";
+    if (data.user) {
+      // Both reads go out together: they touch different tables and neither
+      // needs the other, so the shell waits one round trip rather than two.
+      // The Owner tab is only rendered for the owner, so nobody else is shown
+      // a door they cannot open. The route guards itself regardless.
+      const [tier, stored] = await Promise.all([tierFor(data.user.id, data.user.email), getTheme(data.user.id)]);
+      isOwner = tier === "owner";
+      theme = stored;
+    }
   } catch {
     email = null; // Not configured yet; render signed-out.
   }
 
   return (
-    <html lang="en">
+    <html lang="en" data-theme={email ? theme : undefined}>
       {/* Two surfaces: the shopfront is dark with a top header, the app is light
           with a sidebar. globals.css scopes every token to this class. */}
       <body
