@@ -29,7 +29,7 @@ export function PeopleToContact({ meetingId, people }: { meetingId: string; peop
   }
 
   return (
-    <section className="band band-people">
+    <section id="people" className="band band-people scroll-mt-24">
       <div className="band-head">
         <h2 className="band-title">People to contact</h2>
         <span className="band-count">{people.length}</span>

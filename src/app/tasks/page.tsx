@@ -8,7 +8,14 @@ export const metadata = { title: "Tasks · From the Call" };
 
 type Joined = TaskRow & { meetings: { title: string } | null };
 
-export default async function TasksPage() {
+export default async function TasksPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ task?: string }>;
+}) {
+  // Read here rather than with useSearchParams, so the view can derive its
+  // opening state from it instead of setting state inside an effect.
+  const { task: requestedTaskId } = await searchParams;
   const db = await supabaseServer();
 
   const [tasksRes, draftsRes] = await Promise.all([
@@ -41,6 +48,7 @@ export default async function TasksPage() {
     <TasksView
       initial={tasks}
       drafted={drafted}
+      requestedTaskId={requestedTaskId ?? null}
       due={due}
       loadError={tasksRes.error ? "Could not load your tasks. Refresh to try again." : null}
     />

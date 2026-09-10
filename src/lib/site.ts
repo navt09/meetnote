@@ -27,7 +27,7 @@ export const PLANS = [
   {
     id: "pro",
     name: "Pro",
-    price: "$18",
+    price: "$20.99",
     cadence: "/month",
     note: "per person",
     tagline: "The follow-up done, not just written down.",

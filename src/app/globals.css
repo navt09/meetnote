@@ -734,6 +734,16 @@ body.app .eyebrow { color: var(--faint); }
 .rail-link:hover { color: var(--rail-fg); }
 .rail-link[aria-current="page"] { color: #1c1b18; font-weight: 600; }
 
+/* A list row that is itself a link. The negative inset lets the hover fill
+   reach past the text without the row moving when it appears. */
+.jump-row {
+  border-radius: 8px;
+  margin-inline: -0.5rem;
+  padding-inline: 0.5rem;
+  transition: background-color 140ms ease;
+}
+.jump-row:hover { background: var(--panel-hi); }
+
 /* ---------- the deadline list ---------- */
 
 .due-link {

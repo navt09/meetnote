@@ -23,23 +23,31 @@ export default function TasksView({
   loadError,
   drafted,
   due,
+  requestedTaskId,
 }: {
   initial: PublicTask[];
   loadError: string | null;
   drafted: string[];
   due: DueEntry[];
+  /** A task linked to from elsewhere, e.g. Home's "Top of the list". */
+  requestedTaskId: string | null;
 }) {
   const toast = useToast();
   const router = useRouter();
   const [tasks, setTasks] = useState<PublicTask[]>(initial);
-  const [filter, setFilter] = useState<TaskFilter>("open");
+  // Landing on a particular task opens on every task, because the one being
+  // asked for may well be done. Derived at mount rather than set from an
+  // effect, so the first render is already right.
+  const [filter, setFilter] = useState<TaskFilter>(requestedTaskId ? "all" : "open");
   const [owner, setOwner] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState<Set<string>>(new Set(drafted));
   const [drafting, setDrafting] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState<string | null>(null);
   // The row to jump to. Carries a counter so picking the same deadline twice
   // in a row still moves and flashes.
-  const [target, setTarget] = useState<{ id: string; n: number } | null>(null);
+  const [target, setTarget] = useState<{ id: string; n: number } | null>(
+    requestedTaskId ? { id: requestedTaskId, n: 0 } : null,
+  );
   const error = loadError;
 
   /** Blocks time out on the user's own calendar. Nobody else is invited or emailed. */
@@ -87,6 +95,12 @@ export default function TasksView({
   const owners = useMemo(() => ownersOf(tasks), [tasks]);
   const visible = useMemo(() => sortTasks(filterTasks(tasks, filter, owner)), [tasks, filter, owner]);
   const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
+
+  // Drop the parameter once it has been acted on, so a refresh does not flash
+  // the same row again.
+  useEffect(() => {
+    if (requestedTaskId) router.replace("/tasks", { scroll: false });
+  }, [requestedTaskId, router]);
 
   // Scrolling happens in an effect, after the row it is looking for has been
   // rendered by the filter change that may have just been made.

@@ -212,25 +212,28 @@ export default async function DashboardPage() {
           </div>
           <ul className="mt-3.5 divide-y divide-panel-border">
             {topTasks.map((t) => (
-              <li key={t.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-                {/* Priority as a bar down the side of the row rather than a
-                    chip beside it: at a glance it is a column you scan, not
-                    three labels you read. */}
-                <span
-                  aria-hidden
-                  className="mt-0.5 w-0.5 shrink-0 rounded-full"
-                  style={{ background: t.priority === "high" ? "var(--work)" : t.priority === "medium" ? "#d8a13a" : "var(--panel-border-hi)" }}
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium leading-snug">{t.title}</p>
-                  <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-faint">
-                    <span>{t.owner ?? "unassigned"}</span>
-                    {t.due ? <span className="text-warn">due {t.due}</span> : null}
-                    <Link href={`/meetings/${t.meeting_id}`} className="truncate transition-colors hover:text-fg">
-                      {t.meetings?.title ?? "meeting"}
-                    </Link>
-                  </p>
-                </div>
+              <li key={t.id} className="first:pt-0 last:pb-0">
+                {/* The whole row is the link. Reading a task here and then
+                    having to find it again on the Tasks page was the obvious
+                    thing to do and the one thing it did not do. */}
+                <Link href={`/tasks?task=${t.id}`} className="jump-row flex gap-3 py-3">
+                  {/* Priority as a bar down the side of the row rather than a
+                      chip beside it: at a glance it is a column you scan, not
+                      three labels you read. */}
+                  <span
+                    aria-hidden
+                    className="mt-0.5 w-0.5 shrink-0 rounded-full"
+                    style={{ background: t.priority === "high" ? "var(--work)" : t.priority === "medium" ? "#d8a13a" : "var(--panel-border-hi)" }}
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium leading-snug">{t.title}</span>
+                    <span className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-xs text-faint">
+                      <span>{t.owner ?? "unassigned"}</span>
+                      {t.due ? <span className="text-warn">due {t.due}</span> : null}
+                      <span className="truncate">{t.meetings?.title ?? "meeting"}</span>
+                    </span>
+                  </span>
+                </Link>
               </li>
             ))}
             {topTasks.length === 0 ? <li className="py-3 text-sm text-muted">Nothing outstanding.</li> : null}
@@ -269,15 +272,19 @@ export default async function DashboardPage() {
         <p className="rule-label">People to follow up with</p>
         <ul className="mt-3.5 grid gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
           {people.slice(0, 4).map((p) => (
-            <li key={p.name} className="flex gap-3">
-              <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--people)" }} />
-              <span className="min-w-0">
-                <span className="block font-medium">
-                  {p.name}
-                  {p.role ? <span className="font-normal text-faint"> &middot; {p.role}</span> : null}
+            <li key={p.name}>
+              {/* Straight to the people band of the meeting that named them,
+                  which is where the draft-email button lives. */}
+              <Link href={`/meetings/${p.meetingId}#people`} className="jump-row flex gap-3 py-1.5">
+                <span aria-hidden className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: "var(--people)" }} />
+                <span className="min-w-0">
+                  <span className="block font-medium">
+                    {p.name}
+                    {p.role ? <span className="font-normal text-faint"> &middot; {p.role}</span> : null}
+                  </span>
+                  <span className="mt-0.5 line-clamp-2 block text-muted">{p.why}</span>
                 </span>
-                <span className="mt-0.5 line-clamp-2 block text-muted">{p.why}</span>
-              </span>
+              </Link>
             </li>
           ))}
           {people.length === 0 ? <li className="text-muted">Nobody flagged yet.</li> : null}

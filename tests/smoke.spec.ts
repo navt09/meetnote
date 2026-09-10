@@ -112,6 +112,25 @@ test.describe("every page renders what it was given", () => {
     await expect(row).toHaveClass(/task-flash/);
   });
 
+  test("Home's lists take you to the thing they name", async ({ page }) => {
+    await page.goto("/dashboard");
+
+    // A task on Home lands on that task, opened past any filter and flashed.
+    await page.getByRole("link", { name: /Fix the export crash/ }).first().click();
+    await expect(page).toHaveURL(/\/tasks/);
+    const row = page.locator(".band-row", { hasText: "Fix the export crash" });
+    await expect(row).toBeVisible();
+    await expect(row).toHaveClass(/task-flash/);
+
+    // And a person lands on the people band of the meeting that named them,
+    // which is where the draft-email button is.
+    await page.goto("/dashboard");
+    await page.getByRole("link", { name: /Sam/ }).first().click();
+    await expect(page).toHaveURL(/\/meetings\/.*#people/);
+    await expect(page.locator("#people")).toBeVisible();
+    await expect(page.locator("#people")).toContainText("Sam");
+  });
+
   test("the theme sticks across a reload", async ({ page }) => {
     await page.goto("/settings");
 

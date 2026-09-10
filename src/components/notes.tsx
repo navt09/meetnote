@@ -137,7 +137,7 @@ export function NotesView({ notes, meetingId }: { notes: MeetingNotes; meetingId
       {meetingId ? (
         <PeopleToContact meetingId={meetingId} people={notes.people_to_contact} />
       ) : (
-        <section className="band band-people">
+        <section id="people" className="band band-people scroll-mt-24">
           <div className="band-head">
             <h2 className="band-title">People to contact</h2>
             <span className="band-count">{notes.people_to_contact.length}</span>
