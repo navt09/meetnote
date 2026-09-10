@@ -18,6 +18,8 @@ Tabs when signed in, in order: **Home** (`/dashboard`), **Notes** (`/notes`, the
 - Dashboard aggregation lives in `src/lib/stats.ts`, all pure and time-injectable so tests aren't date-dependent.
 
 ## Tasks
+**Any script holding the service role must scope every write by `user_id`.** It bypasses Row Level Security, so an unscoped `update` reaches every account in the database. A throwaway fixture script written without a filter once overwrote the due date on every task, real accounts included; `scripts/repair-task-due.mjs` exists because of it and rebuilds `due`/`due_at` from `meetings.notes`, which is the source of truth a task row only mirrors.
+
 **A deadline is resolved once, when the task is written.** `due` keeps what the meeting said ("Thursday", "before the demo"); `actionItemsToRows` pins it to `due_at` using the clock at extraction. Do not re-parse `due` at read time: a task agreed three weeks ago and due "Thursday" resolves to *next* Thursday on every page load, so it can never be late and the date walks forward for ever. `/tasks` reads `due_at` and only falls back to parsing for rows written before that column existed. `parseDue` refuses anything containing "last", "previous" or "yesterday", which used to come back as the coming weekday.
 
 The deadline list on `/tasks` is derived from live client state, so ticking a task off drops it out without a round trip; pressing an entry clears any filter that would hide the row, then scrolls to it and flashes it.

@@ -21,11 +21,11 @@ export default async function TasksPage() {
 
   // Deadlines are worked out here rather than in the browser: "Thursday" only
   // means something relative to a clock, and the server's is the one the rest
-  // of the page was rendered against. Sorted soonest first, overdue at the
-  // top, and only what is still to do.
+  // of the page was rendered against. Every task is dated, not just the open
+  // ones, because the row and the list both read these labels and must never
+  // disagree about the same deadline. Sorted soonest first, overdue at the top.
   const now = new Date();
   const due = tasks
-    .filter((t) => t.status === "open")
     .flatMap((t) => {
       // The moment resolved when the task was written. Tasks created before
       // that column existed still have only the words, so they are parsed

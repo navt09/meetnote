@@ -80,6 +80,10 @@ export default function TasksView({
     });
   }, [tasks, due]);
 
+  // The same resolved deadline the list shows, so a row can never say
+  // "Thursday" beside a list entry that calls it something else.
+  const dueById = useMemo(() => new Map(due.map((d) => [d.id, d])), [due]);
+
   const owners = useMemo(() => ownersOf(tasks), [tasks]);
   const visible = useMemo(() => sortTasks(filterTasks(tasks, filter, owner)), [tasks, filter, owner]);
   const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
@@ -210,7 +214,18 @@ export default function TasksView({
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
                         <span className={t.owner ? "font-medium text-fg" : ""}>{t.owner ?? "Unassigned"}</span>
                         <span>{kindLabel(t.kind)}</span>
-                        {t.due ? <span className="font-medium text-warn">due {t.due}</span> : null}
+                        {(() => {
+                        const d = dueById.get(t.id);
+                        if (d) {
+                          return (
+                            <span className={`font-medium ${d.overdue && !done ? "text-danger" : "text-warn"}`} title={t.due ?? undefined}>
+                              due {d.label.toLowerCase()}
+                            </span>
+                          );
+                        }
+                        // Nothing concrete was said, so the words stand as they were.
+                        return t.due ? <span className="font-medium text-warn">due {t.due}</span> : null;
+                      })()}
                         {hasDraft.has(t.id) ? (
                           <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
                         ) : (
