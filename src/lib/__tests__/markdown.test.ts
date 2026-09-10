@@ -7,8 +7,8 @@ const notes: MeetingNotes = {
   summary: "Short meeting.",
   key_points: ["Login refactor done"],
   action_items: [
-    { title: "Fix mobile search crash", details: "Crashes on Safari.", owner: "Marcus", due: "Thursday", priority: "high", kind: "bug" },
-    { title: "Email Priya", details: "", owner: null, due: null, priority: "medium", kind: "follow_up" },
+    { title: "Fix mobile search crash", details: "Crashes on Safari.", owner: "Marcus", due: "Thursday", priority: "high", kind: "bug", quote: "it crashes on Safari every time", first_step: "Reproduce it on Safari." },
+    { title: "Email Priya", details: "", owner: null, due: null, priority: "medium", kind: "follow_up", quote: null, first_step: null },
   ],
   decisions: [{ decision: "Postpone dark mode", context: "Design not ready" }],
   people_to_contact: [{ name: "Priya", role: "Design", why: "Final icons" }],

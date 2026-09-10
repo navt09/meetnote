@@ -19,6 +19,10 @@ export type TaskRow = {
   due_at: string | null;
   priority: TaskPriority;
   kind: TaskKind;
+  /** The transcript line this task came from, verbatim. Null when none fits. */
+  quote: string | null;
+  /** A suggested place to start, from the discussion. Null when it gave none. */
+  first_step: string | null;
   status: TaskStatus;
   completed_at: string | null;
   calendar_event_url: string | null;
@@ -41,6 +45,10 @@ export type PublicTask = {
   dueAt: string | null;
   priority: TaskPriority;
   kind: TaskKind;
+  /** What was said that produced this task. Shown as a check, not as prose. */
+  quote: string | null;
+  /** Where to start, shown as a suggestion and never as something agreed. */
+  firstStep: string | null;
   status: TaskStatus;
   completedAt: string | null;
   createdAt: string;
@@ -60,6 +68,10 @@ export function toPublicTask(row: TaskRow, meetingTitle: string): PublicTask {
     dueAt: row.due_at ?? null,
     priority: row.priority,
     kind: row.kind,
+    // Rows written before these columns existed have neither, so undefined is
+    // flattened to null and the UI has one absent case to handle, not two.
+    quote: row.quote ?? null,
+    firstStep: row.first_step ?? null,
     status: row.status,
     completedAt: row.completed_at,
     createdAt: row.created_at,
@@ -88,6 +100,11 @@ export function actionItemsToRows(items: ActionItem[], userId: string, meetingId
     owner: a.owner?.trim() ? a.owner.trim().slice(0, 120) : null,
     due: a.due?.trim() ? a.due.trim().slice(0, 120) : null,
     due_at: parseDue(a.due, now)?.toISOString() ?? null,
+    // The prompt asks for about 200 characters of transcript; the bound is
+    // generous over that, because a quote cut mid-sentence is still a quote,
+    // and a run-on one is a paragraph nobody will read.
+    quote: a.quote?.trim() ? a.quote.trim().slice(0, 500) : null,
+    first_step: a.first_step?.trim() ? a.first_step.trim().slice(0, 500) : null,
     priority: (PRIORITIES as string[]).includes(a.priority) ? a.priority : "medium",
     kind: (KINDS as string[]).includes(a.kind) ? a.kind : "task",
   }));
@@ -171,6 +188,27 @@ export function filterTasks(tasks: PublicTask[], filter: TaskFilter, owner: stri
     if (filter === "done" && t.status !== "done") return false;
     if (owner && (t.owner ?? "Unassigned") !== owner) return false;
     return true;
+  });
+}
+
+/**
+ * The tasks that belong to this person: the ones they own, plus the ones
+ * nobody claimed.
+ *
+ * Unassigned work is included deliberately. A task with no owner is not
+ * somebody else's, and leaving it out would mean the only place it ever
+ * appeared was the meeting it came from, which is where things go to be
+ * forgotten.
+ *
+ * With no name set, everything comes back: the alternative is an empty page
+ * with no way of telling why.
+ */
+export function tasksOwnedBy(tasks: PublicTask[], me: string | null): PublicTask[] {
+  const name = (me ?? "").trim().toLowerCase();
+  if (!name) return tasks;
+  return tasks.filter((t) => {
+    const owner = (t.owner ?? "").trim().toLowerCase();
+    return owner === "" || owner === name;
   });
 }
 

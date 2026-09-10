@@ -144,8 +144,12 @@ body.app {
      leans azure (hue 204) rather than the people hue's periwinkle (hue 222) so
      the two do not read as the same blue sitting next to each other. Deep
      enough that the hover can brighten and still clear 4.5:1 on white type. */
-  --approve: #0e6ba8;
-  --approve-hover: #1276b8;
+  /* Approve is green: it is the affirmative half of a pair whose other half
+     is a red Delete, and green against red is the one colour pairing nobody
+     has to be taught. Deep enough that white type clears 4.5:1 on it, and the
+     hover darkens rather than lightens so it cannot fall under that. */
+  --approve: #16805c;
+  --approve-hover: #126b4c;
   --approve-ink: #ffffff;
   --ok: #45c795;
   --warn: #dda63f;
@@ -202,8 +206,8 @@ html[data-theme="light"] body.app {
   --danger-ink: #ffffff;
   /* A step deeper than the dark surface's, because paper needs the fill to
      hold the white type at the same margin. */
-  --approve: #0c5f96;
-  --approve-hover: #0e6ba8;
+  --approve: #15704f;
+  --approve-hover: #125e42;
   --approve-ink: #ffffff;
   --ok: #15704f;
   --warn: #8a5a06;
@@ -810,6 +814,39 @@ body.app .eyebrow { color: var(--faint); }
   to { background: transparent; }
 }
 .task-flash { animation: taskFlash 1.8s ease-out; }
+
+/* ---------- opening a task ---------- */
+/* Pressing the title opens the row. The row itself cannot be the button: it
+   holds a checkbox, a draft button and two links, and a button may not contain
+   those. */
+.task-toggle {
+  display: flex; align-items: flex-start; gap: 0.4rem;
+  text-align: left;
+  color: inherit;
+}
+.task-caret {
+  flex: none;
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--faint);
+  transition: transform 140ms ease, color 140ms ease;
+}
+.task-toggle:hover .task-caret { color: var(--fg); }
+.task-toggle[aria-expanded="true"] .task-caret { transform: rotate(90deg); }
+
+/* The reveal is a keyframe, not a transition, so the global reduced-motion
+   rule above collapses it to nothing. */
+@keyframes taskOpen {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.task-detail { animation: taskOpen 180ms ease-out both; }
+
+/* What somebody actually said, set apart from the notes written about it. */
+.task-quote {
+  border-left: 2px solid var(--panel-border-hi);
+  padding-left: 0.7rem;
+}
 
 /* ---------- segmented choice ---------- */
 /* Two or three options where exactly one is on. Shares its edges rather than

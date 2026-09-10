@@ -74,9 +74,30 @@ function notes(dayOffset) {
       "Dark mode waits for the final icons.",
     ],
     action_items: [
-      { title: "Fix the export crash on large files", details: "Crashes above ten thousand rows.", owner: "Priya", due: "Friday", priority: "high", kind: "bug" },
-      { title: "Start the payment webhook", details: "Now that the login refactor is merged.", owner: "Marcus", due: null, priority: "medium", kind: "task" },
-      { title: "Chase the design team for the dark mode icons", details: "The launch is blocked on them.", owner: "You", due: "Monday", priority: "medium", kind: "follow_up" },
+      // The first carries a quote and a first step so the smoke pass can open
+      // it; the last deliberately carries neither, so the pass also proves a
+      // task with nothing to show offers no expander at all.
+      {
+        title: "Fix the export crash on large files",
+        details: "Crashes above ten thousand rows.",
+        owner: "Priya",
+        due: "Friday",
+        priority: "high",
+        kind: "bug",
+        quote: "I found a crash in the export on anything over ten thousand rows.",
+        first_step: "Reproduce it with a ten thousand row export before changing anything.",
+      },
+      {
+        title: "Start the payment webhook",
+        details: "Now that the login refactor is merged.",
+        owner: "Marcus",
+        due: null,
+        priority: "medium",
+        kind: "task",
+        quote: "Login refactor is merged, so I am picking up the payment webhook today.",
+        first_step: null,
+      },
+      { title: "Chase the design team for the dark mode icons", details: "", owner: "You", due: "Monday", priority: "medium", kind: "follow_up", quote: null, first_step: null },
     ],
     decisions: [
       { decision: "Dark mode launch moves to next sprint", context: "The icons are not ready and shipping half of it would look worse than waiting." },
@@ -144,6 +165,8 @@ export async function createFixture() {
     details: a.details,
     owner: a.owner,
     due: a.due,
+    quote: a.quote ?? null,
+    first_step: a.first_step ?? null,
     // One real deadline, so the Tasks page's due column has something to show.
     due_at: idx === 0 ? dueAt : null,
     priority: a.priority,

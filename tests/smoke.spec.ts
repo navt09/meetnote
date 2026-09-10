@@ -131,6 +131,29 @@ test.describe("every page renders what it was given", () => {
     await expect(page.locator("#people")).toContainText("Sam");
   });
 
+  test("a task opens to show what was said and where to start", async ({ page }) => {
+    await page.goto("/tasks");
+
+    // Scoped to the toggle itself: the row also holds a done checkbox and the
+    // deadline column holds a "go to" button, and all three carry the title.
+    const withContext = page.locator(".task-toggle", { hasText: "Fix the export crash" });
+    await expect(withContext).toHaveAttribute("aria-expanded", "false");
+
+    await withContext.click();
+    await expect(withContext).toHaveAttribute("aria-expanded", "true");
+    // The quote is the trust anchor: it has to be the words from the meeting,
+    // not a paraphrase of them.
+    await expect(page.getByText(/over ten thousand rows/)).toBeVisible();
+    await expect(page.getByText(/Reproduce it with a ten thousand row export/)).toBeVisible();
+
+    await withContext.click();
+    await expect(withContext).toHaveAttribute("aria-expanded", "false");
+
+    // A task with nothing to show must not offer an expander that reveals
+    // nothing.
+    await expect(page.locator(".task-toggle", { hasText: "Chase the design team" })).toHaveCount(0);
+  });
+
   test("the theme sticks across a reload", async ({ page }) => {
     await page.goto("/settings");
 

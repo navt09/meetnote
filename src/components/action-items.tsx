@@ -11,6 +11,86 @@ import { canConnect, canDraft, type Tier } from "@/lib/account";
 import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 
 /**
+ * The material behind a task: what was said about it, the words that produced
+ * it, and where to start. Every part is optional, and an old task has none.
+ */
+export type TaskContext = {
+  details?: string | null;
+  quote?: string | null;
+  firstStep?: string | null;
+  owner?: string | null;
+};
+
+/** Whether there is anything to expand. An expander that reveals nothing is worse than none. */
+export function hasContext(c: TaskContext): boolean {
+  return !!(c.details?.trim() || c.quote?.trim() || c.firstStep?.trim());
+}
+
+/**
+ * The title, as the thing you press to open a task.
+ *
+ * The row itself cannot be the button: it holds a checkbox, a draft button and
+ * two links, and a button may not contain those. Pressing the title is the
+ * next most obvious target, and it carries the aria state for the panel.
+ */
+export function TaskTitle({
+  title,
+  done,
+  expandable,
+  open,
+  panelId,
+  onToggle,
+}: {
+  title: string;
+  done: boolean;
+  expandable: boolean;
+  open: boolean;
+  panelId: string;
+  onToggle: () => void;
+}) {
+  const text = `font-medium leading-snug ${done ? "text-faint line-through" : ""}`;
+  if (!expandable) return <p className={text}>{title}</p>;
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={open} aria-controls={panelId} className="task-toggle min-w-0">
+      <span aria-hidden className="task-caret">▸</span>
+      <span className={text}>{title}</span>
+    </button>
+  );
+}
+
+/**
+ * What a task looks like once it is open.
+ *
+ * The quote is marked as words somebody said and attributed where there is an
+ * owner, because its whole job is to let a person check the task against the
+ * meeting. The first step is marked as a suggestion in the label and again
+ * underneath: it is the one part of a task the meeting did not decide.
+ */
+export function TaskContextPanel({ id, context }: { id: string; context: TaskContext }) {
+  const { details, quote, firstStep, owner } = context;
+  return (
+    <div id={id} className="task-detail mt-2 flex flex-col gap-3">
+      {details ? <p className="text-sm leading-relaxed text-muted">{details}</p> : null}
+
+      {quote ? (
+        <figure className="task-quote">
+          <blockquote className="text-sm leading-relaxed text-fg">“{quote}”</blockquote>
+          <figcaption className="mt-1 text-xs text-faint">{owner ? `${owner} said this` : "Said in the meeting"}</figcaption>
+        </figure>
+      ) : null}
+
+      {firstStep ? (
+        <div>
+          <p className="text-xs font-semibold text-fg">Suggested first step</p>
+          <p className="mt-0.5 text-sm leading-relaxed text-muted">{firstStep}</p>
+          <p className="mt-0.5 text-xs text-faint">A suggestion from the notes, not something the meeting decided.</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/**
  * A meeting's action items, with the things you can do to them.
  *
  * Renders the rows from the tasks table rather than from the notes JSON, even
@@ -45,6 +125,15 @@ export function ActionItems({
   // from /api/drafts against a task. This remembers the ones drafted here.
   const [emailed, setEmailed] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
+  const [open, setOpen] = useState<Set<string>>(new Set());
+
+  function toggleOpen(key: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => {
     let live = true;
@@ -127,13 +216,40 @@ export function ActionItems({
         const done = task?.status === "done";
         // "Email Priya about the icons" wants an email, not a ticket.
         const emailTo = task ? personToEmail(task, people) : null;
+        // The live task and the notes' own copy hold the same three things
+        // under different names, so the row is read through one shape.
+        const context: TaskContext = task
+          ? { details: task.details, quote: task.quote, firstStep: task.firstStep, owner: task.owner }
+          : {
+              details: row.details,
+              quote: (row as ActionItem).quote,
+              firstStep: (row as ActionItem).first_step,
+              owner: row.owner,
+            };
+        const key = task?.id ?? String(i);
+        const expandable = hasContext(context);
+        const isOpen = expandable && open.has(key);
+        const panelId = `task-context-${key}`;
         return (
-          <li key={task?.id ?? i} className="band-row">
+          <li key={key} className="band-row">
             <div className="flex items-start justify-between gap-3">
-              <p className={`font-medium leading-snug ${done ? "text-faint line-through" : ""}`}>{row.title}</p>
+              <TaskTitle
+                title={row.title}
+                done={done}
+                expandable={expandable}
+                open={isOpen}
+                panelId={panelId}
+                onToggle={() => toggleOpen(key)}
+              />
               <PriorityFlag priority={row.priority} done={done} />
             </div>
-            {row.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{row.details}</p> : null}
+            {isOpen ? (
+              <TaskContextPanel id={panelId} context={context} />
+            ) : row.details ? (
+              // Collapsed, the details are a preview: two lines, then the rest
+              // is behind the title.
+              <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted">{row.details}</p>
+            ) : null}
 
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
               <span className={row.owner ? "font-medium text-fg" : ""}>{row.owner ?? "Unassigned"}</span>

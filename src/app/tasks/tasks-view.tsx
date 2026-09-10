@@ -9,14 +9,16 @@ import { EmptyState, PageHead } from "@/components/ui";
 import {
   filterTasks,
   kindLabel,
-  ownersOf,
-  personToEmail,
+    personToEmail,
   sortTasks,
   type ContactPerson,
   type PublicTask,
   type TaskFilter,
 } from "@/lib/task";
 import { PriorityFlag } from "@/components/priority";
+// The two task lists expand the same way and say the same things when open, so
+// the pieces live once, beside the meeting page's list.
+import { hasContext, TaskContextPanel, TaskTitle, type TaskContext } from "@/components/action-items";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
 import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 
@@ -25,6 +27,14 @@ const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "done", label: "Done" },
   { key: "all", label: "All" },
 ];
+
+/** The three things a row can open to show, read off a task. */
+const contextOf = (t: PublicTask): TaskContext => ({
+  details: t.details,
+  quote: t.quote,
+  firstStep: t.firstStep,
+  owner: t.owner,
+});
 
 /** One deadline, dated on the server where "Thursday" has a fixed meaning. */
 export type DueEntry = { id: string; label: string; overdue: boolean };
@@ -36,6 +46,7 @@ export default function TasksView({
   due,
   people,
   me,
+  hiddenFromOthers,
   requestedTaskId,
   tier,
 }: {
@@ -48,6 +59,8 @@ export default function TasksView({
   people: Record<string, ContactPerson[]>;
   /** The reader's own name, as set in Settings. Null if they never set one. */
   me: string | null;
+  /** How many tasks on their meetings belong to somebody else. */
+  hiddenFromOthers: number;
   /** A task linked to from elsewhere, e.g. Home's "Top of the list". */
   requestedTaskId: string | null;
 }) {
@@ -65,11 +78,6 @@ export default function TasksView({
   // nothing looks like a broken page rather than a filtered one. Derived at
   // mount for the same reason the filter above is. Needing a second owner is
   // not pedantry: the chips, and with them the way back to Everyone, are only
-  // drawn when there is more than one, and a filter you cannot lift is a trap.
-  const [owner, setOwner] = useState<string | null>(() => {
-    const list = ownersOf(initial);
-    return me && list.length > 1 && list.includes(me) ? me : null;
-  });
   const [hasDraft, setHasDraft] = useState<Set<string>>(new Set(drafted));
   // Email drafts carry no task id, so unlike tickets they cannot be read back
   // from the drafts table against a task. This remembers the ones drafted here.
@@ -81,6 +89,14 @@ export default function TasksView({
   const [target, setTarget] = useState<{ id: string; n: number } | null>(
     requestedTaskId ? { id: requestedTaskId, n: 0 } : null,
   );
+  // Which rows are open. Someone who arrived on a particular task came to look
+  // at that one, so it starts open when it has anything to show. Computed at
+  // mount rather than from an effect, so the first render is already right and
+  // the jump is untouched either way.
+  const [open, setOpen] = useState<Set<string>>(() => {
+    const landed = requestedTaskId ? initial.find((t) => t.id === requestedTaskId) : null;
+    return new Set(landed && hasContext(contextOf(landed)) ? [landed.id] : []);
+  });
   const error = loadError;
 
   /** Blocks time out on the user's own calendar. Nobody else is invited or emailed. */
@@ -145,12 +161,8 @@ export default function TasksView({
   // "Thursday" beside a list entry that calls it something else.
   const dueById = useMemo(() => new Map(due.map((d) => [d.id, d])), [due]);
 
-  const owners = useMemo(() => ownersOf(tasks), [tasks]);
-  const visible = useMemo(() => sortTasks(filterTasks(tasks, filter, owner)), [tasks, filter, owner]);
-  // Counted over whoever is being shown, not over everything, so the meta line
-  // never claims a number the list below it does not contain.
-  const scoped = useMemo(() => filterTasks(tasks, "all", owner), [tasks, owner]);
-  const openCount = useMemo(() => scoped.filter((t) => t.status === "open").length, [scoped]);
+  const visible = useMemo(() => sortTasks(filterTasks(tasks, filter)), [tasks, filter]);
+  const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
 
   // Drop the parameter once it has been acted on, so a refresh does not flash
   // the same row again.
@@ -167,12 +179,23 @@ export default function TasksView({
     return () => clearTimeout(id);
   }, [target]);
 
+  function toggleOpen(id: string) {
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  }
+
   function jumpTo(id: string) {
     // A deadline is no use if pressing it lands on a filter that hides the row.
     if (!visible.some((t) => t.id === id)) {
       setFilter("all");
-      setOwner(null);
     }
+    // Same reasoning as the landing case above: you pressed a deadline to look
+    // at that task, so it arrives open if it has anything to show.
+    const landed = tasks.find((t) => t.id === id);
+    if (landed && hasContext(contextOf(landed))) setOpen((s) => new Set(s).add(id));
     setTarget((prev) => ({ id, n: (prev?.n ?? 0) + 1 }));
   }
 
@@ -196,10 +219,14 @@ export default function TasksView({
         meta={
           <>
             {openCount === 0 ? "Nothing outstanding" : `${openCount} still to do`}
-            {scoped.length > openCount ? ` · ${scoped.length - openCount} done` : ""}
-            {/* Said plainly, with the total, so a short list reads as a
-                filtered view and not as an empty week. */}
-            {owner ? ` · ${owner} only, of ${tasks.length} from your meetings` : ""}
+            {tasks.length > openCount ? ` · ${tasks.length - openCount} done` : ""}
+            {/* Said plainly, so a short list reads as your list and not as a
+                quiet week. Other people's work lives on the meeting it came
+                from, which is where it is any use. */}
+            {me && hiddenFromOthers > 0
+              ? ` · yours only, ${hiddenFromOthers} more belong to other people`
+              : null}
+            {!me ? " · everyone's, until you add your name in Settings" : null}
           </>
         }
         action={<Link href="/record" className="btn btn-primary">New meeting</Link>}
@@ -223,21 +250,6 @@ export default function TasksView({
             ))}
           </div>
 
-          {owners.length > 1 ? (
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                onClick={() => setOwner(null)}
-                className={`pill transition-colors ${owner === null ? "pill-live" : "hover:text-fg"}`}
-              >
-                Everyone
-              </button>
-              {owners.map((o) => (
-                <button key={o} onClick={() => setOwner(o === owner ? null : o)} className={`pill transition-colors ${owner === o ? "pill-live" : "hover:text-fg"}`}>
-                  {o}
-                </button>
-              ))}
-            </div>
-          ) : null}
         </div>
       ) : null}
 
@@ -253,8 +265,8 @@ export default function TasksView({
           body={
             filter !== "open"
               ? "Try a different filter."
-              : owner
-                ? `Every task assigned to ${owner} is done. Pick Everyone to see the rest.`
+              : me
+                ? "Everything assigned to you is done."
                 : "Every task from your meetings is done."
           }
         />
@@ -272,6 +284,10 @@ export default function TasksView({
               const done = t.status === "done";
               // "Email Priya about the icons" wants an email, not a ticket.
               const emailTo = personToEmail(t, people[t.meetingId] ?? []);
+              const context = contextOf(t);
+              const expandable = hasContext(context);
+              const isOpen = expandable && open.has(t.id);
+              const panelId = `task-context-${t.id}`;
               return (
                 <li key={t.id} id={`task-${t.id}`} className={`band-row scroll-mt-24 ${target?.id === t.id ? "task-flash" : ""}`}>
                   <div className="flex items-start gap-3">
@@ -287,10 +303,23 @@ export default function TasksView({
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-3">
-                        <p className={`font-medium leading-snug ${done ? "text-faint line-through" : ""}`}>{t.title}</p>
+                        <TaskTitle
+                          title={t.title}
+                          done={done}
+                          expandable={expandable}
+                          open={isOpen}
+                          panelId={panelId}
+                          onToggle={() => toggleOpen(t.id)}
+                        />
                         <PriorityFlag priority={t.priority} done={done} />
                       </div>
-                      {t.details ? <p className="mt-1 text-sm leading-relaxed text-muted">{t.details}</p> : null}
+                      {isOpen ? (
+                        <TaskContextPanel id={panelId} context={context} />
+                      ) : t.details ? (
+                        // Collapsed, the details are a preview: two lines, then
+                        // the rest is behind the title.
+                        <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted">{t.details}</p>
+                      ) : null}
 
                       <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-faint">
                         <span className={t.owner ? "font-medium text-fg" : ""}>{t.owner ?? "Unassigned"}</span>

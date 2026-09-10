@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { tierFor } from "@/lib/account-store";
-import { sortTasks, toPublicTask, type ContactPerson, type TaskRow } from "@/lib/task";
+import { sortTasks, tasksOwnedBy, toPublicTask, type ContactPerson, type TaskRow } from "@/lib/task";
 import { dueLabel, isOverdue, parseDue } from "@/lib/schedule";
 import { getDisplayName } from "@/lib/settings-store";
 import TasksView from "./tasks-view";
@@ -30,7 +30,13 @@ export default async function TasksPage({
     userData.user ? getDisplayName(userData.user.id) : Promise.resolve(null),
   ]);
 
-  const tasks = sortTasks(((tasksRes.data ?? []) as Joined[]).map((r) => toPublicTask(r, r.meetings?.title ?? "Untitled meeting")));
+  // Narrowed to this person before anything else is derived from it, so the
+  // counts, the deadline column and the row list cannot disagree about whose
+  // page this is. A meeting's own notes still show everybody's, which is what
+  // you want when you are reading the meeting rather than working through it.
+  const everyones = ((tasksRes.data ?? []) as Joined[]).map((r) => toPublicTask(r, r.meetings?.title ?? "Untitled meeting"));
+  const tasks = sortTasks(tasksOwnedBy(everyones, displayName));
+  const hiddenFromOthers = everyones.length - tasks.length;
   const drafted = ((draftsRes.data ?? []) as { task_id: string | null }[]).map((d) => d.task_id).filter((id): id is string => !!id);
 
   // Who each task's meeting said to contact, so a row that means "email
@@ -71,6 +77,7 @@ export default async function TasksPage({
       drafted={drafted}
       people={people}
       me={displayName}
+      hiddenFromOthers={hiddenFromOthers}
       requestedTaskId={requestedTaskId ?? null}
       tier={tier}
       due={due}

@@ -7,6 +7,22 @@ export const ActionItem = z.object({
   due: z.string().nullable().describe("Due date or timeframe if mentioned, else null"),
   priority: z.enum(["low", "medium", "high"]),
   kind: z.enum(["bug", "feature", "task", "follow_up", "other"]),
+  // Both nullable, and both come out of the same extraction call that was
+  // already reading the whole transcript, so neither costs a request.
+  //
+  // The quote is the trust anchor: it is how somebody checks the task was not
+  // invented, which only works if it is verbatim. The first step is a
+  // suggestion and is labelled as one wherever it is shown. Null is a real
+  // answer for either, and notes written before this existed simply have
+  // neither.
+  quote: z
+    .string()
+    .nullable()
+    .describe("The words from the transcript that produced this task, verbatim, at most ~200 characters, or null"),
+  first_step: z
+    .string()
+    .nullable()
+    .describe("One short sentence on where to start, grounded in what was discussed, or null"),
 });
 
 export const Decision = z.object({

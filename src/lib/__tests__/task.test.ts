@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { actionItemsToRows, filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, personToEmail } from "../task";
+import { actionItemsToRows, filterTasks, kindLabel, ownersOf, sortTasks, type PublicTask, personToEmail, tasksOwnedBy } from "../task";
 import type { ActionItem } from "../schema";
 
 const task = (over: Partial<PublicTask>): PublicTask => ({
   id: "t", meetingId: "m", meetingTitle: "Standup", title: "T", details: "", owner: null, due: null, dueAt: null,
   priority: "medium", kind: "task", status: "open", completedAt: null, createdAt: "2026-09-01T00:00:00Z",
-  calendarEventUrl: null, ...over,
+  calendarEventUrl: null, quote: null, firstStep: null, ...over,
 });
 
 describe("actionItemsToRows", () => {
@@ -31,6 +31,67 @@ describe("actionItemsToRows", () => {
     const rows = actionItemsToRows([{ title: "x".repeat(500), details: "y".repeat(5000), owner: null, due: null, priority: "low", kind: "task" } as ActionItem], "u", "m");
     expect(rows[0].title).toHaveLength(300);
     expect(rows[0].details).toHaveLength(2000);
+  });
+
+  it("carries the quote and the first step when the meeting gave them", () => {
+    const rows = actionItemsToRows(
+      [
+        {
+          title: "Fix the export crash",
+          details: "Safari only",
+          owner: "Marcus",
+          due: null,
+          priority: "high",
+          kind: "bug",
+          quote: "  it just dies when you hit export on Safari  ",
+          first_step: "  Reproduce it on Safari with the file Priya sent.  ",
+        } as ActionItem,
+      ],
+      "u",
+      "m",
+    );
+    // Trimmed, but otherwise the words as they came back.
+    expect(rows[0].quote).toBe("it just dies when you hit export on Safari");
+    expect(rows[0].first_step).toBe("Reproduce it on Safari with the file Priya sent.");
+  });
+
+  it("stores null when the meeting gave nothing, and for notes written before they existed", () => {
+    const [absent] = actionItemsToRows(
+      [{ title: "Ship it", details: "", owner: null, due: null, priority: "low", kind: "task" } as unknown as ActionItem],
+      "u",
+      "m",
+    );
+    expect(absent.quote).toBeNull();
+    expect(absent.first_step).toBeNull();
+
+    const [empty] = actionItemsToRows(
+      [{ title: "Ship it", details: "", owner: null, due: null, priority: "low", kind: "task", quote: null, first_step: "   " } as unknown as ActionItem],
+      "u",
+      "m",
+    );
+    expect(empty.quote).toBeNull();
+    expect(empty.first_step).toBeNull();
+  });
+
+  it("bounds an absurdly long quote or first step", () => {
+    const [row] = actionItemsToRows(
+      [
+        {
+          title: "Ship it",
+          details: "",
+          owner: null,
+          due: null,
+          priority: "low",
+          kind: "task",
+          quote: "q".repeat(5000),
+          first_step: "s".repeat(5000),
+        } as ActionItem,
+      ],
+      "u",
+      "m",
+    );
+    expect(row.quote).toHaveLength(500);
+    expect(row.first_step).toHaveLength(500);
   });
 });
 
@@ -85,7 +146,7 @@ describe("due_at is resolved once, at extraction", () => {
     // A Tuesday.
     const now = new Date(2026, 8, 8, 14, 30);
     const [row] = actionItemsToRows(
-      [{ title: "Ship it", details: "", owner: null, due: "Thursday", priority: "high", kind: "task" }],
+      [{ title: "Ship it", details: "", owner: null, due: "Thursday", priority: "high", kind: "task", quote: null, first_step: null }],
       "u1",
       "m1",
       now,
@@ -96,7 +157,7 @@ describe("due_at is resolved once, at extraction", () => {
 
   it("leaves it null when nothing concrete was said, rather than inventing one", () => {
     const [row] = actionItemsToRows(
-      [{ title: "Ship it", details: "", owner: null, due: "when we get to it", priority: "low", kind: "task" }],
+      [{ title: "Ship it", details: "", owner: null, due: "when we get to it", priority: "low", kind: "task", quote: null, first_step: null }],
       "u1",
       "m1",
       new Date(2026, 8, 8),
@@ -149,5 +210,30 @@ describe("personToEmail", () => {
 
   it("returns null when nobody was flagged at all", () => {
     expect(personToEmail({ title: "Email Priya about icons", details: null, owner: null, kind: "task" }, [])).toBeNull();
+  });
+});
+
+describe("tasksOwnedBy", () => {
+  const mine = task({ id: "a", owner: "Naveen" });
+  const theirs = task({ id: "b", owner: "Marcus" });
+  const nobody = task({ id: "c", owner: null });
+
+  it("keeps my tasks and drops other people's", () => {
+    const out = tasksOwnedBy([mine, theirs, nobody], "Naveen").map((t) => t.id);
+    expect(out).toContain("a");
+    expect(out).not.toContain("b");
+  });
+
+  it("keeps unclaimed work, which is not somebody else's", () => {
+    expect(tasksOwnedBy([mine, theirs, nobody], "Naveen").map((t) => t.id)).toContain("c");
+  });
+
+  it("ignores case and stray spaces in a name", () => {
+    expect(tasksOwnedBy([task({ id: "a", owner: " naveen " })], "Naveen")).toHaveLength(1);
+  });
+
+  it("shows everything when no name is set, rather than an empty page", () => {
+    expect(tasksOwnedBy([mine, theirs, nobody], null)).toHaveLength(3);
+    expect(tasksOwnedBy([mine, theirs, nobody], "   ")).toHaveLength(3);
   });
 });
