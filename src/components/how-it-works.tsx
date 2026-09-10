@@ -50,38 +50,106 @@ function Wave() {
   );
 }
 
-/* ---------- step 1: the share dialog ---------- */
+/* ---------- step 1: the share dialog, and it works ---------- */
+
+type Source = "tab" | "window" | "screen";
+const SOURCES: { id: Source; label: string; items: string[] }[] = [
+  { id: "tab", label: "Chrome tab", items: ["Google Meet \u00b7 Weekly sync", "Linear", "Docs", "Calendar"] },
+  { id: "window", label: "Window", items: ["Zoom Meeting", "Slack", "Figma", "Terminal"] },
+  { id: "screen", label: "Entire screen", items: ["Screen 1", "Screen 2"] },
+];
+
 function PickWindow() {
-  const windows = ["Zoom Meeting", "Slack", "Figma", "Terminal"];
+  const [source, setSource] = useState<Source>("window");
+  const [picked, setPicked] = useState(0);
+  const [audio, setAudio] = useState(true);
+  const [shared, setShared] = useState(false);
+
+  const items = SOURCES.find((x) => x.id === source)!.items;
+  const choice = items[picked] ?? items[0];
+
+  function chooseSource(id: Source) {
+    setSource(id);
+    setPicked(0);
+  }
+
+  if (shared) {
+    return (
+      <div className="glass p-4 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <p className="flex items-center gap-2 text-xs text-muted">
+            <span aria-hidden className="rec-dot" />
+            Recording &middot; {choice}
+          </p>
+          <Wave />
+        </div>
+        <p className="mt-4 font-medium">That is the whole setup.</p>
+        <p className="mt-1 leading-relaxed text-muted">
+          {audio
+            ? "Meeting audio and your microphone, recorded on this machine. Nobody on the call sees anything join."
+            : "Only your microphone this time: \u201cShare audio\u201d was left off, so everyone in the room counts as you. The notes will say so."}
+        </p>
+        <button type="button" onClick={() => setShared(false)} className="btn btn-ghost mt-4 !py-1 text-xs">
+          Start over
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="glass overflow-hidden text-sm">
       <div className="border-b border-panel-border px-4 py-3">
         <p className="font-medium">Choose what to share</p>
-        <div className="mt-2.5 flex gap-1.5 text-xs">
-          <span className="rounded-md border border-panel-border px-2 py-1 text-muted">Chrome tab</span>
-          <span className="rounded-md border border-fg px-2 py-1 font-medium">Window</span>
-          <span className="rounded-md border border-panel-border px-2 py-1 text-muted">Entire screen</span>
+        <div role="tablist" aria-label="Source" className="mt-2.5 flex gap-1.5 text-xs">
+          {SOURCES.map((x) => (
+            <button
+              key={x.id}
+              type="button"
+              role="tab"
+              aria-selected={x.id === source}
+              onClick={() => chooseSource(x.id)}
+              className={`rounded-md border px-2 py-1 transition-colors ${
+                x.id === source ? "border-fg font-medium" : "border-panel-border text-muted hover:text-fg"
+              }`}
+            >
+              {x.label}
+            </button>
+          ))}
         </div>
       </div>
       <ul className="grid grid-cols-2 gap-2 p-4 sm:grid-cols-4">
-        {windows.map((w, i) => (
-          <li
-            key={w}
-            className={`rounded-lg border p-2 ${i === 0 ? "border-fg bg-panel-hi" : "border-panel-border"}`}
-          >
-            <div className="h-10 rounded bg-panel-hi" />
-            <p className={`mt-1.5 truncate text-xs ${i === 0 ? "font-medium" : "text-muted"}`}>{w}</p>
+        {items.map((w, i) => (
+          <li key={w}>
+            <button
+              type="button"
+              aria-pressed={i === picked}
+              onClick={() => setPicked(i)}
+              className={`w-full rounded-lg border p-2 text-left transition-colors ${
+                i === picked ? "border-fg bg-panel-hi" : "border-panel-border hover:border-panel-border-hi"
+              }`}
+            >
+              <div className="h-10 rounded bg-panel-hi" />
+              <p className={`mt-1.5 truncate text-xs ${i === picked ? "font-medium" : "text-muted"}`}>{w}</p>
+            </button>
           </li>
         ))}
       </ul>
       <div className="flex items-center justify-between gap-3 border-t border-panel-border px-4 py-3">
-        <label className="flex items-center gap-2 text-xs">
-          <span className="grid h-4 w-4 place-items-center rounded border border-fg bg-fg text-[0.6rem] text-bg">✓</span>
+        <label className="flex cursor-pointer items-center gap-2 text-xs">
+          <input type="checkbox" className="sr-only" checked={audio} onChange={(e) => setAudio(e.target.checked)} />
+          <span
+            aria-hidden
+            className={`grid h-4 w-4 place-items-center rounded border text-[0.6rem] transition-colors ${
+              audio ? "border-fg bg-fg text-bg" : "border-panel-border-hi"
+            }`}
+          >
+            {audio ? "\u2713" : ""}
+          </span>
           Share audio
         </label>
         <div className="flex gap-2">
-          <span className="btn btn-ghost !py-1 text-xs">Cancel</span>
-          <span className="btn btn-primary !py-1 text-xs">Share</span>
+          <button type="button" onClick={() => setAudio(true)} className="btn btn-ghost !py-1 text-xs">Cancel</button>
+          <button type="button" onClick={() => setShared(true)} className="btn btn-primary !py-1 text-xs">Share</button>
         </div>
       </div>
     </div>
@@ -224,19 +292,23 @@ export function HowItWorks() {
   const [active, setActive] = useState(0);
   // Changes with every selection, even a re-selection, so the line restarts.
   const [run, setRun] = useState(0);
+  // Once a visitor presses something inside a stage, the tour stops moving on
+  // without them. Picking a tab starts it again.
+  const [paused, setPaused] = useState(false);
 
   useEffect(() => {
-    if (reduce) return;
+    if (reduce || paused) return;
     const id = setTimeout(() => {
       setActive((a) => (a + 1) % STEPS.length);
       setRun((r) => r + 1);
     }, HOLD_MS);
     return () => clearTimeout(id);
-  }, [active, run, reduce]);
+  }, [active, run, reduce, paused]);
 
   function pick(i: number) {
     setActive(i);
     setRun((r) => r + 1);
+    setPaused(false);
   }
 
   const Stage = STAGES[active];
@@ -254,6 +326,7 @@ export function HowItWorks() {
             aria-controls="how-stage"
             onClick={() => pick(i)}
             className="tab"
+            data-paused={paused || undefined}
             style={{ "--tab-ms": `${HOLD_MS}ms` } as React.CSSProperties}
           >
             <span className="tab-track">
@@ -272,7 +345,7 @@ export function HowItWorks() {
           <h3 className="display mt-3 text-3xl sm:text-4xl">{step.label}</h3>
           <p className="mt-4 max-w-md leading-relaxed text-muted">{step.body}</p>
         </div>
-        <div key={`s${active}`} className="stage-in min-h-[17rem]">
+        <div key={`s${active}`} className="stage-in min-h-[17rem]" onPointerDownCapture={() => setPaused(true)}>
           <Stage />
         </div>
       </div>
