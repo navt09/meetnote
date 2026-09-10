@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { describeSlot, isWeekend, nextWorkday, parseDue, slotFor } from "../schedule";
+import { describeSlot, dueLabel, isOverdue, isWeekend, nextWorkday, parseDue, slotFor } from "../schedule";
 
 // Tuesday 8 September 2026, 14:30 local.
 const NOW = new Date(2026, 8, 8, 14, 30);
@@ -94,5 +94,46 @@ describe("describeSlot", () => {
     const text = describeSlot({ start: new Date(2026, 8, 15, 9, 0), end: new Date(2026, 8, 15, 9, 30) });
     expect(text).toMatch(/Sep/);
     expect(text).toMatch(/9/);
+  });
+});
+
+describe("abbreviated weekdays", () => {
+  // A Wednesday.
+  const now = new Date("2026-09-09T10:00:00");
+
+  it("reads the short forms people actually say", () => {
+    for (const text of ["Thu", "Thurs", "thursday", "by Thurs."]) {
+      const at = parseDue(text, now);
+      expect(at, text).not.toBeNull();
+      expect(at!.getDay(), text).toBe(4);
+    }
+  });
+
+  it("still means the next one, never today", () => {
+    expect(parseDue("Wed", now)!.getDate()).toBe(16);
+  });
+
+  it("does not fire on a word that merely contains one", () => {
+    expect(parseDue("saturate the market", now)).toBeNull();
+  });
+});
+
+describe("dueLabel", () => {
+  const now = new Date("2026-09-09T10:00:00");
+
+  it("names the near days rather than dating them", () => {
+    expect(dueLabel(new Date("2026-09-09T09:00:00"), now)).toBe("Today");
+    expect(dueLabel(new Date("2026-09-10T09:00:00"), now)).toBe("Tomorrow");
+  });
+
+  it("uses the weekday inside the coming week and a date beyond it", () => {
+    expect(dueLabel(new Date("2026-09-11T09:00:00"), now)).toBe("Friday");
+    expect(dueLabel(new Date("2026-09-30T09:00:00"), now)).not.toMatch(/day$/);
+  });
+
+  it("dates the past, so a gone Monday is not read as a coming one", () => {
+    expect(dueLabel(new Date("2026-09-07T09:00:00"), now)).not.toBe("Monday");
+    expect(isOverdue(new Date("2026-09-07T09:00:00"), now)).toBe(true);
+    expect(isOverdue(new Date("2026-09-09T23:00:00"), now)).toBe(false);
   });
 });

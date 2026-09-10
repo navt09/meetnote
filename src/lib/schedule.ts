@@ -29,6 +29,9 @@ export function nextWorkday(d: Date): Date {
 export function parseDue(due: string | null | undefined, now: Date): Date | null {
   const text = (due ?? "").trim().toLowerCase();
   if (!text) return null;
+  // Something that already happened is not a deadline. Without this, "last
+  // Thursday" matches the weekday branch and comes back as the coming one.
+  if (/\b(last|previous|yesterday)\b/.test(text)) return null;
 
   const at = (base: Date, days: number) => {
     const d = new Date(base);
@@ -40,9 +43,20 @@ export function parseDue(due: string | null | undefined, now: Date): Date | null
   if (/\btoday\b/.test(text)) return at(now, 0);
   if (/\btomorrow\b/.test(text)) return at(now, 1);
 
-  const weekdays = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+  // Full names and the three-letter forms people actually say in meetings.
+  // "Wed" and "Thurs" were being dropped, which meant a task with a real
+  // deadline showed no date at all.
+  const weekdays = [
+    ["sunday", "sun"],
+    ["monday", "mon"],
+    ["tuesday", "tue", "tues"],
+    ["wednesday", "wed", "weds"],
+    ["thursday", "thu", "thur", "thurs"],
+    ["friday", "fri"],
+    ["saturday", "sat"],
+  ];
   for (let i = 0; i < weekdays.length; i++) {
-    if (new RegExp(`\\b${weekdays[i]}\\b`).test(text)) {
+    if (weekdays[i].some((name) => new RegExp(`\\b${name}\\.?\\b`).test(text))) {
       // "Thursday" means the next one, and today doesn't count.
       let delta = (i - now.getDay() + 7) % 7;
       if (delta === 0) delta = 7;
@@ -100,4 +114,36 @@ export function describeSlot(slot: Slot): string {
   const date = slot.start.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
   const time = slot.start.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   return `${date}, ${time}`;
+}
+
+/* ---------- naming a deadline ---------- */
+
+/** Midnight local, so two dates in the same day compare equal. */
+function startOfDay(d: Date): Date {
+  const out = new Date(d);
+  out.setHours(0, 0, 0, 0);
+  return out;
+}
+
+/** Whole days from now's day to at's day. Negative means it has passed. */
+export function daysUntil(at: Date, now: Date): number {
+  return Math.round((startOfDay(at).getTime() - startOfDay(now).getTime()) / 86_400_000);
+}
+
+export function isOverdue(at: Date, now: Date): boolean {
+  return daysUntil(at, now) < 0;
+}
+
+/**
+ * What to call a deadline in a list: "Today", "Tomorrow", the weekday if it is
+ * inside the coming week, and a plain date after that. Anything in the past is
+ * dated, never called "Monday", because a Monday that has already gone reads
+ * as one that is coming.
+ */
+export function dueLabel(at: Date, now: Date): string {
+  const days = daysUntil(at, now);
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  if (days > 1 && days < 7) return at.toLocaleDateString(undefined, { weekday: "long" });
+  return at.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }

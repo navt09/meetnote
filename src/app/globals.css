@@ -734,6 +734,27 @@ body.app .eyebrow { color: var(--faint); }
 .rail-link:hover { color: var(--rail-fg); }
 .rail-link[aria-current="page"] { color: #1c1b18; font-weight: 600; }
 
+/* ---------- the deadline list ---------- */
+
+.due-link {
+  display: flex; align-items: flex-start; gap: 0.55rem;
+  width: 100%; text-align: left;
+  padding: 0.4rem 0.5rem; margin-left: -0.5rem;
+  border-radius: 7px;
+  font-size: 0.875rem; line-height: 1.35;
+  color: var(--muted);
+  transition: color 140ms ease, background-color 140ms ease;
+}
+.due-link:hover { color: var(--fg); background: var(--panel-hi); }
+.due-mark { margin-top: 0.42rem; height: 0.4rem; width: 0.4rem; border-radius: 999px; flex: none; }
+
+/* Where you landed, for long enough to see it and not long enough to nag. */
+@keyframes taskFlash {
+  from { background: color-mix(in srgb, var(--work) 24%, transparent); }
+  to { background: transparent; }
+}
+.task-flash { animation: taskFlash 1.8s ease-out; }
+
 /* ---------- segmented choice ---------- */
 /* Two or three options where exactly one is on. Shares its edges rather than
    sitting as separate buttons, so it reads as one control. */

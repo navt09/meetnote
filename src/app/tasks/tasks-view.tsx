@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState, PageHead } from "@/components/ui";
@@ -15,7 +15,20 @@ const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
-export default function TasksView({ initial, loadError, drafted }: { initial: PublicTask[]; loadError: string | null; drafted: string[] }) {
+/** One deadline, dated on the server where "Thursday" has a fixed meaning. */
+export type DueEntry = { id: string; label: string; overdue: boolean };
+
+export default function TasksView({
+  initial,
+  loadError,
+  drafted,
+  due,
+}: {
+  initial: PublicTask[];
+  loadError: string | null;
+  drafted: string[];
+  due: DueEntry[];
+}) {
   const toast = useToast();
   const router = useRouter();
   const [tasks, setTasks] = useState<PublicTask[]>(initial);
@@ -24,6 +37,9 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
   const [hasDraft, setHasDraft] = useState<Set<string>>(new Set(drafted));
   const [drafting, setDrafting] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState<string | null>(null);
+  // The row to jump to. Carries a counter so picking the same deadline twice
+  // in a row still moves and flashes.
+  const [target, setTarget] = useState<{ id: string; n: number } | null>(null);
   const error = loadError;
 
   /** Blocks time out on the user's own calendar. Nobody else is invited or emailed. */
@@ -54,9 +70,37 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
     }
   }
 
+  // Built from the current tasks rather than the server's list, so ticking one
+  // off drops it out of the deadlines without a round trip.
+  const schedule = useMemo(() => {
+    const byId = new Map(tasks.map((t) => [t.id, t]));
+    return due.flatMap((d) => {
+      const task = byId.get(d.id);
+      return task && task.status === "open" ? [{ ...d, task }] : [];
+    });
+  }, [tasks, due]);
+
   const owners = useMemo(() => ownersOf(tasks), [tasks]);
   const visible = useMemo(() => sortTasks(filterTasks(tasks, filter, owner)), [tasks, filter, owner]);
   const openCount = useMemo(() => tasks.filter((t) => t.status === "open").length, [tasks]);
+
+  // Scrolling happens in an effect, after the row it is looking for has been
+  // rendered by the filter change that may have just been made.
+  useEffect(() => {
+    if (!target) return;
+    document.getElementById(`task-${target.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    const id = setTimeout(() => setTarget(null), 1800);
+    return () => clearTimeout(id);
+  }, [target]);
+
+  function jumpTo(id: string) {
+    // A deadline is no use if pressing it lands on a filter that hides the row.
+    if (!visible.some((t) => t.id === id)) {
+      setFilter("all");
+      setOwner(null);
+    }
+    setTarget((prev) => ({ id, n: (prev?.n ?? 0) + 1 }));
+  }
 
   async function toggle(task: PublicTask) {
     const next = task.status === "done" ? "open" : "done";
@@ -133,6 +177,7 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
         />
       ) : null}
 
+      <div className={schedule.length > 0 ? "grid gap-6 lg:grid-cols-[1fr_15rem] lg:items-start" : ""}>
       {visible.length > 0 ? (
         <section className="band band-work">
           <div className="band-head">
@@ -143,7 +188,7 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
             {visible.map((t) => {
               const done = t.status === "done";
               return (
-                <li key={t.id} className="band-row">
+                <li key={t.id} id={`task-${t.id}`} className={`band-row scroll-mt-24 ${target?.id === t.id ? "task-flash" : ""}`}>
                   <div className="flex items-start gap-3">
                     <button
                       onClick={() => toggle(t)}
@@ -203,6 +248,55 @@ export default function TasksView({ initial, loadError, drafted }: { initial: Pu
           </ul>
         </section>
       ) : null}
+
+      {schedule.length > 0 ? (
+        <aside className="order-first lg:order-last">
+          <p className="rule-label">Due</p>
+          <ol className="mt-3 flex flex-col">
+            {schedule.map((d, i) => {
+              const first = i === 0 || schedule[i - 1].label !== d.label;
+              return (
+                <li key={d.id}>
+                  {first ? (
+                    <p
+                      className={`mt-3 flex items-baseline gap-2 text-xs font-medium first:mt-0 ${
+                        d.overdue ? "text-danger" : "text-muted"
+                      }`}
+                    >
+                      {d.label}
+                      {d.overdue ? <span className="text-[0.6875rem] font-normal">overdue</span> : null}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => jumpTo(d.id)}
+                    className="due-link"
+                    aria-label={`Go to ${d.task.title}`}
+                  >
+                    <span
+                      aria-hidden
+                      className="due-mark"
+                      style={{
+                        background:
+                          d.task.priority === "high"
+                            ? "var(--work)"
+                            : d.task.priority === "medium"
+                              ? "var(--warn)"
+                              : "var(--panel-border-hi)",
+                      }}
+                    />
+                    <span className="min-w-0">
+                      <span className="block truncate">{d.task.title}</span>
+                      {d.task.owner ? <span className="block truncate text-xs text-faint">{d.task.owner}</span> : null}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </aside>
+      ) : null}
+      </div>
     </section>
   );
 }

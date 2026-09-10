@@ -1,4 +1,5 @@
 import type { ActionItem } from "./schema";
+import { parseDue } from "./schedule";
 
 export type TaskStatus = "open" | "done" | "dismissed";
 export type TaskPriority = "low" | "medium" | "high";
@@ -14,6 +15,8 @@ export type TaskRow = {
   details: string;
   owner: string | null;
   due: string | null;
+  /** The deadline as a moment, resolved when the task was written. */
+  due_at: string | null;
   priority: TaskPriority;
   kind: TaskKind;
   status: TaskStatus;
@@ -32,7 +35,10 @@ export type PublicTask = {
   title: string;
   details: string;
   owner: string | null;
+  /** What the meeting actually said, e.g. "Thursday" or "before the demo". */
   due: string | null;
+  /** Those words pinned to a moment when the task was written. */
+  dueAt: string | null;
   priority: TaskPriority;
   kind: TaskKind;
   status: TaskStatus;
@@ -51,6 +57,7 @@ export function toPublicTask(row: TaskRow, meetingTitle: string): PublicTask {
     details: row.details,
     owner: row.owner,
     due: row.due,
+    dueAt: row.due_at ?? null,
     priority: row.priority,
     kind: row.kind,
     status: row.status,
@@ -63,8 +70,15 @@ export function toPublicTask(row: TaskRow, meetingTitle: string): PublicTask {
 const PRIORITIES: TaskPriority[] = ["low", "medium", "high"];
 const KINDS: TaskKind[] = ["bug", "feature", "task", "follow_up", "other"];
 
-/** Turns extracted action items into rows ready to insert. Defensive about bad values. */
-export function actionItemsToRows(items: ActionItem[], userId: string, meetingId: string) {
+/**
+ * Turns extracted action items into rows ready to insert. Defensive about bad
+ * values.
+ *
+ * `due` keeps the words from the meeting; `due_at` pins them to a moment using
+ * `now`, which is the clock at extraction. Resolving the phrase again later is
+ * what made deadlines walk forward for ever, so it is resolved exactly once.
+ */
+export function actionItemsToRows(items: ActionItem[], userId: string, meetingId: string, now: Date = new Date()) {
   return items.map((a, idx) => ({
     user_id: userId,
     meeting_id: meetingId,
@@ -73,6 +87,7 @@ export function actionItemsToRows(items: ActionItem[], userId: string, meetingId
     details: (a.details ?? "").trim().slice(0, 2000),
     owner: a.owner?.trim() ? a.owner.trim().slice(0, 120) : null,
     due: a.due?.trim() ? a.due.trim().slice(0, 120) : null,
+    due_at: parseDue(a.due, now)?.toISOString() ?? null,
     priority: (PRIORITIES as string[]).includes(a.priority) ? a.priority : "medium",
     kind: (KINDS as string[]).includes(a.kind) ? a.kind : "task",
   }));

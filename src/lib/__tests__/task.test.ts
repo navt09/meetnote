@@ -3,7 +3,7 @@ import { actionItemsToRows, filterTasks, kindLabel, ownersOf, sortTasks, type Pu
 import type { ActionItem } from "../schema";
 
 const task = (over: Partial<PublicTask>): PublicTask => ({
-  id: "t", meetingId: "m", meetingTitle: "Standup", title: "T", details: "", owner: null, due: null,
+  id: "t", meetingId: "m", meetingTitle: "Standup", title: "T", details: "", owner: null, due: null, dueAt: null,
   priority: "medium", kind: "task", status: "open", completedAt: null, createdAt: "2026-09-01T00:00:00Z",
   calendarEventUrl: null, ...over,
 });
@@ -77,5 +77,30 @@ describe("kindLabel", () => {
   it("reads follow_up as words", () => {
     expect(kindLabel("follow_up")).toBe("follow up");
     expect(kindLabel("bug")).toBe("bug");
+  });
+});
+
+describe("due_at is resolved once, at extraction", () => {
+  it("pins the words to a moment", () => {
+    // A Tuesday.
+    const now = new Date(2026, 8, 8, 14, 30);
+    const [row] = actionItemsToRows(
+      [{ title: "Ship it", details: "", owner: null, due: "Thursday", priority: "high", kind: "task" }],
+      "u1",
+      "m1",
+      now,
+    );
+    expect(row.due).toBe("Thursday");
+    expect(new Date(row.due_at!).getDay()).toBe(4);
+  });
+
+  it("leaves it null when nothing concrete was said, rather than inventing one", () => {
+    const [row] = actionItemsToRows(
+      [{ title: "Ship it", details: "", owner: null, due: "when we get to it", priority: "low", kind: "task" }],
+      "u1",
+      "m1",
+      new Date(2026, 8, 8),
+    );
+    expect(row.due_at).toBeNull();
   });
 });

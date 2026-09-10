@@ -18,6 +18,10 @@ Tabs when signed in, in order: **Home** (`/dashboard`), **Notes** (`/notes`, the
 - Dashboard aggregation lives in `src/lib/stats.ts`, all pure and time-injectable so tests aren't date-dependent.
 
 ## Tasks
+**A deadline is resolved once, when the task is written.** `due` keeps what the meeting said ("Thursday", "before the demo"); `actionItemsToRows` pins it to `due_at` using the clock at extraction. Do not re-parse `due` at read time: a task agreed three weeks ago and due "Thursday" resolves to *next* Thursday on every page load, so it can never be late and the date walks forward for ever. `/tasks` reads `due_at` and only falls back to parsing for rows written before that column existed. `parseDue` refuses anything containing "last", "previous" or "yesterday", which used to come back as the coming weekday.
+
+The deadline list on `/tasks` is derived from live client state, so ticking a task off drops it out without a round trip; pressing an entry clears any filter that would hide the row, then scrolls to it and flashes it.
+
 Action items are mirrored from `meetings.notes` into a real `tasks` table by `syncTasks()` in `src/lib/pipeline.ts`, keyed on `(meeting_id, idx)`. Re-running extraction upserts the same rows, so a person's "done" tick survives; rows beyond the new count are pruned. Only `status` is editable through the API. Deleting a meeting cascades to its tasks.
 
 ## Layout
