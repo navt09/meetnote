@@ -33,7 +33,18 @@ export type ExtractResult = {
   model: string;
 };
 
-export async function extractNotes(segments: TranscriptSegment[], opts: { name?: string | null } = {}): Promise<ExtractResult> {
+/**
+ * Reasoning effort, typed from the SDK so a level the API drops or renames
+ * fails to compile rather than at runtime. Reasoning is billed as output, and
+ * output is 5x input on Sonnet, so this is the biggest lever on extraction
+ * cost. It is only set by the comparison harness; production leaves it unset.
+ */
+export type Effort = NonNullable<Anthropic.Messages.OutputConfig["effort"]>;
+
+export async function extractNotes(
+  segments: TranscriptSegment[],
+  opts: { name?: string | null; effort?: Effort } = {},
+): Promise<ExtractResult> {
   const client = new Anthropic();
   const label = opts.name ?? "You";
 
@@ -51,7 +62,9 @@ export async function extractNotes(segments: TranscriptSegment[], opts: { name?:
         content: `Here is the transcript of a meeting. Produce the structured notes.\n\n<transcript>\n${transcript}\n</transcript>`,
       },
     ],
-    output_config: { format: zodOutputFormat(MeetingNotes) },
+    // Spread rather than `effort: opts.effort`: with no effort asked for, the
+    // key must be absent entirely so the request is byte-identical to before.
+    output_config: { format: zodOutputFormat(MeetingNotes), ...(opts.effort ? { effort: opts.effort } : {}) },
   });
 
   const message = await stream.finalMessage();
