@@ -105,15 +105,25 @@ export function isUsable(provider: Provider, config: ConnectorConfig): boolean {
   }
 }
 
-/** Trims a Jira site to a bare origin: "https://acme.atlassian.net". */
+/**
+ * Trims a Jira site to a bare origin: "https://acme.atlassian.net".
+ *
+ * The server later fetches from this address with the customer's own token, so
+ * it must be a public hostname: IP literals and localhost are refused so the
+ * form cannot be used to make this server call something on its own network.
+ */
 export function normaliseJiraSite(input: string): string | null {
   const raw = (input ?? "").trim().replace(/\/+$/, "");
   if (!raw) return null;
   const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
   try {
     const url = new URL(withScheme);
-    if (!url.hostname.includes(".")) return null;
-    return `https://${url.hostname}`;
+    const host = url.hostname.toLowerCase();
+    if (!host.includes(".")) return null;
+    if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return null;
+    // Anything made only of digits and dots is an IPv4 literal; brackets mean IPv6.
+    if (/^[\d.]+$/.test(host) || host.startsWith("[")) return null;
+    return `https://${host}`;
   } catch {
     return null;
   }

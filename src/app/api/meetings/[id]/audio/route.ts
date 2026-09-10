@@ -16,7 +16,10 @@ export async function GET(req: Request, ctx: Ctx) {
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   const { data, error } = await auth.db.from("meetings").select("storage_path").eq("id", id).maybeSingle();
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    console.error(JSON.stringify({ event: "audio_lookup_error", id, message: error.message }));
+    return NextResponse.json({ error: "Could not load this meeting." }, { status: 500 });
+  }
   const path = (data as { storage_path: string | null } | null)?.storage_path;
   if (!path || !pathBelongsTo(path, auth.user.id)) return NextResponse.json({ error: "No audio for this meeting" }, { status: 404 });
 
@@ -25,6 +28,10 @@ export async function GET(req: Request, ctx: Ctx) {
   const { data: signed, error: signError } = await admin.storage
     .from(RECORDINGS_BUCKET)
     .createSignedUrl(path, 600, { download: `meeting-${id.slice(0, 8)}.${ext}` });
-  if (signError || !signed) return NextResponse.json({ error: signError?.message ?? "Could not sign URL" }, { status: 502 });
+  if (signError || !signed) {
+    // Vendor detail stays in the log; the browser gets a plain sentence.
+    console.error(JSON.stringify({ event: "audio_sign_error", id, message: signError?.message ?? "no url" }));
+    return NextResponse.json({ error: "We couldn't reach the stored audio. Try again in a minute." }, { status: 502 });
+  }
   return NextResponse.redirect(signed.signedUrl, { status: 302 });
 }

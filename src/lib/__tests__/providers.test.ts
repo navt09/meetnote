@@ -90,6 +90,11 @@ describe("normaliseJiraSite", () => {
   it("rejects nonsense", () => {
     for (const bad of ["", "   ", "acme", "not a url"]) expect(normaliseJiraSite(bad)).toBeNull();
   });
+  it("refuses addresses that would point the server at its own network", () => {
+    for (const bad of ["127.0.0.1", "http://10.0.0.5", "169.254.169.254", "localhost", "https://[::1]", "jira.internal.local"]) {
+      expect(normaliseJiraSite(bad)).toBeNull();
+    }
+  });
 });
 
 describe("isValidSlackWebhook", () => {
