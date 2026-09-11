@@ -199,9 +199,18 @@ test.describe("every page renders what it was given", () => {
     // Jira is not connected, so it is not on offer at all.
     await expect(card.getByRole("button", { name: "Jira", exact: true })).toHaveCount(0);
 
+    // One press does both, and the button says both.
+    await expect(card.getByRole("button", { name: "Approve and send" })).toBeVisible();
+
     // The choice is the draft's, not the page's: it survives a reload.
     await page.reload();
-    await expect(page.locator("li.glass", { hasText: "Fix the CSV export crash" }).getByText(/not be tracked or assigned/)).toBeVisible();
+    const again = page.locator("li.glass", { hasText: "Fix the CSV export crash" });
+    await expect(again.getByText(/not be tracked or assigned/)).toBeVisible();
+
+    // Copying sends nothing, so the button stops promising to.
+    await again.getByRole("button", { name: "Copy only", exact: true }).click();
+    await expect(again.getByRole("button", { name: "Approve", exact: true })).toBeVisible();
+    await expect(again.getByRole("button", { name: "Approve and send" })).toHaveCount(0);
   });
 
   test("an approved draft says where it ended up", async ({ page }) => {

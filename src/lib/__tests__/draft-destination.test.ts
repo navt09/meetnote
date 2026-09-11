@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  approveLabel,
   deliveredLabel,
   destinationNote,
   destinationsFor,
@@ -128,6 +129,18 @@ describe("deliveredLabel", () => {
     // Null is both "approved for copying" and "approved but the send failed".
     // Neither of them sent anything, which is the part that matters here.
     expect(deliveredLabel(null)).toBe("Not sent, kept to copy");
+  });
+});
+
+describe("approveLabel", () => {
+  it("says it sends, where it sends", () => {
+    expect(approveLabel("linear")).toBe("Approve and send");
+    expect(approveLabel("slack")).toBe("Approve and send");
+    expect(approveLabel("gmail")).toBe("Approve and send");
+  });
+
+  it("does not promise a send that will not happen", () => {
+    expect(approveLabel("copy")).toBe("Approve");
   });
 });
 

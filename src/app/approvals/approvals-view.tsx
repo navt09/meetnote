@@ -7,6 +7,7 @@ import { deleteJson, patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState, PageHead, Skeleton } from "@/components/ui";
 import {
+  approveLabel,
   deliveredLabel,
   destinationName,
   destinationNote,
@@ -409,7 +410,7 @@ export default function ApprovalsView({
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-panel-border pt-4">
                     {d.status === "pending" ? (
                       <button className="btn btn-approve !py-1.5 text-xs" disabled={busy === d.id} onClick={() => approve(d)}>
-                        Approve
+                        {busy === d.id ? "Working…" : approveLabel(chosenFor(d))}
                       </button>
                     ) : null}
                     {d.status === "approved" && !d.deliveredTo && chosenFor(d) !== "copy" ? (

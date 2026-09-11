@@ -151,6 +151,19 @@ export function deliveredLabel(to: SendTo | null): string {
   }
 }
 
+/**
+ * What the approve button says. It carries the send, so it should say so: one
+ * press both approves the wording and creates the issue, and "Approve" alone
+ * hid half of what it did.
+ *
+ * Not said where nothing would be sent, though. A button promising to send,
+ * on a draft that is only going to sit here and be copied, is the same kind of
+ * confidently wrong label this replaced.
+ */
+export function approveLabel(to: SendTo): string {
+  return to === "copy" ? "Approve" : "Approve and send";
+}
+
 export function isSendTo(v: string | null | undefined): v is SendTo {
   return v === "linear" || v === "jira" || v === "slack" || v === "gmail" || v === "copy";
 }
