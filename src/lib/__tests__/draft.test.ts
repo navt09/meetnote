@@ -4,7 +4,7 @@ import { DRAFT_NOTE_MAX, cleanDraftNote } from "../agent";
 
 const draft = (over: Partial<PublicDraft>): PublicDraft => ({
   id: "d", meetingId: "m", meetingTitle: "Standup", taskId: null, kind: "ticket", subject: "S", body: "B",
-  recipient: null, status: "pending", approvedAt: null, sendTo: null, externalUrl: null,
+  recipient: null, status: "pending", approvedAt: null, sendTo: null, deliveredTo: null, externalUrl: null,
   createdAt: "2026-09-01T00:00:00Z", ...over,
 });
 
@@ -20,6 +20,10 @@ describe("toPublicDraft", () => {
     for (const hidden of ["user_id", "usage", "cost_usd", "model", "updated_at", "destination"]) {
       expect(pub).not.toHaveProperty(hidden);
     }
+    // The raw column stays behind; where it went comes across under a name
+    // that cannot be mistaken for where it was meant to go. It is the
+    // reader's own draft, so telling them is the point, not a leak.
+    expect(pub.deliveredTo).toBeNull();
     expect(pub.subject).toBe("Fix it");
     expect(pub.meetingTitle).toBe("Standup");
   });

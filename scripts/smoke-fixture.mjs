@@ -239,6 +239,7 @@ export async function createFixture() {
   }));
   const { data: taskRows } = await admin.from("tasks").insert(rows).select("id,idx");
   const firstTask = (taskRows ?? []).find((t) => t.idx === 0);
+  const secondTask = (taskRows ?? []).find((t) => t.idx === 1);
 
   // One ticket already waiting on a decision, so Approvals has something to
   // render. Written straight into the table: the real route would call the
@@ -256,6 +257,28 @@ export async function createFixture() {
         // Where it would go if approved. Set as the real route sets it, from
         // the account's preference below.
         send_to: "linear",
+      }),
+    );
+  }
+
+  // And one already approved and delivered, so the Approved list has a draft
+  // that can say where it ended up. A different task, because one live draft
+  // per task is a unique index.
+  if (secondTask) {
+    await withRetry("could not create the smoke sent draft", () =>
+      admin.from("drafts").insert({
+        user_id: userId,
+        meeting_id: meeting.id,
+        task_id: secondTask.id,
+        kind: "ticket",
+        subject: "Add a row limit to the export endpoint",
+        body: "Cap the export and paginate beyond the cap.",
+        status: "approved",
+        approved_at: new Date().toISOString(),
+        send_to: "linear",
+        // The receipt, written only because a send succeeded.
+        destination: "linear",
+        external_url: "https://linear.app/smoke/issue/ENG-42",
       }),
     );
   }

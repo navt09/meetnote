@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  deliveredLabel,
   destinationNote,
   destinationsFor,
   isSendTo,
@@ -105,6 +106,21 @@ describe("destinationNote", () => {
   it("is plain that copying sends nothing", () => {
     expect(destinationNote("copy", "ticket")).toContain("Nothing is created anywhere");
     expect(destinationNote("copy", "email")).toContain("Nothing is sent");
+  });
+});
+
+describe("deliveredLabel", () => {
+  it("names where it went, with the verb that destination actually did", () => {
+    expect(deliveredLabel("linear")).toBe("Sent to Linear");
+    expect(deliveredLabel("jira")).toBe("Sent to Jira");
+    expect(deliveredLabel("slack")).toBe("Posted to Slack");
+    expect(deliveredLabel("gmail")).toBe("Sent with Gmail");
+  });
+
+  it("does not claim a send that never happened", () => {
+    // Null is both "approved for copying" and "approved but the send failed".
+    // Neither of them sent anything, which is the part that matters here.
+    expect(deliveredLabel(null)).toBe("Not sent, kept to copy");
   });
 });
 

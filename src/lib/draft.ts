@@ -43,6 +43,12 @@ export type PublicDraft = {
   approvedAt: string | null;
   /** Where approving would send it. Null on rows written before it was a choice. */
   sendTo: SendTo | null;
+  /**
+   * Where it actually went. Null until a send succeeds, and null for ever on a
+   * draft that was only ever copied out. Deliberately separate from `sendTo`:
+   * an approval whose send failed keeps its intent and gains no receipt.
+   */
+  deliveredTo: SendTo | null;
   externalUrl: string | null;
   createdAt: string;
 };
@@ -73,6 +79,7 @@ export function toPublicDraft(row: DraftRow, meetingTitle: string): PublicDraft 
     status: row.status,
     approvedAt: row.approved_at,
     sendTo: isSendTo(row.send_to) ? row.send_to : null,
+    deliveredTo: isSendTo(row.destination) ? row.destination : null,
     externalUrl: row.external_url,
     createdAt: row.created_at,
   };

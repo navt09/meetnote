@@ -7,6 +7,7 @@ import { deleteJson, patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState, PageHead, Skeleton } from "@/components/ui";
 import {
+  deliveredLabel,
   destinationName,
   destinationNote,
   destinationsFor,
@@ -357,6 +358,22 @@ export default function ApprovalsView({
               ) : (
                 <>
                   <DraftBody markdown={d.body} />
+                  {d.status === "approved" ? (
+                    /* Past tense, and from the receipt rather than the intent:
+                       an approval whose send failed kept the intent and gained
+                       no receipt, and "Sent to Linear" would be a lie for it. */
+                    <p className="mt-4 text-xs text-muted">
+                      {deliveredLabel(d.deliveredTo)}
+                      {d.externalUrl ? (
+                        <>
+                          {" · "}
+                          <a href={d.externalUrl} target="_blank" rel="noreferrer" className="text-accent transition-opacity hover:opacity-70">
+                            open it
+                          </a>
+                        </>
+                      ) : null}
+                    </p>
+                  ) : null}
                   {d.status === "pending" ? (
                     <Destination
                       draft={d}

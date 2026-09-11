@@ -121,6 +121,30 @@ export function destinationNote(to: SendTo, kind: DraftKind): string {
   }
 }
 
+/**
+ * What happened, once a draft has been approved. Read on the Approved list,
+ * where the question is no longer "where will this go" but "where did it go",
+ * and those are different facts: an approval whose send failed has an intent
+ * and no receipt, and saying "Sent to Linear" for it would be a lie.
+ *
+ * Each destination gets its own verb because they are not the same act. A
+ * tracker gains an issue, a channel gains a message, a mailbox sends.
+ */
+export function deliveredLabel(to: SendTo | null): string {
+  switch (to) {
+    case "linear":
+      return "Sent to Linear";
+    case "jira":
+      return "Sent to Jira";
+    case "slack":
+      return "Posted to Slack";
+    case "gmail":
+      return "Sent with Gmail";
+    default:
+      return "Not sent, kept to copy";
+  }
+}
+
 export function isSendTo(v: string | null | undefined): v is SendTo {
   return v === "linear" || v === "jira" || v === "slack" || v === "gmail" || v === "copy";
 }

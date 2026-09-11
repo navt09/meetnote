@@ -204,6 +204,23 @@ test.describe("every page renders what it was given", () => {
     await expect(page.locator("li.glass", { hasText: "Fix the CSV export crash" }).getByText(/not be tracked or assigned/)).toBeVisible();
   });
 
+  test("an approved draft says where it ended up", async ({ page }) => {
+    await page.goto("/approvals");
+    await page.getByRole("button", { name: "Approved", exact: true }).click();
+
+    const sent = page.locator("li.glass", { hasText: "Add a row limit to the export" });
+    await expect(sent.getByText("Sent to Linear")).toBeVisible();
+    await expect(sent.getByRole("link", { name: "open it" })).toHaveAttribute(
+      "href",
+      "https://linear.app/smoke/issue/ENG-42",
+    );
+    await page.screenshot({ path: "test-results/approvals-sent.png", fullPage: true });
+
+    // Past tense only: a draft still waiting says where it would go, never
+    // where it went.
+    await expect(sent.getByText("Send to")).toHaveCount(0);
+  });
+
   test("the theme sticks across a reload", async ({ page }) => {
     await page.goto("/settings");
 
