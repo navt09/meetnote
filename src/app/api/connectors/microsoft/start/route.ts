@@ -31,5 +31,9 @@ export async function GET(req: Request) {
     maxAge: 600,
   });
 
-  return NextResponse.redirect(authUrl(new URL(req.url).origin, state));
+  // `add` names one organisation-wide product to ask for on top of the base.
+  // Anything else is ignored by scopesToRequest rather than trusted, so this
+  // cannot be used to talk the consent screen into a wider permission.
+  const add = new URL(req.url).searchParams.get("add");
+  return NextResponse.redirect(authUrl(new URL(req.url).origin, state, add));
 }

@@ -66,6 +66,8 @@ export type MicrosoftConfig = {
   name?: string;
   email?: string;
   scopes?: string[];
+  /** A personal Microsoft account, which has no Teams channels or SharePoint sites at all. */
+  personal?: boolean;
   teamId?: string;
   teamName?: string;
   channelId?: string;

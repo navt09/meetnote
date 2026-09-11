@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getAuth } from "@/lib/supabase/server";
-import { saveConnector } from "@/lib/connector-store";
+import { loadConnector, saveConnector } from "@/lib/connector-store";
 import { safeEqual } from "@/lib/crypto";
 import { backToSettings } from "@/lib/oauth-state";
-import { exchangeCode, SCOPE_MAIL_SEND, whoAmI } from "@/lib/providers/microsoft";
+import { exchangeCode, whoAmI } from "@/lib/providers/microsoft";
+import { enableableProducts, hasScope } from "@/lib/microsoft-scopes";
 import { STATE_COOKIE } from "../start/route";
 import type { MicrosoftConfig, MicrosoftCredentials } from "@/lib/connectors";
 import type { SettingsFlashCode } from "@/lib/flash";
@@ -41,7 +42,11 @@ export async function GET(req: Request) {
   if (!code) return back(origin, { error: "microsoft_no_code" });
 
   try {
-    const { tokens, scopes } = await exchangeCode(origin, code);
+    // What this connection could already do. Consent is incremental, so
+    // Microsoft returns only the scopes of the request just made, and taking
+    // that literally would forget Outlook the moment somebody enabled Teams.
+    const before = await loadConnector<MicrosoftCredentials, MicrosoftConfig>(auth.user.id, "microsoft");
+    const { tokens, scopes, personal } = await exchangeCode(origin, code, before?.config.scopes);
     const credentials: MicrosoftCredentials = {
       refreshToken: tokens.refresh_token!,
       accessToken: tokens.access_token,
@@ -58,14 +63,13 @@ export async function GET(req: Request) {
       console.error(JSON.stringify({ event: "microsoft_me_failed", message: err instanceof Error ? err.message : String(err) }));
     }
 
-    const config: MicrosoftConfig = { scopes, name: me.name, email: me.email };
+    const config: MicrosoftConfig = { ...before?.config, scopes, personal, name: me.name, email: me.email };
     await saveConnector(auth.user.id, "microsoft", credentials, config);
 
-    // A company tenant can withhold Teams and SharePoint until an admin
-    // approves them, which is a normal outcome rather than a fault. Sending
-    // mail is the one worth calling out if it is missing, because it is the
-    // part a person can consent to alone.
-    const partial = !scopes.includes(SCOPE_MAIL_SEND) || scopes.length < 4;
+    // Only the base is expected here. Teams and SharePoint are asked for
+    // separately and only where they could work, so their absence is the
+    // normal state rather than a partial connection.
+    const partial = !hasScope(scopes, "Mail.Send") || enableableProducts(scopes, personal).length > 0;
     return back(origin, { notice: partial ? "microsoft_partial" : "microsoft_connected" });
   } catch (err) {
     // Microsoft's own wording stays in the log; the page shows a fixed sentence.

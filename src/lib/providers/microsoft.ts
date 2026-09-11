@@ -1,6 +1,7 @@
 import "server-only";
 import { saveConnector } from "../connector-store";
 import type { MicrosoftConfig, MicrosoftCredentials } from "../connectors";
+import { BASE_SCOPES, mergeScopes, personalAccount, scopesToRequest } from "../microsoft-scopes";
 
 /**
  * Microsoft, through one sign-in.
@@ -12,14 +13,9 @@ import type { MicrosoftConfig, MicrosoftCredentials } from "../connectors";
  * mean five sign-ins for one account, which is what people actually complain
  * about with Microsoft integrations.
  *
- * Scope choice matters, and not only commercially:
- *
- *  - `Mail.Send` and `Calendars.ReadWrite` are ordinary delegated scopes a
- *    person can consent to for themselves.
- *  - `ChannelMessage.Send`, `Sites.ReadWrite.All` and `Tasks.ReadWrite` are
- *    commonly locked behind **tenant admin consent**. An individual at a
- *    company may connect and find some of them missing, which is why what was
- *    actually granted is recorded rather than assumed, exactly as with Google.
+ * Consent is incremental, and that is not a nicety: see microsoft-scopes.ts
+ * for why asking for everything at once locks personal accounts out of the
+ * whole connector.
  *
  * `offline_access` is what produces a refresh token at all. Without it the
  * connection dies in about an hour and looks like a bug.
@@ -30,27 +26,6 @@ import type { MicrosoftConfig, MicrosoftCredentials } from "../connectors";
  * without re-registering.
  */
 
-export const SCOPE_MAIL_SEND = "Mail.Send";
-export const SCOPE_CALENDAR = "Calendars.ReadWrite";
-export const SCOPE_TEAMS = "ChannelMessage.Send";
-export const SCOPE_TASKS = "Tasks.ReadWrite";
-export const SCOPE_SITES = "Sites.ReadWrite.All";
-export const SCOPE_FILES = "Files.ReadWrite";
-
-/** Everything asked for at consent. What is granted is checked afterwards. */
-export const SCOPES = [
-  "offline_access",
-  "User.Read",
-  SCOPE_MAIL_SEND,
-  SCOPE_CALENDAR,
-  SCOPE_TEAMS,
-  SCOPE_TASKS,
-  SCOPE_SITES,
-  SCOPE_FILES,
-] as const;
-
-/** The ones a tenant admin usually has to approve on everyone's behalf. */
-export const ADMIN_CONSENT_SCOPES = [SCOPE_TEAMS, SCOPE_SITES] as const;
 
 const AUTHORITY = "https://login.microsoftonline.com/common/oauth2/v2.0";
 const AUTH_URL = `${AUTHORITY}/authorize`;
@@ -76,14 +51,19 @@ export function redirectUri(origin: string): string {
   return new URL("/api/connectors/microsoft/callback", origin).toString();
 }
 
-export function authUrl(origin: string, state: string): string {
+/**
+ * The consent URL. `add` names one organisation-wide product to ask for on top
+ * of the base; without it only the permissions any account can grant alone are
+ * requested. See microsoft-scopes.ts for why that split exists.
+ */
+export function authUrl(origin: string, state: string, add?: string | null): string {
   const { id } = clientCreds();
   const params = new URLSearchParams({
     client_id: id,
     response_type: "code",
     redirect_uri: redirectUri(origin),
     response_mode: "query",
-    scope: SCOPES.join(" "),
+    scope: scopesToRequest(add).join(" "),
     state,
     // Show the consent screen rather than silently reusing a previous grant,
     // so a person reconnecting after an admin widened the permissions
@@ -99,6 +79,8 @@ type TokenResponse = {
   scope?: string;
   token_type: string;
   refresh_token?: string;
+  /** Present because `openid` is asked for; read only to tell personal from work. */
+  id_token?: string;
 };
 
 async function tokenRequest(body: URLSearchParams): Promise<TokenResponse> {
@@ -134,20 +116,17 @@ async function tokenRequest(body: URLSearchParams): Promise<TokenResponse> {
 }
 
 /**
- * The scopes Microsoft actually granted. Returned space separated, and without
- * the `offline_access`/`openid` family, so only the ones that gate a feature
- * are worth keeping.
+ * Turns a code into tokens.
+ *
+ * `previous` is what the connection could already do. Consent is incremental,
+ * so Microsoft returns only the scopes of the request just made: taking that
+ * literally would forget Outlook the moment somebody enabled Teams.
  */
-function grantedScopes(scope: string | undefined): string[] {
-  return (scope ?? "")
-    .split(" ")
-    .map((s) => s.trim())
-    // Graph echoes scopes fully qualified: "https://graph.microsoft.com/Mail.Send".
-    .map((s) => s.replace(/^https:\/\/graph\.microsoft\.com\//i, ""))
-    .filter((s) => s && !["offline_access", "openid", "profile", "email"].includes(s));
-}
-
-export async function exchangeCode(origin: string, code: string): Promise<{ tokens: TokenResponse; scopes: string[] }> {
+export async function exchangeCode(
+  origin: string,
+  code: string,
+  previous?: string[],
+): Promise<{ tokens: TokenResponse; scopes: string[]; personal: boolean }> {
   const { id, secret } = clientCreds();
   const tokens = await tokenRequest(
     new URLSearchParams({
@@ -161,7 +140,11 @@ export async function exchangeCode(origin: string, code: string): Promise<{ toke
   if (!tokens.refresh_token) {
     throw new MicrosoftError("Microsoft didn't return a refresh token. Try connecting again.");
   }
-  return { tokens, scopes: grantedScopes(tokens.scope) };
+  return {
+    tokens,
+    scopes: mergeScopes(previous, (tokens.scope ?? "").split(" ")),
+    personal: personalAccount(tokens.id_token),
+  };
 }
 
 /**
@@ -186,7 +169,10 @@ export async function accessTokenFor(
       client_secret: secret,
       refresh_token: creds.refreshToken,
       grant_type: "refresh_token",
-      scope: SCOPES.join(" "),
+      // What this connection was actually granted, not everything the product
+      // can ask for: requesting a scope that was never consented to fails the
+      // refresh outright and breaks a working connection.
+      scope: [...new Set([...BASE_SCOPES, ...(config.scopes ?? [])])].join(" "),
     }),
   );
 

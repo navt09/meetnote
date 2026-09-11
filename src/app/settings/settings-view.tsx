@@ -7,6 +7,7 @@ import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
 import { BrandMark } from "@/components/brand-marks";
 import { canConnect, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
+import { enableableProducts, PRODUCTS } from "@/lib/microsoft-scopes";
 import { ManageBillingButton, UpgradeButton, UpgradePanel } from "@/components/upgrade";
 import { PLANS } from "@/lib/site";
 import { settingsFlash } from "@/lib/flash";
@@ -850,18 +851,14 @@ function MicrosoftCard({
   disconnect: (p: Provider, label: string) => Promise<void>;
   locked: boolean;
 }) {
-  const config = (connector?.config ?? {}) as { scopes?: string[]; email?: string; name?: string };
+  const config = (connector?.config ?? {}) as { scopes?: string[]; email?: string; name?: string; personal?: boolean };
   const scopes = config.scopes ?? [];
-  const has = (s: string) => scopes.includes(s);
-  const parts: { label: string; ok: boolean }[] = [
-    { label: "Outlook mail", ok: has("Mail.Send") },
-    { label: "calendar", ok: has("Calendars.ReadWrite") },
-    { label: "Teams", ok: has("ChannelMessage.Send") },
-    { label: "Planner", ok: has("Tasks.ReadWrite") },
-    { label: "SharePoint", ok: has("Sites.ReadWrite.All") },
-    { label: "Excel", ok: has("Files.ReadWrite") },
-  ];
-  const missing = parts.filter((p) => !p.ok);
+  const personal = !!config.personal;
+  const on = PRODUCTS.filter((p) => scopes.includes(p.scope));
+  // Not "not granted yet" but "asked for separately". Teams and SharePoint
+  // reach organisation-wide resources, so they are requested one at a time and
+  // only where they could work at all.
+  const canEnable = enableableProducts(scopes, personal);
 
   return (
     <Row
@@ -869,7 +866,7 @@ function MicrosoftCard({
       title="Microsoft"
       connected={!!connector}
       error={connector?.lastError}
-      detail={connector ? `${config.email ?? config.name ?? "Connected"} · ${parts.filter((p) => p.ok).length} of ${parts.length} available.` : undefined}
+      detail={connector ? `${config.email ?? config.name ?? "Connected"} · ${on.map((p) => p.label).join(", ") || "nothing enabled yet"}.` : undefined}
       action={
         locked && !connector ? (
           <ConnectButton href="/api/connectors/microsoft/start" locked />
@@ -880,7 +877,7 @@ function MicrosoftCard({
         ) : (
           <>
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            <a className={`btn ${missing.length > 0 ? "btn-primary" : "btn-ghost"} !py-1.5 text-xs`} href="/api/connectors/microsoft/start">
+            <a className="btn btn-ghost !py-1.5 text-xs" href="/api/connectors/microsoft/start">
               Reconnect
             </a>
             <DisconnectButton busy={busy === "microsoft"} onClick={() => disconnect("microsoft", "Microsoft")} />
@@ -888,11 +885,28 @@ function MicrosoftCard({
         )
       }
     >
-      {connector && missing.length > 0 ? (
-        <p className="text-xs text-warn">
-          Not granted: {missing.map((m) => m.label).join(", ")}. Teams and SharePoint usually need your IT admin to approve
-          them for the whole organisation; once they have, reconnect to pick them up.
+      {connector && personal ? (
+        <p className="text-xs text-muted">
+          This is a personal Microsoft account, so Teams and SharePoint are not available on it — those are Microsoft 365
+          work and school products, and there are no channels or sites for them to reach.
         </p>
+      ) : null}
+      {connector && canEnable.length > 0 ? (
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-muted">
+            Teams and SharePoint reach things the whole organisation shares, so they are asked for separately. Your IT admin
+            may have to approve them once, for everybody.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {canEnable.map((key) => (
+              // A plain anchor: this redirects out to Microsoft's own consent
+              // screen, which next/link cannot do.
+              <a key={key} className="btn btn-ghost !py-1.5 text-xs" href={`/api/connectors/microsoft/start?add=${key}`}>
+                Enable {key === "teams" ? "Teams" : "SharePoint"}
+              </a>
+            ))}
+          </div>
+        </div>
       ) : null}
     </Row>
   );
