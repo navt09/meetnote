@@ -55,7 +55,13 @@ export async function transcribeFromStorage(path: string): Promise<TranscribeRes
     model: "nova-3",
     smart_format: "true",
     punctuate: "true",
-    diarize: "true",
+    // Not diarize=true: that flag is deprecated and pins the request to the v1
+    // diarizer. diarize_model selects v2, which Deepgram's own human evaluation
+    // preferred 3.3x over v1, and asking for the model implies diarisation, so
+    // the old flag is not sent alongside. Same endpoint, same price. Verified
+    // against the real API on a two-speaker recording: speaker labels still
+    // come back, which is what tagSelf and every "Speaker N" depends on.
+    diarize_model: "latest",
     utterances: "true",
   });
 
