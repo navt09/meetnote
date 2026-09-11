@@ -229,7 +229,25 @@ export async function createFixture() {
     priority: a.priority,
     kind: a.kind,
   }));
-  await withRetry("could not create the smoke tasks", () => admin.from("tasks").insert(rows));
+  const { data: taskRows } = await admin.from("tasks").insert(rows).select("id,idx");
+  const firstTask = (taskRows ?? []).find((t) => t.idx === 0);
+
+  // One ticket already waiting on a decision, so Approvals has something to
+  // render. Written straight into the table: the real route would call the
+  // model, and a smoke run must cost nothing.
+  if (firstTask) {
+    await withRetry("could not create the smoke draft", () =>
+      admin.from("drafts").insert({
+        user_id: userId,
+        meeting_id: meeting.id,
+        task_id: firstTask.id,
+        kind: "ticket",
+        subject: "Fix the CSV export crash on large files",
+        body: "## Context\n\nThe export crashes on anything over ten thousand rows.\n\n## Done when\n\n- A ten thousand row export completes",
+        status: "pending",
+      }),
+    );
+  }
 
   return { email, password: SMOKE_PASSWORD, userId, name: FIXTURE_NAME, meetingId: meeting.id, meetingTitle: MEETING_TITLE };
 }

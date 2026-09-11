@@ -3,6 +3,9 @@ import { tierFor } from "@/lib/account-store";
 import { sortTasks, tasksOwnedBy, toPublicTask, type ContactPerson, type TaskRow } from "@/lib/task";
 import { dueLabel, isOverdue, parseDue } from "@/lib/schedule";
 import { getDisplayName } from "@/lib/settings-store";
+import { emailDraftKey } from "@/lib/draft";
+import { ticketDestinationFor } from "@/lib/connector-store";
+import { NO_TICKET_DESTINATION } from "@/lib/ticket-destination";
 import TasksView from "./tasks-view";
 
 export const dynamic = "force-dynamic";
@@ -23,11 +26,16 @@ export default async function TasksPage({
 
   // The tier rides down with the rows so the page knows, on its first render,
   // which of the per-task actions it may offer at all.
-  const [tasksRes, draftsRes, tier, displayName] = await Promise.all([
+  const [tasksRes, draftsRes, tier, displayName, ticketDestination] = await Promise.all([
     db.from("tasks").select("*, meetings(title)").order("created_at", { ascending: false }).limit(500),
-    db.from("drafts").select("task_id").not("task_id", "is", null).limit(500),
+    // Both kinds: a ticket is recognised by its task, an email by who it is
+    // for, so the rows can say which follow-ups already exist.
+    db.from("drafts").select("task_id,kind,meeting_id,recipient").limit(500),
     userData.user ? tierFor(userData.user.id, userData.user.email) : Promise.resolve("free" as const),
     userData.user ? getDisplayName(userData.user.id) : Promise.resolve(null),
+    // Where a ticket would actually go, so the button can say so instead of
+    // saying "draft ticket" whether or not anything would ever receive it.
+    userData.user ? ticketDestinationFor(userData.user.id) : Promise.resolve(NO_TICKET_DESTINATION),
   ]);
 
   // Narrowed to this person before anything else is derived from it, so the
@@ -37,7 +45,11 @@ export default async function TasksPage({
   const everyones = ((tasksRes.data ?? []) as Joined[]).map((r) => toPublicTask(r, r.meetings?.title ?? "Untitled meeting"));
   const tasks = sortTasks(tasksOwnedBy(everyones, displayName));
   const hiddenFromOthers = everyones.length - tasks.length;
-  const drafted = ((draftsRes.data ?? []) as { task_id: string | null }[]).map((d) => d.task_id).filter((id): id is string => !!id);
+  const draftRows = (draftsRes.data ?? []) as { task_id: string | null; kind: string; meeting_id: string; recipient: string | null }[];
+  const drafted = draftRows.map((d) => d.task_id).filter((id): id is string => !!id);
+  const emailedKeys = draftRows
+    .filter((d) => d.kind === "email" && d.recipient)
+    .map((d) => emailDraftKey(d.meeting_id, d.recipient as string));
 
   // Who each task's meeting said to contact, so a row that means "email
   // Priya" can offer the email. Only that one column is selected, and only
@@ -75,11 +87,13 @@ export default async function TasksPage({
     <TasksView
       initial={tasks}
       drafted={drafted}
+      emailedKeys={emailedKeys}
       people={people}
       me={displayName}
       hiddenFromOthers={hiddenFromOthers}
       requestedTaskId={requestedTaskId ?? null}
       tier={tier}
+      ticketDestination={ticketDestination}
       due={due}
       loadError={tasksRes.error ? "Could not load your tasks. Refresh to try again." : null}
     />

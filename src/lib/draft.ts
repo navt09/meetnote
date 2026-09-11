@@ -41,6 +41,19 @@ export type PublicDraft = {
   createdAt: string;
 };
 
+/**
+ * Identifies an email draft by who it is for, since an email draft carries no
+ * task id: it belongs to a person in a meeting, not to one task. The unique
+ * index on (meeting, recipient) is keyed the same way, so this is the same
+ * notion of "already drafted" the database enforces.
+ *
+ * Case-folded, because the recipient is a name out of a transcript and the
+ * same person can be written two ways across two extractions.
+ */
+export function emailDraftKey(meetingId: string, recipient: string): string {
+  return `${meetingId}|${recipient.trim().toLowerCase()}`;
+}
+
 export function toPublicDraft(row: DraftRow, meetingTitle: string): PublicDraft {
   return {
     id: row.id,

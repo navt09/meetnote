@@ -88,7 +88,9 @@ test.describe("every page renders what it was given", () => {
     // Approvals, Record, Settings
     await page.getByRole("link", { name: "Approvals", exact: true }).click();
     await expect(page).toHaveURL(/\/approvals$/);
-    await expect(page.getByText("Nothing drafted yet").first()).toBeVisible();
+    // The fixture leaves one ticket waiting on a decision, so this is the
+    // populated page rather than the empty one.
+    await expect(page.getByText("Fix the CSV export crash on large files").first()).toBeVisible();
 
     await page.getByRole("link", { name: "Record", exact: true }).click();
     await expect(page).toHaveURL(/\/record$/);
@@ -173,6 +175,18 @@ test.describe("every page renders what it was given", () => {
     await page.locator(".task-toggle", { hasText: "Chase the design team" }).click();
     await expect(page.getByText("Waiting on")).toBeVisible();
     await expect(page.getByText(/final dark mode icons are not ready/)).toBeVisible();
+  });
+
+  test("a draft says where approving would send it", async ({ page }) => {
+    // The complaint this fixes: "draft ticket" said nothing about whether a
+    // ticket was going to Linear, to Jira, or nowhere at all. The smoke
+    // account has no connectors, so the honest answer is nowhere.
+    await page.goto("/tasks");
+    await expect(page.getByRole("button", { name: "draft ticket to copy" }).first()).toBeVisible();
+
+    await page.goto("/approvals");
+    await expect(page.getByText("Nothing is connected, so approving keeps this here to copy.")).toBeVisible();
+    await page.screenshot({ path: "test-results/approvals-destination.png", fullPage: true });
   });
 
   test("the theme sticks across a reload", async ({ page }) => {

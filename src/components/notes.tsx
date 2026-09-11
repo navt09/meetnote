@@ -6,6 +6,7 @@ import { ActionItems } from "./action-items";
 import { ShareToSlack } from "./share-slack";
 import Link from "next/link";
 import { PriorityFlag } from "./priority";
+import type { TicketDestination } from "@/lib/ticket-destination";
 import type { Tier } from "@/lib/account";
 
 /**
@@ -58,7 +59,17 @@ function ForYouPanel({ fy }: { fy: MeetingNotes["for_you"] | undefined }) {
   );
 }
 
-export function NotesView({ notes, meetingId, tier }: { notes: MeetingNotes; meetingId?: string; tier: Tier }) {
+export function NotesView({
+  notes,
+  meetingId,
+  tier,
+  ticketDestination,
+}: {
+  notes: MeetingNotes;
+  meetingId?: string;
+  tier: Tier;
+  ticketDestination: TicketDestination;
+}) {
   return (
     <div className="flex flex-col gap-5">
       <ForYouPanel fy={notes.for_you} />
@@ -73,7 +84,13 @@ export function NotesView({ notes, meetingId, tier }: { notes: MeetingNotes; mee
           </span>
         </div>
         {meetingId ? (
-          <ActionItems meetingId={meetingId} fallback={notes.action_items} people={notes.people_to_contact} tier={tier} />
+          <ActionItems
+            meetingId={meetingId}
+            fallback={notes.action_items}
+            people={notes.people_to_contact}
+            tier={tier}
+            ticketDestination={ticketDestination}
+          />
         ) : notes.action_items.length === 0 ? (
           <p className="band-empty text-sm text-muted">Nothing to do came out of this one.</p>
         ) : (

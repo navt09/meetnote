@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { getJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { kindLabel, personToEmail, type ContactPerson, type PublicTask } from "@/lib/task";
+import { emailDraftKey } from "@/lib/draft";
 import type { QuoteContext } from "@/lib/quote-context";
 import type { ActionItem } from "@/lib/schema";
 import { PriorityFlag } from "@/components/priority";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
+import { draftTicketLabel, type TicketDestination } from "@/lib/ticket-destination";
 import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 
 /**
@@ -160,19 +163,24 @@ export function ActionItems({
   fallback,
   people,
   tier,
+  ticketDestination,
 }: {
   meetingId: string;
   fallback: ActionItem[];
   people: ContactPerson[];
   tier: Tier;
+  /** Where a ticket would actually go, so the button can name it. */
+  ticketDestination: TicketDestination;
 }) {
   const toast = useToast();
+  const router = useRouter();
   const mayDraft = canDraft(tier);
   const mayConnect = canConnect(tier);
   const [tasks, setTasks] = useState<PublicTask[] | null>(null);
   const [drafted, setDrafted] = useState<Set<string>>(new Set());
-  // Email drafts carry no task id, so unlike tickets they cannot be read back
-  // from /api/drafts against a task. This remembers the ones drafted here.
+  // An email draft carries no task id, so it is recognised by who it is for
+  // rather than by which task offered it. Read back from the drafts like the
+  // tickets are, so "email drafted" survives leaving the page and coming back.
   const [emailed, setEmailed] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState<Set<string>>(new Set());
@@ -191,11 +199,18 @@ export function ActionItems({
       try {
         const [t, d] = await Promise.all([
           getJson<{ tasks: PublicTask[] }>(`/api/tasks?meetingId=${meetingId}`),
-          getJson<{ drafts: { taskId: string | null }[] }>("/api/drafts"),
+          getJson<{ drafts: { taskId: string | null; kind: string; meetingId: string; recipient: string | null }[] }>("/api/drafts"),
         ]);
         if (!live) return;
         setTasks(t.tasks);
         setDrafted(new Set(d.drafts.map((x) => x.taskId).filter((x): x is string => !!x)));
+        setEmailed(
+          new Set(
+            d.drafts
+              .filter((x) => x.kind === "email" && x.recipient)
+              .map((x) => emailDraftKey(x.meetingId, x.recipient as string)),
+          ),
+        );
       } catch {
         // The notes still render from the fallback; only the buttons are lost.
         if (live) setTasks([]);
@@ -206,35 +221,18 @@ export function ActionItems({
     };
   }, [meetingId]);
 
-  async function draftTicket(task: PublicTask) {
+  /* Handed to Approvals rather than done here: the model takes about eight
+     seconds, and that is a long time to hold a disabled button on a page you
+     were about to leave anyway. The refusal case moves with it. */
+  function draftTicket(task: PublicTask) {
     setBusy(task.id);
-    try {
-      await postJson(`/api/tasks/${task.id}/draft`, {});
-      setDrafted((prev) => new Set(prev).add(task.id));
-      toast("Ticket drafted. Read it in Approvals before it goes anywhere.", "ok");
-    } catch (err) {
-      // The tier can change between this page loading and this click, so a
-      // refusal is explained rather than shown as a raw failure.
-      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that ticket";
-      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
-    } finally {
-      setBusy(null);
-    }
+    router.push(`/approvals?for=ticket&id=${task.id}`);
   }
 
   /** The recipient is one the meeting itself flagged; the route refuses any other. */
-  async function draftEmail(task: PublicTask, name: string) {
+  function draftEmail(task: PublicTask, name: string) {
     setBusy(task.id);
-    try {
-      await postJson(`/api/meetings/${meetingId}/draft-email`, { name });
-      setEmailed((prev) => new Set(prev).add(task.id));
-      toast("Email drafted. Read it in Approvals before it goes anywhere.", "ok");
-    } catch (err) {
-      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that email";
-      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
-    } finally {
-      setBusy(null);
-    }
+    router.push(`/approvals?for=email&id=${meetingId}&who=${encodeURIComponent(name)}`);
   }
 
   async function addToCalendar(task: PublicTask) {
@@ -323,7 +321,7 @@ export function ActionItems({
                   {/* Work already done stays visible even on a tier that could
                       not start it now, so a downgrade never hides a real ticket. */}
                   {emailTo ? (
-                    emailed.has(task.id) ? (
+                    emailed.has(emailDraftKey(meetingId, emailTo)) ? (
                       <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">email drafted</Link>
                     ) : mayDraft ? (
                       <button
@@ -331,7 +329,7 @@ export function ActionItems({
                         disabled={busy === task.id}
                         className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                       >
-                        {busy === task.id ? "working…" : "draft email"}
+                        {busy === task.id ? "opening…" : "draft email"}
                       </button>
                     ) : null
                   ) : drafted.has(task.id) ? (
@@ -342,7 +340,7 @@ export function ActionItems({
                       disabled={busy === task.id}
                       className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                     >
-                      {busy === task.id ? "working…" : "draft ticket"}
+                      {busy === task.id ? "opening…" : draftTicketLabel(ticketDestination)}
                     </button>
                   ) : null}
                   {task.calendarEventUrl ? (

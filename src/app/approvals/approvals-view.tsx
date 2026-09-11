@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { deleteJson, patchJson } from "@/lib/upload";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { deleteJson, patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
-import { EmptyState, PageHead } from "@/components/ui";
+import { EmptyState, PageHead, Skeleton } from "@/components/ui";
+import { ticketDestinationNote, type TicketDestination } from "@/lib/ticket-destination";
+import { isUpgradeError, upgradeMessage } from "@/components/upgrade";
 import { draftToClipboard, kindLabel, sortDrafts, type DraftStatus, type PublicDraft } from "@/lib/draft";
 import { parseBlocks, type Inline } from "@/lib/markdown-lite";
 
@@ -40,14 +43,71 @@ const FILTERS: { key: DraftStatus | "all"; label: string }[] = [
   { key: "all", label: "All" },
 ];
 
-export default function ApprovalsView({ initial, loadError }: { initial: PublicDraft[]; loadError: string | null }) {
+/**
+ * A draft this page was sent here to write, rather than one it is showing.
+ *
+ * Drafting takes the model about eight seconds, and eight seconds of a dead
+ * button on the Tasks page reads as a hang. So the press navigates here first
+ * and the writing happens in front of the thing it produces, where the wait
+ * has somewhere to land.
+ */
+export type DraftRequest = { kind: "ticket"; id: string } | { kind: "email"; id: string; who: string };
+
+export default function ApprovalsView({
+  initial,
+  loadError,
+  ticketDestination,
+  writeRequest,
+}: {
+  initial: PublicDraft[];
+  loadError: string | null;
+  ticketDestination: TicketDestination;
+  /** Set when we arrived here by pressing draft, rather than by opening the tab. */
+  writeRequest: DraftRequest | null;
+}) {
   const toast = useToast();
+  const router = useRouter();
   const [drafts, setDrafts] = useState<PublicDraft[]>(initial);
   const [filter, setFilter] = useState<DraftStatus | "all">("pending");
   const [editing, setEditing] = useState<string | null>(null);
   const [draftSubject, setDraftSubject] = useState("");
   const [draftBody, setDraftBody] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [writing, setWriting] = useState<DraftRequest | null>(writeRequest);
+
+  /* Writing the draft the press asked for. Re-running this is safe by
+     construction: a task has one live ticket draft and a recipient one live
+     email draft per meeting, both enforced by a unique index, so a second
+     attempt replaces the first rather than making two. */
+  useEffect(() => {
+    if (!writeRequest) return;
+    let live = true;
+    (async () => {
+      try {
+        const { draft } =
+          writeRequest.kind === "ticket"
+            ? await postJson<{ draft: PublicDraft }>(`/api/tasks/${writeRequest.id}/draft`, {})
+            : await postJson<{ draft: PublicDraft }>(`/api/meetings/${writeRequest.id}/draft-email`, { name: writeRequest.who });
+        if (!live) return;
+        setDrafts((list) => [draft, ...list.filter((x) => x.id !== draft.id)]);
+        setFilter("pending");
+      } catch (err) {
+        if (!live) return;
+        // The tier can change between the page that offered the button and
+        // this request, so a refusal is explained rather than shown raw.
+        const fallback = err instanceof Error ? err.message : "Could not write that draft";
+        toast(isUpgradeError(err) ? upgradeMessage("draft", fallback) : fallback, "error");
+      } finally {
+        if (live) setWriting(null);
+        // Drop the instruction out of the URL so a refresh reads the page
+        // rather than drafting all over again.
+        router.replace("/approvals", { scroll: false });
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [writeRequest, toast, router]);
 
   // Nothing here writes "dismissed" any more, but rows saved before Dismiss
   // became Delete still carry it, so "All" keeps hiding them.
@@ -155,6 +215,21 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
         <EmptyState title="Nothing here" body={filter === "pending" ? "You've dealt with everything drafted so far." : "Try a different filter."} />
       ) : null}
 
+      {writing ? (
+        <div className="glass p-5">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-faint">
+            <span className="pill">{writing.kind === "ticket" ? "Ticket" : "Email"}</span>
+            <span>writing it now, about ten seconds</span>
+          </p>
+          <Skeleton className="mt-3 h-5 w-2/3" />
+          <div className="mt-4 space-y-2">
+            <Skeleton className="h-3.5 w-full" />
+            <Skeleton className="h-3.5 w-11/12" />
+            <Skeleton className="h-3.5 w-4/5" />
+          </div>
+        </div>
+      ) : null}
+
       <ul className="stagger flex flex-col gap-3">
         {visible.map((d) => {
           const isEditing = editing === d.id;
@@ -201,6 +276,12 @@ export default function ApprovalsView({ initial, loadError }: { initial: PublicD
               ) : (
                 <>
                   <DraftBody markdown={d.body} />
+                  {d.kind === "ticket" && d.status === "pending" ? (
+                    /* Said here because this is the moment it matters: after
+                       the next press the issue either exists in someone
+                       else's tracker or it does not. */
+                    <p className="mt-4 text-xs text-muted">{ticketDestinationNote(ticketDestination)}</p>
+                  ) : null}
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-panel-border pt-4">
                     {d.status === "pending" ? (
                       <button className="btn btn-approve !py-1.5 text-xs" disabled={busy === d.id} onClick={() => approve(d)}>

@@ -20,7 +20,9 @@ import { PriorityFlag } from "@/components/priority";
 // the pieces live once, beside the meeting page's list.
 import { hasContext, TaskContextPanel, TaskTitle, type TaskContext } from "@/components/action-items";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
+import { draftTicketLabel, type TicketDestination } from "@/lib/ticket-destination";
 import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
+import { emailDraftKey } from "@/lib/draft";
 
 const FILTERS: { key: TaskFilter; label: string }[] = [
   { key: "open", label: "To do" },
@@ -45,18 +47,24 @@ export default function TasksView({
   initial,
   loadError,
   drafted,
+  emailedKeys,
   due,
   people,
   me,
   hiddenFromOthers,
   requestedTaskId,
   tier,
+  ticketDestination,
 }: {
   initial: PublicTask[];
   loadError: string | null;
   drafted: string[];
+  /** Meeting-and-recipient keys that already have an email draft. */
+  emailedKeys: string[];
   due: DueEntry[];
   tier: Tier;
+  /** Where a ticket would actually go, so the button can name it. */
+  ticketDestination: TicketDestination;
   /** Each task's meeting's people_to_contact, keyed by meeting id. */
   people: Record<string, ContactPerson[]>;
   /** The reader's own name, as set in Settings. Null if they never set one. */
@@ -80,10 +88,12 @@ export default function TasksView({
   // nothing looks like a broken page rather than a filtered one. Derived at
   // mount for the same reason the filter above is. Needing a second owner is
   // not pedantry: the chips, and with them the way back to Everyone, are only
-  const [hasDraft, setHasDraft] = useState<Set<string>>(new Set(drafted));
-  // Email drafts carry no task id, so unlike tickets they cannot be read back
-  // from the drafts table against a task. This remembers the ones drafted here.
-  const [emailed, setEmailed] = useState<Set<string>>(new Set());
+  // Both derived from the drafts the page was rendered with, rather than
+  // remembered from a press: drafting now happens on Approvals, so the only
+  // honest source for "already drafted" is the drafts themselves. A ticket is
+  // recognised by its task, an email by who it is for.
+  const hasDraft = useMemo(() => new Set(drafted), [drafted]);
+  const emailed = useMemo(() => new Set(emailedKeys), [emailedKeys]);
   const [drafting, setDrafting] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState<string | null>(null);
   // The row to jump to. Carries a counter so picking the same deadline twice
@@ -118,35 +128,19 @@ export default function TasksView({
     }
   }
 
-  async function draft(task: PublicTask) {
+  /* The model takes about eight seconds to write a ticket, and eight seconds
+     of a disabled button here reads as a hang. So the press hands the job to
+     Approvals and goes there: the wait then happens in front of the thing it
+     is producing, on the page you were going to end up on anyway. */
+  function draft(task: PublicTask) {
     setDrafting(task.id);
-    try {
-      await postJson(`/api/tasks/${task.id}/draft`, {});
-      setHasDraft((s) => new Set(s).add(task.id));
-      toast("Ticket drafted. Check it in Approvals.", "ok");
-      router.refresh();
-    } catch (err) {
-      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that ticket";
-      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
-    } finally {
-      setDrafting(null);
-    }
+    router.push(`/approvals?for=ticket&id=${task.id}`);
   }
 
   /** The recipient is one that meeting itself flagged; the route refuses any other. */
-  async function draftEmail(task: PublicTask, name: string) {
+  function draftEmail(task: PublicTask, name: string) {
     setDrafting(task.id);
-    try {
-      await postJson(`/api/meetings/${task.meetingId}/draft-email`, { name });
-      setEmailed((s) => new Set(s).add(task.id));
-      toast("Email drafted. Check it in Approvals.", "ok");
-      router.refresh();
-    } catch (err) {
-      const fallbackMessage = err instanceof Error ? err.message : "Could not draft that email";
-      toast(isUpgradeError(err) ? upgradeMessage("draft", fallbackMessage) : fallbackMessage, "error");
-    } finally {
-      setDrafting(null);
-    }
+    router.push(`/approvals?for=email&id=${task.meetingId}&who=${encodeURIComponent(name)}`);
   }
 
   // Built from the current tasks rather than the server's list, so ticking one
@@ -346,7 +340,7 @@ export default function TasksView({
                         {/* Work already done stays visible even on a tier that
                             could not start it now. */}
                         {emailTo ? (
-                          emailed.has(t.id) ? (
+                          emailed.has(emailDraftKey(t.meetingId, emailTo)) ? (
                             <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">email drafted</Link>
                           ) : mayDraft ? (
                             <button
@@ -354,7 +348,7 @@ export default function TasksView({
                               disabled={drafting === t.id}
                               className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                             >
-                              {drafting === t.id ? "drafting…" : "draft email"}
+                              {drafting === t.id ? "opening…" : "draft email"}
                             </button>
                           ) : null
                         ) : hasDraft.has(t.id) ? (
@@ -365,7 +359,7 @@ export default function TasksView({
                             disabled={drafting === t.id}
                             className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                           >
-                            {drafting === t.id ? "drafting…" : "draft ticket"}
+                            {drafting === t.id ? "opening…" : draftTicketLabel(ticketDestination)}
                           </button>
                         ) : null}
                         {t.calendarEventUrl ? (
