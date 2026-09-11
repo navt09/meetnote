@@ -1,10 +1,13 @@
 // Shared shapes for third-party connections. Pure types and helpers; the
 // server-only storage lives in connector-store.ts.
 
-export type Provider = "linear" | "jira" | "slack" | "google";
+export type Provider = "linear" | "jira" | "slack" | "google" | "microsoft";
 export type TicketProvider = "linear" | "jira";
 
-export const PROVIDERS: Provider[] = ["linear", "jira", "slack", "google"];
+// Microsoft is one connector covering Outlook, Teams, Planner, SharePoint and
+// Excel: one Entra app, one consent, and scopes decide the rest. Five rows
+// would mean five sign-ins for one account.
+export const PROVIDERS: Provider[] = ["linear", "jira", "slack", "google", "microsoft"];
 export const TICKET_PROVIDERS: TicketProvider[] = ["linear", "jira"];
 
 /** Secrets. Never leaves the server. */
@@ -36,16 +39,47 @@ export type JiraCredentials = {
 };
 export type SlackCredentials = { webhookUrl: string };
 export type GoogleCredentials = { refreshToken: string; accessToken?: string; expiresAt?: number };
+/**
+ * Microsoft rotates the refresh token on every refresh and retires the old
+ * one, so this is rewritten each time rather than only read.
+ */
+export type MicrosoftCredentials = { refreshToken: string; accessToken?: string; expiresAt?: number };
 
-export type Credentials = LinearCredentials | JiraCredentials | SlackCredentials | GoogleCredentials;
+export type Credentials =
+  | LinearCredentials
+  | JiraCredentials
+  | SlackCredentials
+  | GoogleCredentials
+  | MicrosoftCredentials;
 
 /** Non-secret settings. Safe to show the user. */
 export type LinearConfig = { teamId?: string; teamName?: string };
 export type JiraConfig = { siteUrl?: string; projectKey?: string; projectName?: string; issueType?: string };
 export type SlackConfig = { channelName?: string };
 export type GoogleConfig = { email?: string; scopes?: string[] };
+/**
+ * One row covering several products, so the config holds a choice per
+ * product: which Teams channel, which Planner plan, which SharePoint site,
+ * which workbook. All optional — connecting is not choosing.
+ */
+export type MicrosoftConfig = {
+  name?: string;
+  email?: string;
+  scopes?: string[];
+  teamId?: string;
+  teamName?: string;
+  channelId?: string;
+  channelName?: string;
+  planId?: string;
+  planName?: string;
+  bucketId?: string;
+  siteId?: string;
+  siteName?: string;
+  workbookId?: string;
+  workbookName?: string;
+};
 
-export type ConnectorConfig = LinearConfig | JiraConfig | SlackConfig | GoogleConfig;
+export type ConnectorConfig = LinearConfig | JiraConfig | SlackConfig | GoogleConfig | MicrosoftConfig;
 
 export type ConnectorRow = {
   id: string;
@@ -83,6 +117,7 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
   jira: "Jira",
   slack: "Slack",
   google: "Google",
+  microsoft: "Microsoft",
 };
 
 /** One-line description of what connecting each provider actually does. */
@@ -91,6 +126,7 @@ export const PROVIDER_PURPOSE: Record<Provider, string> = {
   jira: "Approved tickets are created as Jira issues.",
   slack: "Post a meeting summary to a channel.",
   google: "Send approved emails from your Gmail, and block tasks out on your calendar.",
+  microsoft: "One sign-in for Outlook, Teams, Planner, SharePoint and Excel.",
 };
 
 /** True when the connector has everything it needs to actually be used. */

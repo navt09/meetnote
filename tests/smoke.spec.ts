@@ -246,6 +246,23 @@ test.describe("every page renders what it was given", () => {
     await expect(unsent.getByRole("button", { name: "Slack", exact: true })).toBeVisible();
   });
 
+  test("every connector is offered, Microsoft as one sign-in", async ({ page }) => {
+    await page.goto("/settings");
+    const connections = page.locator("div.glass", { hasText: "Connections" }).first();
+    for (const name of ["Linear", "Jira", "Slack", "Google", "Microsoft"]) {
+      await expect(connections.getByText(name).first()).toBeVisible();
+    }
+
+    // One row and one sign-in covering five products, rather than five rows.
+    // Five would be five consents for one account, which is the thing people
+    // complain about with Microsoft integrations. Asserted by the row count,
+    // since whether the row offers Connect or says it needs a key on the
+    // server depends on the environment rather than the code.
+    await expect(connections.getByText(/Outlook, Teams, Planner, SharePoint and Excel/)).toBeVisible();
+    await expect(connections.locator("svg")).toHaveCount(5);
+    await page.screenshot({ path: "test-results/settings-connectors.png", fullPage: true });
+  });
+
   test("the theme sticks across a reload", async ({ page }) => {
     await page.goto("/settings");
 

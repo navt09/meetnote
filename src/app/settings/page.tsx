@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { credentialsKeyConfigured } from "@/lib/crypto";
 import { googleConfigured } from "@/lib/providers/google";
+import { microsoftConfigured } from "@/lib/providers/microsoft";
 import { linearOAuthConfigured } from "@/lib/providers/linear-oauth";
 import { jiraOAuthConfigured } from "@/lib/providers/jira-oauth";
 import { slackOAuthConfigured } from "@/lib/providers/slack-oauth";
@@ -46,6 +47,7 @@ export default async function SettingsPage({
       initialTicketProvider={ticketProvider}
       storageReady={credentialsKeyConfigured()}
       googleReady={googleConfigured()}
+      microsoftReady={microsoftConfigured()}
       oauthReady={{
         linear: linearOAuthConfigured(),
         jira: jiraOAuthConfigured(),

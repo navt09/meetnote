@@ -24,6 +24,7 @@ export default function SettingsView({
   initialTicketProvider,
   storageReady,
   googleReady,
+  microsoftReady,
   oauthReady,
   tier,
   paymentsReady,
@@ -39,6 +40,7 @@ export default function SettingsView({
   initialTicketProvider: TicketProvider | null;
   storageReady: boolean;
   googleReady: boolean;
+  microsoftReady: boolean;
   oauthReady: { linear: boolean; jira: boolean; slack: boolean };
   tier: Tier;
   paymentsReady: boolean;
@@ -151,6 +153,7 @@ export default function SettingsView({
         <JiraCard locked={!mayConnect} oauthReady={oauthReady.jira} connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <SlackCard locked={!mayConnect} oauthReady={oauthReady.slack} connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <GoogleCard locked={!mayConnect} connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
+        <MicrosoftCard locked={!mayConnect} connector={get("microsoft")} microsoftReady={microsoftReady} busy={busy} disconnect={disconnect} />
       </div>
 
       <DangerZone email={email} />
@@ -825,6 +828,75 @@ function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady
 }
 
 // ---- Google -----------------------------------------------------------------
+
+/**
+ * One card for the whole Microsoft account, because it is one consent covering
+ * Outlook, Teams, Planner, SharePoint and Excel. What it can actually do is
+ * read back from the scopes that were granted rather than assumed: at a
+ * company, Teams and SharePoint are routinely withheld until an IT admin
+ * approves them, so a half-working connection is a normal state that has to be
+ * legible rather than an error.
+ */
+function MicrosoftCard({
+  connector,
+  microsoftReady,
+  busy,
+  disconnect,
+  locked,
+}: {
+  connector: PublicConnector | null;
+  microsoftReady: boolean;
+  busy: string | null;
+  disconnect: (p: Provider, label: string) => Promise<void>;
+  locked: boolean;
+}) {
+  const config = (connector?.config ?? {}) as { scopes?: string[]; email?: string; name?: string };
+  const scopes = config.scopes ?? [];
+  const has = (s: string) => scopes.includes(s);
+  const parts: { label: string; ok: boolean }[] = [
+    { label: "Outlook mail", ok: has("Mail.Send") },
+    { label: "calendar", ok: has("Calendars.ReadWrite") },
+    { label: "Teams", ok: has("ChannelMessage.Send") },
+    { label: "Planner", ok: has("Tasks.ReadWrite") },
+    { label: "SharePoint", ok: has("Sites.ReadWrite.All") },
+    { label: "Excel", ok: has("Files.ReadWrite") },
+  ];
+  const missing = parts.filter((p) => !p.ok);
+
+  return (
+    <Row
+      provider="microsoft"
+      title="Microsoft"
+      connected={!!connector}
+      error={connector?.lastError}
+      detail={connector ? `${config.email ?? config.name ?? "Connected"} · ${parts.filter((p) => p.ok).length} of ${parts.length} available.` : undefined}
+      action={
+        locked && !connector ? (
+          <ConnectButton href="/api/connectors/microsoft/start" locked />
+        ) : !microsoftReady ? (
+          <NotSetUp what="MICROSOFT_CLIENT_ID" />
+        ) : !connector ? (
+          <ConnectButton href="/api/connectors/microsoft/start" />
+        ) : (
+          <>
+            {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
+            <a className={`btn ${missing.length > 0 ? "btn-primary" : "btn-ghost"} !py-1.5 text-xs`} href="/api/connectors/microsoft/start">
+              Reconnect
+            </a>
+            <DisconnectButton busy={busy === "microsoft"} onClick={() => disconnect("microsoft", "Microsoft")} />
+          </>
+        )
+      }
+    >
+      {connector && missing.length > 0 ? (
+        <p className="text-xs text-warn">
+          Not granted: {missing.map((m) => m.label).join(", ")}. Teams and SharePoint usually need your IT admin to approve
+          them for the whole organisation; once they have, reconnect to pick them up.
+        </p>
+      ) : null}
+    </Row>
+  );
+}
 
 function GoogleCard({
   connector,

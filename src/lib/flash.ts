@@ -22,6 +22,19 @@ const SETTINGS: Record<string, Flash> = {
   google_partial_gmail: { text: "Google connected, but permission for sending email wasn't granted. Reconnect to enable it.", tone: "ok" },
   google_partial_calendar: { text: "Google connected, but permission for your calendar wasn't granted. Reconnect to enable it.", tone: "ok" },
 
+  microsoft_expired: { text: "That Microsoft connection attempt expired or didn't match. Try again.", tone: "error" },
+  microsoft_declined: { text: "You declined the Microsoft permissions.", tone: "error" },
+  microsoft_provider_error: { text: "Microsoft reported a problem. Try again in a minute.", tone: "error" },
+  microsoft_no_code: { text: "Microsoft didn't return an authorisation code.", tone: "error" },
+  microsoft_failed: { text: "Couldn't finish connecting Microsoft. Try again in a minute.", tone: "error" },
+  microsoft_connected: { text: "Microsoft connected.", tone: "ok" },
+  // Teams and SharePoint usually need a tenant admin to approve them, so a
+  // partial connection is a normal outcome at a company rather than a fault.
+  microsoft_partial: {
+    text: "Microsoft connected, but not every permission was granted. Outlook should work; Teams and SharePoint may need your IT admin to approve them.",
+    tone: "ok",
+  },
+
   linear_expired: { text: "That Linear connection attempt expired. Try again.", tone: "error" },
   linear_declined: { text: "You declined the Linear permissions.", tone: "error" },
   linear_provider_error: { text: "Linear reported a problem. Try again in a minute.", tone: "error" },
