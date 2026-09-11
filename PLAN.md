@@ -74,7 +74,7 @@ Deferred from Phase 2: a real job queue (Inngest). Vercel's `after()` gives us u
 
 Dashboard steps for Phase 2 (once):
 1. Apply the schema: put the database connection string in `.env.local` as `SUPABASE_DB_URL` and run `npm run migrate`, or paste `supabase/migrations/0001_meetings.sql` into Supabase's SQL Editor and run it.
-2. Supabase → Authentication → URL Configuration: Site URL `https://meetnote-navt1.vercel.app`, and add `https://meetnote-navt1.vercel.app/**` and `http://localhost:3000/**` to Redirect URLs.
+2. Supabase → Authentication → URL Configuration. Done from the repo rather than the dashboard: `node scripts/supabase-auth-config.mjs` reports, `--apply` writes. Site URL is `https://fromthecall.com`; the allow list carries the apex, www, the Vercel host, its preview wildcard and localhost.
 
 Email limits: Supabase's built-in mailer sends at most 2 auth emails an hour and only to your project's team members. That is fine for you now. Before inviting anyone else, configure custom SMTP (Resend has a free tier) under Authentication → SMTP Settings.
 
@@ -95,11 +95,11 @@ Stripe plans, team workspaces, desktop recorder, consent notice and retention se
 
 ### Before anyone else can sign up
 
-These are ordered by what unblocks what, not by size. The domain is the keystone: three other items are waiting on it.
+These are ordered by what unblocks what, not by size.
 
-1. **Buy the domain** (~$11/yr). Everything below either needs it or gets redone without it.
-2. **Point it at Vercel**, then update Supabase's redirect URLs and all four OAuth callback URLs to match. Doing this before registering anything else avoids registering it twice.
-3. **Set `OWNER_EMAILS` in Vercel.** Owner is currently granted by a database row set by hand, which a fresh environment will not know about.
+1. ~~**Buy the domain.**~~ Done 2026-09-11: `fromthecall.com`, live on Vercel.
+2. ~~**Point it at Vercel and update every callback.**~~ Done 2026-09-11. **The apex is canonical**, and that is load-bearing: the connectors build their `redirect_uri` from the request's own origin, so if www served the app instead of redirecting to the apex, every Connect button would answer `redirect_uri_mismatch` against callbacks registered on the apex. Vercel 308s www to `https://fromthecall.com`; keep it that way, and keep `NEXT_PUBLIC_SITE_URL` agreeing with it.
+3. ~~**Set `OWNER_EMAILS` in Vercel.**~~ Done 2026-09-11, alongside `NEXT_PUBLIC_SITE_URL`. Environment variables only reach a new deployment, so both needed a redeploy.
 4. **Publish the Google app to production.** While it sits in Testing, Google expires every refresh token after seven days, so Gmail and Calendar connections silently die weekly.
 5. **Make `hello@fromthecall.com` receive mail.** It is on the landing page and both legal pages today, and it bounces.
 6. **Usage cap and Resend, in the same change.** Custom SMTP is what actually opens signup to the world. Shipping it without a cap means strangers can spend money without limit. Either is safe alone in the other order; the combination to avoid is Resend first.

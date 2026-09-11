@@ -16,11 +16,19 @@ for (const line of existsSync(join(root, ".env.local")) ? readFileSync(join(root
   if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
 }
 
-const SITE_URL = "https://meetnote-navt1.vercel.app";
+// The apex is canonical: Vercel 308s www to it, and the four OAuth callback
+// URLs are registered against the apex. A Site URL that disagreed with that
+// would send every magic link through a redirect.
+const SITE_URL = "https://fromthecall.com";
 const REDIRECTS = [
   `${SITE_URL}/**`,
+  // The www host redirects to the apex, but a link that lands there first
+  // still has to be allowed or it is refused before the redirect happens.
+  "https://www.fromthecall.com/**",
+  // The Vercel hostname still works and is worth keeping while the domain settles.
+  "https://meetnote-navt1.vercel.app/**",
   // Vercel gives every deployment its own hostname; allow those too.
-  "https://fromthecall-*-navt1.vercel.app/**",
+  "https://meetnote-*-navt1.vercel.app/**",
   "http://localhost:3000/**",
 ];
 
