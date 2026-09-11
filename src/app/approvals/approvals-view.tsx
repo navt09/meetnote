@@ -6,7 +6,14 @@ import { useRouter } from "next/navigation";
 import { deleteJson, patchJson, postJson } from "@/lib/upload";
 import { useToast } from "@/components/toast";
 import { EmptyState, PageHead, Skeleton } from "@/components/ui";
-import { ticketDestinationNote, type TicketDestination } from "@/lib/ticket-destination";
+import {
+  destinationName,
+  destinationNote,
+  destinationsFor,
+  suggestDestination,
+  type DestinationContext,
+  type SendTo,
+} from "@/lib/draft-destination";
 import { isUpgradeError, upgradeMessage } from "@/components/upgrade";
 import { draftToClipboard, kindLabel, sortDrafts, type DraftStatus, type PublicDraft } from "@/lib/draft";
 import { parseBlocks, type Inline } from "@/lib/markdown-lite";
@@ -37,6 +44,56 @@ function DraftBody({ markdown }: { markdown: string }) {
   );
 }
 
+/**
+ * Where this draft goes, chosen here rather than in Settings.
+ *
+ * Here because this is the last moment it can be changed and the first moment
+ * it can be judged: the draft is written and read, and the next press is the
+ * one that acts. The destination the draft arrived with is a suggestion from
+ * plain rules, so changing it is expected rather than a correction.
+ *
+ * With one option there is nothing to choose, so only the sentence shows.
+ */
+function Destination({
+  draft,
+  options,
+  chosen,
+  busy,
+  onChoose,
+}: {
+  draft: PublicDraft;
+  options: SendTo[];
+  chosen: SendTo;
+  busy: boolean;
+  onChoose: (to: SendTo) => void;
+}) {
+  return (
+    <div className="mt-4 flex flex-col gap-2">
+      {options.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-faint">Send to</span>
+          <div className="flex gap-0.5 rounded-lg border border-panel-border p-0.5">
+            {options.map((o) => (
+              <button
+                key={o}
+                onClick={() => onChoose(o)}
+                disabled={busy}
+                aria-pressed={chosen === o}
+                className={`rounded-md px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
+                  chosen === o ? "bg-panel-hi font-medium text-fg" : "text-muted hover:text-fg"
+                }`}
+              >
+                {destinationName(o)}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+      <p className="text-xs text-muted">{destinationNote(chosen, draft.kind)}</p>
+    </div>
+  );
+}
+
 const FILTERS: { key: DraftStatus | "all"; label: string }[] = [
   { key: "pending", label: "Waiting on you" },
   { key: "approved", label: "Approved" },
@@ -56,12 +113,12 @@ export type DraftRequest = { kind: "ticket"; id: string } | { kind: "email"; id:
 export default function ApprovalsView({
   initial,
   loadError,
-  ticketDestination,
+  destinations,
   writeRequest,
 }: {
   initial: PublicDraft[];
   loadError: string | null;
-  ticketDestination: TicketDestination;
+  destinations: DestinationContext;
   /** Set when we arrived here by pressing draft, rather than by opening the tab. */
   writeRequest: DraftRequest | null;
 }) {
@@ -170,10 +227,34 @@ export default function ApprovalsView({
     }
   }
 
+  /* A draft written before destinations were a choice has none stored, so the
+     same rules that would have chosen one are applied to read it. */
+  function chosenFor(d: PublicDraft): SendTo {
+    if (d.sendTo && destinationsFor(d.kind, destinations).includes(d.sendTo)) return d.sendTo;
+    return suggestDestination(d.kind, `${d.subject} ${d.body}`, destinations).to;
+  }
+
+  async function chooseDestination(d: PublicDraft, to: SendTo) {
+    if (chosenFor(d) === to) return;
+    // Shown as chosen straight away: it is one field, and leaving the old one
+    // lit while the request flies reads as the press not having registered.
+    replace({ ...d, sendTo: to });
+    setBusy(d.id);
+    try {
+      const { draft } = await patchJson<{ draft: PublicDraft }>(`/api/drafts/${d.id}`, { sendTo: to });
+      replace(draft);
+    } catch (err) {
+      replace(d);
+      toast(err instanceof Error ? err.message : "Could not change where that goes", "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function copy(d: PublicDraft) {
     try {
       await navigator.clipboard.writeText(draftToClipboard(d));
-      toast(d.kind === "ticket" ? "Ticket copied. Paste it into Linear or Jira." : "Email copied.", "ok");
+      toast(d.kind === "ticket" ? "Follow-up copied." : "Email copied.", "ok");
     } catch {
       toast("Couldn't access the clipboard", "error");
     }
@@ -208,7 +289,7 @@ export default function ApprovalsView({
       {drafts.length === 0 ? (
         <EmptyState
           title="Nothing drafted yet"
-          body="Open a task and press “Draft ticket”, and the write-up will land here for you to check before it goes anywhere."
+          body="Open a task and press “Draft follow-up”, and the write-up will land here, where you choose where it goes before it goes anywhere."
           action={<Link href="/tasks" className="btn btn-primary">Go to tasks</Link>}
         />
       ) : visible.length === 0 ? (
@@ -276,11 +357,14 @@ export default function ApprovalsView({
               ) : (
                 <>
                   <DraftBody markdown={d.body} />
-                  {d.kind === "ticket" && d.status === "pending" ? (
-                    /* Said here because this is the moment it matters: after
-                       the next press the issue either exists in someone
-                       else's tracker or it does not. */
-                    <p className="mt-4 text-xs text-muted">{ticketDestinationNote(ticketDestination)}</p>
+                  {d.status === "pending" ? (
+                    <Destination
+                      draft={d}
+                      options={destinationsFor(d.kind, destinations)}
+                      chosen={chosenFor(d)}
+                      busy={busy === d.id}
+                      onChoose={(to) => chooseDestination(d, to)}
+                    />
                   ) : null}
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-panel-border pt-4">
                     {d.status === "pending" ? (
@@ -289,7 +373,7 @@ export default function ApprovalsView({
                       </button>
                     ) : null}
                     <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => copy(d)}>
-                      {d.kind === "ticket" ? "Copy ticket" : "Copy email"}
+                      {d.kind === "ticket" ? "Copy follow-up" : "Copy email"}
                     </button>
                     <button
                       className="btn btn-ghost !py-1.5 text-xs"

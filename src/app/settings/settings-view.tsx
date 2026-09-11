@@ -98,7 +98,7 @@ export default function SettingsView({
     setTicketProviderState(next);
     try {
       await putJson("/api/settings/ticket-provider", { provider: next });
-      toast(next ? `Approved tickets will go to ${next === "linear" ? "Linear" : "Jira"}.` : "Approved tickets stay copy-and-paste.", "ok");
+      toast(next ? `New follow-ups will start on ${next === "linear" ? "Linear" : "Jira"}.` : "New follow-ups will start on copy only.", "ok");
     } catch (err) {
       setTicketProviderState(previous);
       toast(err instanceof Error ? err.message : "Could not save that", "error");
@@ -145,7 +145,7 @@ export default function SettingsView({
       <div className="glass divide-y divide-panel-border overflow-hidden">
         <div className="px-5 py-3">
           <p className="text-sm font-medium">Connections</p>
-          <p className="mt-0.5 text-xs text-muted">Where your approved notes, tickets and follow-ups go.</p>
+          <p className="mt-0.5 text-xs text-muted">Where your approved notes and follow-ups go.</p>
         </div>
         <LinearCard locked={!mayConnect} oauthReady={oauthReady.linear} connector={get("linear")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <JiraCard locked={!mayConnect} oauthReady={oauthReady.jira} connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
@@ -157,9 +157,10 @@ export default function SettingsView({
 
       {get("linear") || get("jira") ? (
         <div className="glass p-5">
-          <p className="text-sm font-medium">Where approved tickets go</p>
+          <p className="text-sm font-medium">Where follow-ups start</p>
           <p className="mt-1 text-xs text-muted">
-            Approving a ticket creates it here. Leave it off and approving just marks it ready to copy.
+            A starting point, not a rule: every follow-up shows where it is going and can be pointed somewhere
+            else before you approve it. A meeting that names Linear or Jira out loud overrides this.
           </p>
           <div className="mt-3 flex gap-0.5 self-start rounded-lg border border-panel-border p-0.5">
             {[

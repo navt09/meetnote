@@ -183,11 +183,19 @@ export async function createFixture() {
   // rather than the upgrade notice.
   await admin.from("accounts").upsert({ user_id: userId, tier: "active", note: "smoke test" }, { onConflict: "user_id" });
 
+  // A paying account. The fixture hands itself a drafted follow-up, and a free
+  // account cannot have one: drafting, approving, editing and choosing where a
+  // draft goes all pass through the same paid gate. A fixture that cannot do
+  // what the page it is testing exists for tests the wrong page.
+  await withRetry("could not set the smoke tier", () =>
+    admin.from("accounts").upsert({ user_id: userId, tier: "active", note: "smoke fixture" }, { onConflict: "user_id" }),
+  );
+
   // Recording also needs a name, for the same reason: without one the Record
   // page asks for it instead of offering the recorder.
   await admin
     .from("user_settings")
-    .upsert({ user_id: userId, display_name: FIXTURE_NAME }, { onConflict: "user_id" });
+    .upsert({ user_id: userId, display_name: FIXTURE_NAME, ticket_provider: "linear" }, { onConflict: "user_id" });
 
   const body = notes(2);
   const dueAt = body._due_at;
@@ -245,7 +253,23 @@ export async function createFixture() {
         subject: "Fix the CSV export crash on large files",
         body: "## Context\n\nThe export crashes on anything over ten thousand rows.\n\n## Done when\n\n- A ten thousand row export completes",
         status: "pending",
+        // Where it would go if approved. Set as the real route sets it, from
+        // the account's preference below.
+        send_to: "linear",
       }),
+    );
+  }
+
+  // Two connectors, so the destination control on Approvals has something to
+  // choose between. The credentials are deliberate nonsense: nothing in the
+  // smoke run decrypts them, because nothing in a smoke run calls a vendor.
+  // What is read is the provider name, which is all the destination list needs.
+  for (const provider of ["linear", "slack"]) {
+    await withRetry(`could not connect smoke ${provider}`, () =>
+      admin.from("connectors").upsert(
+        { user_id: userId, provider, credentials: "smoke-fixture-not-a-real-credential", config: {} },
+        { onConflict: "user_id,provider" },
+      ),
     );
   }
 

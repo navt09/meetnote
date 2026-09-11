@@ -9,7 +9,7 @@ import { CONTACT_EMAIL, PLANS, WORKS_WITH } from "@/lib/site";
 export const metadata = {
   title: "From the Call · Meeting notes that do the follow-up",
   description:
-    "Record any meeting without a bot joining it. Get notes, action items, and drafted tickets and emails you approve before anything is sent.",
+    "Record any meeting without a bot joining it. Get notes, action items, and drafted follow-ups you approve before anything is sent.",
 };
 
 /*
@@ -31,7 +31,7 @@ const FEATURE_GROUPS = [
   {
     eyebrow: "After it",
     items: [
-      { title: "Real tickets, not a to-do list", body: "Action items become proper Linear or Jira issues." },
+      { title: "Real issues, not a to-do list", body: "Action items become Linear or Jira issues, a Slack post, or text you copy out. You pick, one at a time." },
       { title: "Decisions, kept", body: "What was decided and why, searchable across every meeting." },
     ],
   },
@@ -46,9 +46,9 @@ const FEATURE_GROUPS = [
 ];
 
 const CONNECTS = [
-  { provider: "linear" as const, name: "Linear", body: "Approved tickets become issues in the team you choose." },
-  { provider: "jira" as const, name: "Jira", body: "Approved tickets become issues in your project." },
-  { provider: "slack" as const, name: "Slack", body: "Summaries posted to the channel you pick." },
+  { provider: "linear" as const, name: "Linear", body: "Approved follow-ups become issues in the team you choose." },
+  { provider: "jira" as const, name: "Jira", body: "Approved follow-ups become issues in your project." },
+  { provider: "slack" as const, name: "Slack", body: "Summaries and follow-ups posted to the channel you pick." },
   { provider: "google" as const, name: "Google", body: "Follow-ups from your Gmail, tasks on your calendar." },
 ];
 
@@ -105,7 +105,7 @@ export default function Home() {
             Get the work done.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted">
-            It listens to the call, writes the notes, pulls out every task, then drafts the tickets and emails.
+            It listens to the call, writes the notes, pulls out every task, then drafts the follow-ups.
             You read them and say yes.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">

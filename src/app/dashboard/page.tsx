@@ -152,7 +152,7 @@ export default async function DashboardPage() {
             {[
               { n: "01", title: "Record the call", body: "Pick the window your meeting is in and tick \u201cShare audio\u201d." },
               { n: "02", title: "Read what came out", body: "A summary, what was agreed, and every task with an owner." },
-              { n: "03", title: "Approve the follow-up", body: "Tickets and emails drafted for you to check and send." },
+              { n: "03", title: "Approve the follow-up", body: "Issues, messages and emails drafted for you to check and send." },
             ].map((s) => (
               <li key={s.n} className="!p-5">
                 <p className="figure text-sm text-faint">{s.n}</p>

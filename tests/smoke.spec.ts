@@ -177,16 +177,31 @@ test.describe("every page renders what it was given", () => {
     await expect(page.getByText(/final dark mode icons are not ready/)).toBeVisible();
   });
 
-  test("a draft says where approving would send it", async ({ page }) => {
-    // The complaint this fixes: "draft ticket" said nothing about whether a
-    // ticket was going to Linear, to Jira, or nowhere at all. The smoke
-    // account has no connectors, so the honest answer is nowhere.
-    await page.goto("/tasks");
-    await expect(page.getByRole("button", { name: "draft ticket to copy" }).first()).toBeVisible();
-
+  test("a draft says where approving would send it, and lets you change it", async ({ page }) => {
+    // The complaint this fixes: "draft ticket" said nothing about whether the
+    // ticket was going to Linear, to Jira, to Slack or nowhere at all, and the
+    // one setting that decided it lived on another page.
     await page.goto("/approvals");
-    await expect(page.getByText("Nothing is connected, so approving keeps this here to copy.")).toBeVisible();
+
+    const card = page.locator("li.glass", { hasText: "Fix the CSV export crash" });
+    await expect(card.getByText("Approving creates this as an issue in Linear.")).toBeVisible();
     await page.screenshot({ path: "test-results/approvals-destination.png", fullPage: true });
+
+    // Slack is a real destination but not a tracker, and the wording has to say
+    // so: a message in a channel has no owner and no state.
+    // The control updates before the request lands, which is deliberate, so the
+    // save has to be waited for rather than inferred from the screen.
+    const saved = page.waitForResponse((r) => r.url().includes("/api/drafts/") && r.request().method() === "PATCH");
+    await card.getByRole("button", { name: "Slack", exact: true }).click();
+    await expect(card.getByText(/not be tracked or assigned/)).toBeVisible();
+    expect((await saved).status()).toBe(200);
+
+    // Jira is not connected, so it is not on offer at all.
+    await expect(card.getByRole("button", { name: "Jira", exact: true })).toHaveCount(0);
+
+    // The choice is the draft's, not the page's: it survives a reload.
+    await page.reload();
+    await expect(page.locator("li.glass", { hasText: "Fix the CSV export crash" }).getByText(/not be tracked or assigned/)).toBeVisible();
   });
 
   test("the theme sticks across a reload", async ({ page }) => {

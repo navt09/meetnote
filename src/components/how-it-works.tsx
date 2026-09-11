@@ -35,8 +35,8 @@ export const STEPS = [
   },
   {
     label: "Approve the follow-up",
-    sub: "Tickets and emails drafted. Nothing leaves until you say yes.",
-    body: "Each task becomes a drafted ticket; each person to contact gets a drafted email. You read, edit, and press Approve. There is no setting that sends without you.",
+    sub: "Follow-ups drafted. Nothing leaves until you say yes.",
+    body: "Each task becomes a drafted follow-up; each person to contact gets a drafted email. You read it, choose where it goes — Linear, Jira, Slack, or nowhere at all — and press Approve. There is no setting that sends without you.",
   },
 ] as const;
 

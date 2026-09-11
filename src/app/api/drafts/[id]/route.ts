@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { isBlocked, requireDrafting } from "@/lib/guard";
 import { deliverDraft, DeliveryError } from "@/lib/deliver";
 import { toPublicDraft, type DraftRow, type DraftStatus } from "@/lib/draft";
+import { isSendTo } from "@/lib/draft-destination";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -24,7 +25,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-  let body: { status?: string; subject?: string; body?: string };
+  let body: { status?: string; subject?: string; body?: string; sendTo?: string };
   try {
     body = await req.json();
   } catch {
@@ -47,6 +48,12 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!text) return NextResponse.json({ error: "The body can't be empty" }, { status: 400 });
     patch.body = text;
   }
+  if (body.sendTo !== undefined) {
+    // Checked here rather than trusted: this decides which third party a later
+    // approval talks to, and the column has the same check behind it.
+    if (!isSendTo(body.sendTo)) return NextResponse.json({ error: "Unknown destination" }, { status: 400 });
+    patch.send_to = body.sendTo;
+  }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
 
   const { data, error } = await auth.db.from("drafts").update(patch).eq("id", id).select(withMeeting).maybeSingle();
@@ -59,7 +66,9 @@ export async function PATCH(req: Request, ctx: Ctx) {
 
   // Only an approval, and only once: a draft that already went somewhere is
   // never sent twice.
-  if (patch.status === "approved" && !row.external_url) {
+  // Only an approval, and only once. Keyed on the receipt rather than the
+  // link, because a Slack post has no link to come back with.
+  if (patch.status === "approved" && !row.destination) {
     try {
       const result = await deliverDraft(auth.user.id, row);
       if (result.delivered) {

@@ -1,0 +1,117 @@
+import { describe, it, expect } from "vitest";
+import {
+  destinationNote,
+  destinationsFor,
+  isSendTo,
+  namedDestination,
+  NO_DESTINATIONS,
+  suggestDestination,
+  type DestinationContext,
+} from "../draft-destination";
+
+const ctx = (connected: DestinationContext["connected"], preferred: DestinationContext["preferred"] = null) => ({
+  connected,
+  preferred,
+});
+
+describe("destinationsFor", () => {
+  it("offers the connected trackers, then Slack, then copying it out", () => {
+    expect(destinationsFor("ticket", ctx(["linear", "jira", "slack"]))).toEqual(["linear", "jira", "slack", "copy"]);
+    expect(destinationsFor("ticket", ctx(["slack"]))).toEqual(["slack", "copy"]);
+  });
+
+  it("always offers copying, even with nothing connected", () => {
+    expect(destinationsFor("ticket", NO_DESTINATIONS)).toEqual(["copy"]);
+  });
+
+  it("ignores Google for a follow-up, and everything but Google for an email", () => {
+    // An email goes to one person's address. Posting it in a channel would be
+    // a different message to a different audience.
+    expect(destinationsFor("ticket", ctx(["google"]))).toEqual(["copy"]);
+    expect(destinationsFor("email", ctx(["google", "slack"]))).toEqual(["gmail", "copy"]);
+    expect(destinationsFor("email", ctx(["linear", "slack"]))).toEqual(["copy"]);
+  });
+});
+
+describe("namedDestination", () => {
+  it("takes the meeting at its word", () => {
+    expect(namedDestination("Raise a Jira for the export crash", ["linear", "jira", "copy"])).toBe("jira");
+    expect(namedDestination("put it in linear", ["linear", "jira", "copy"])).toBe("linear");
+    expect(namedDestination("drop a note in Slack", ["slack", "copy"])).toBe("slack");
+  });
+
+  it("will not name something that is not connected", () => {
+    expect(namedDestination("Raise a Jira for this", ["linear", "copy"])).toBeNull();
+  });
+
+  it("needs a whole word, not a fragment of one", () => {
+    // The failure this guards: "linear regression" and "slacking off" are not
+    // instructions about where work goes.
+    expect(namedDestination("the linearly interpolated figures", ["linear", "copy"])).toBeNull();
+    expect(namedDestination("we have been slacking on this", ["slack", "copy"])).toBeNull();
+  });
+
+  it("is null when nothing is named", () => {
+    expect(namedDestination("Fix the export crash on large files", ["linear", "jira", "slack", "copy"])).toBeNull();
+    expect(namedDestination("", ["linear", "copy"])).toBeNull();
+  });
+});
+
+describe("suggestDestination", () => {
+  it("prefers what the meeting said over the account setting", () => {
+    const s = suggestDestination("ticket", "Raise a Jira for the export crash", ctx(["linear", "jira"], "linear"));
+    expect(s).toEqual({ to: "jira", because: "named", named: "Jira" });
+  });
+
+  it("falls back to the account setting", () => {
+    const s = suggestDestination("ticket", "Fix the export crash", ctx(["linear", "jira"], "jira"));
+    expect(s).toEqual({ to: "jira", because: "preference" });
+  });
+
+  it("uses the only connected place when nothing was chosen", () => {
+    // The trap this closes: connecting Linear and never picking it in Settings
+    // used to deliver nothing at all, silently.
+    expect(suggestDestination("ticket", "Fix the export crash", ctx(["linear"]))).toEqual({ to: "linear", because: "only" });
+  });
+
+  it("does not guess between two connected places", () => {
+    expect(suggestDestination("ticket", "Fix the export crash", ctx(["linear", "jira"]))).toEqual({
+      to: "copy",
+      because: "none",
+    });
+  });
+
+  it("ignores an account setting whose connector is gone", () => {
+    expect(suggestDestination("ticket", "Fix it", ctx(["slack"], "jira"))).toEqual({ to: "slack", because: "only" });
+  });
+
+  it("suggests copying when nothing is connected", () => {
+    expect(suggestDestination("ticket", "Fix the export crash", NO_DESTINATIONS)).toEqual({ to: "copy", because: "none" });
+  });
+
+  it("never suggests a tracker for an email", () => {
+    const s = suggestDestination("email", "Email Priya about the Linear issue", ctx(["linear", "google"], "linear"));
+    expect(s.to).toBe("gmail");
+  });
+});
+
+describe("destinationNote", () => {
+  it("says what approving does, and warns that Slack tracks nothing", () => {
+    expect(destinationNote("linear", "ticket")).toBe("Approving creates this as an issue in Linear.");
+    expect(destinationNote("slack", "ticket")).toContain("not be tracked or assigned");
+    expect(destinationNote("gmail", "email")).toBe("Approving sends this from your Gmail.");
+  });
+
+  it("is plain that copying sends nothing", () => {
+    expect(destinationNote("copy", "ticket")).toContain("Nothing is created anywhere");
+    expect(destinationNote("copy", "email")).toContain("Nothing is sent");
+  });
+});
+
+describe("isSendTo", () => {
+  it("accepts the five real destinations and nothing else", () => {
+    for (const v of ["linear", "jira", "slack", "gmail", "copy"]) expect(isSendTo(v)).toBe(true);
+    expect(isSendTo("github")).toBe(false);
+    expect(isSendTo(null)).toBe(false);
+  });
+});

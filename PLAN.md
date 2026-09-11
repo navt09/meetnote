@@ -88,6 +88,8 @@ Also done since: the notes say what the meeting means for the person who recorde
 
 Bring-your-own-LLM was removed, not deferred: it asked customers for an API key, which is exactly the kind of setup friction the OAuth work was meant to eliminate.
 
+Also done since (2026-09-11): **a follow-up picks its own destination.** Approving shows where it is going — Linear, Jira, Slack, or copy it out — and it can be pointed somewhere else first. The starting point comes from plain rules: what the meeting named out loud, then the Settings preference, then the only thing connected. It used to be one hidden account-wide setting, which meant a button saying "draft ticket" while the answer to "which ticket system" lived on another page, and connecting a tracker without also choosing it delivered nothing at all, silently.
+
 **Not yet true of Phase 3:** no connector has ever delivered anything to a real Linear, Jira, Slack or Google account. The consent flows are proven; the send path is not.
 
 **Phase 4: money and polish.** Not started.

@@ -20,7 +20,6 @@ import { PriorityFlag } from "@/components/priority";
 // the pieces live once, beside the meeting page's list.
 import { hasContext, TaskContextPanel, TaskTitle, type TaskContext } from "@/components/action-items";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
-import { draftTicketLabel, type TicketDestination } from "@/lib/ticket-destination";
 import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 import { emailDraftKey } from "@/lib/draft";
 
@@ -54,7 +53,6 @@ export default function TasksView({
   hiddenFromOthers,
   requestedTaskId,
   tier,
-  ticketDestination,
 }: {
   initial: PublicTask[];
   loadError: string | null;
@@ -63,8 +61,6 @@ export default function TasksView({
   emailedKeys: string[];
   due: DueEntry[];
   tier: Tier;
-  /** Where a ticket would actually go, so the button can name it. */
-  ticketDestination: TicketDestination;
   /** Each task's meeting's people_to_contact, keyed by meeting id. */
   people: Record<string, ContactPerson[]>;
   /** The reader's own name, as set in Settings. Null if they never set one. */
@@ -352,14 +348,14 @@ export default function TasksView({
                             </button>
                           ) : null
                         ) : hasDraft.has(t.id) ? (
-                          <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
+                          <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">follow-up drafted</Link>
                         ) : mayDraft ? (
                           <button
                             onClick={() => draft(t)}
                             disabled={drafting === t.id}
                             className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                           >
-                            {drafting === t.id ? "opening…" : draftTicketLabel(ticketDestination)}
+                            {drafting === t.id ? "opening…" : "draft follow-up"}
                           </button>
                         ) : null}
                         {t.calendarEventUrl ? (

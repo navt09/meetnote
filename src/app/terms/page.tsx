@@ -18,7 +18,7 @@ export default function TermsPage() {
       <Section heading="What the service does">
         <p>
           From the Call records audio you choose to record, transcribes it, writes notes and action items, and drafts
-          follow-up tickets and emails. Drafts are never sent anywhere until you approve them individually.
+          follow-ups and emails. Drafts are never sent anywhere until you approve them individually.
         </p>
       </Section>
 

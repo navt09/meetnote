@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/supabase/server";
 import { sortDrafts, toPublicDraft, type DraftRow } from "@/lib/draft";
-import { ticketDestinationFor } from "@/lib/connector-store";
-import { NO_TICKET_DESTINATION } from "@/lib/ticket-destination";
+import { destinationContextFor } from "@/lib/connector-store";
+import { NO_DESTINATIONS } from "@/lib/draft-destination";
 import ApprovalsView, { type DraftRequest } from "./approvals-view";
 
 export const dynamic = "force-dynamic";
@@ -32,16 +32,16 @@ export default async function ApprovalsPage({
   const db = await supabaseServer();
   const { data: userData } = await db.auth.getUser();
 
-  const [draftsRes, ticketDestination] = await Promise.all([
+  const [draftsRes, destinations] = await Promise.all([
     db.from("drafts").select("*, meetings(title)").order("created_at", { ascending: false }).limit(200),
-    userData.user ? ticketDestinationFor(userData.user.id) : Promise.resolve(NO_TICKET_DESTINATION),
+    userData.user ? destinationContextFor(userData.user.id) : Promise.resolve(NO_DESTINATIONS),
   ]);
 
   const drafts = sortDrafts(((draftsRes.data ?? []) as Joined[]).map((r) => toPublicDraft(r, r.meetings?.title ?? "Untitled meeting")));
   return (
     <ApprovalsView
       initial={drafts}
-      ticketDestination={ticketDestination}
+      destinations={destinations}
       writeRequest={requestFrom(params)}
       loadError={draftsRes.error ? "Could not load your drafts. Refresh to try again." : null}
     />

@@ -5,7 +5,12 @@ import * as linearOAuth from "./providers/linear-oauth";
 import * as jira from "./providers/jira";
 import * as jiraOAuth from "./providers/jira-oauth";
 import * as google from "./providers/google";
+import * as slack from "./providers/slack";
+import { isSendTo, type SendTo } from "./draft-destination";
 import type {
+  SlackConfig,
+  SlackCredentials,
+  TicketProvider,
   GoogleConfig,
   GoogleCredentials,
   JiraConfig,
@@ -25,8 +30,9 @@ import type { DraftRow } from "./draft";
  */
 
 export type Delivery =
-  | { delivered: true; destination: string; url: string; label: string }
-  | { delivered: false; reason: "not_configured" };
+  /** `url` is null where the destination gives nothing to link back to, which is Slack. */
+  | { delivered: true; destination: SendTo; url: string | null; label: string }
+  | { delivered: false; reason: "not_configured" | "copy_only" };
 
 export class DeliveryError extends Error {
   /** True when the fix is reconnecting, rather than retrying. */
@@ -37,10 +43,24 @@ export class DeliveryError extends Error {
   }
 }
 
-async function deliverTicket(userId: string, draft: DraftRow): Promise<Delivery> {
-  const provider = await getTicketProvider(userId);
-  if (!provider) return { delivered: false, reason: "not_configured" };
+async function deliverSlack(userId: string, draft: DraftRow): Promise<Delivery> {
+  const stored = await loadConnector<SlackCredentials, SlackConfig>(userId, "slack");
+  if (!stored) return { delivered: false, reason: "not_configured" };
+  try {
+    await slack.postMessage(stored.credentials, { heading: draft.subject, body: draft.body });
+    await noteConnectorError(userId, "slack", null);
+    // An incoming webhook returns no permalink, so there is nothing honest to
+    // link to. The receipt is the destination itself.
+    return { delivered: true, destination: "slack", url: null, label: stored.config.channelName ?? "Slack" };
+  } catch (err) {
+    const reconnect = err instanceof slack.SlackGoneError;
+    const message = err instanceof Error ? err.message : "Slack rejected the message.";
+    await noteConnectorError(userId, "slack", message);
+    throw new DeliveryError(message, reconnect);
+  }
+}
 
+async function deliverTicket(userId: string, draft: DraftRow, provider: TicketProvider): Promise<Delivery> {
   if (provider === "linear") {
     const stored = await loadConnector<LinearCredentials, LinearConfig>(userId, "linear");
     if (!stored?.config.teamId) return { delivered: false, reason: "not_configured" };
@@ -107,6 +127,22 @@ async function deliverEmail(userId: string, draft: DraftRow): Promise<Delivery> 
   }
 }
 
+/**
+ * Where this draft is going. The choice stored on the row wins; a row written
+ * before destinations were a choice falls back to the account-wide setting,
+ * which is exactly what it did then.
+ */
+async function resolveSendTo(userId: string, draft: DraftRow): Promise<SendTo | null> {
+  if (isSendTo(draft.send_to)) return draft.send_to;
+  if (draft.kind === "email") return "gmail";
+  return await getTicketProvider(userId);
+}
+
 export async function deliverDraft(userId: string, draft: DraftRow): Promise<Delivery> {
-  return draft.kind === "ticket" ? deliverTicket(userId, draft) : deliverEmail(userId, draft);
+  const to = await resolveSendTo(userId, draft);
+  // Not a failure: somebody chose to copy it out, or never set anything up.
+  if (!to || to === "copy") return { delivered: false, reason: to === "copy" ? "copy_only" : "not_configured" };
+  if (to === "gmail") return deliverEmail(userId, draft);
+  if (to === "slack") return deliverSlack(userId, draft);
+  return deliverTicket(userId, draft, to);
 }

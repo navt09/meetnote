@@ -4,14 +4,15 @@ import { DRAFT_NOTE_MAX, cleanDraftNote } from "../agent";
 
 const draft = (over: Partial<PublicDraft>): PublicDraft => ({
   id: "d", meetingId: "m", meetingTitle: "Standup", taskId: null, kind: "ticket", subject: "S", body: "B",
-  recipient: null, status: "pending", approvedAt: null, externalUrl: null, createdAt: "2026-09-01T00:00:00Z", ...over,
+  recipient: null, status: "pending", approvedAt: null, sendTo: null, externalUrl: null,
+  createdAt: "2026-09-01T00:00:00Z", ...over,
 });
 
 describe("toPublicDraft", () => {
   it("drops the fields the browser has no business seeing", () => {
     const row: DraftRow = {
       id: "d1", user_id: "u1", meeting_id: "m1", task_id: "t1", kind: "ticket", subject: "Fix it", body: "Body",
-      recipient: null, status: "pending", approved_at: null, destination: null, external_url: null,
+      recipient: null, status: "pending", approved_at: null, send_to: "linear", destination: null, external_url: null,
       model: "claude-opus-5", usage: { input_tokens: 10, output_tokens: 20 }, cost_usd: 0.5,
       created_at: "2026-09-01T00:00:00Z", updated_at: "2026-09-01T00:00:00Z",
     };
@@ -89,8 +90,10 @@ describe("cleanDraftNote", () => {
 });
 
 describe("kindLabel", () => {
-  it("reads as a word", () => {
-    expect(kindLabel("ticket")).toBe("Ticket");
+  it("reads as a word, and not as one of the places it might go", () => {
+    // The stored kind is still "ticket", but only two of the four destinations
+    // make a ticket, so the word a person reads is the broader one.
+    expect(kindLabel("ticket")).toBe("Follow-up");
     expect(kindLabel("email")).toBe("Email");
   });
 });

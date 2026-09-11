@@ -268,7 +268,20 @@ try {
     if (leakedField in d) throw new Error(`draft response leaked ${leakedField}`);
   }
   if (!d.subject || !d.body) throw new Error("draft came back empty");
-  log(`ticket drafted: "${d.subject}" (${d.body.length} chars, pending)`);
+  if (d.sendTo !== "copy") throw new Error(`with nothing connected a draft must start on copy, got ${d.sendTo}`);
+  log(`follow-up drafted: "${d.subject}" (${d.body.length} chars, pending, send_to ${d.sendTo})`);
+
+  // Where it goes is the draft's own, changeable until it is approved, and
+  // checked on the server rather than trusted from the browser.
+  const bogus = await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ sendTo: "github" }) }, token);
+  if (bogus.status !== 400) throw new Error(`an unknown destination must be refused, got ${bogus.status}`);
+  const moved = await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ sendTo: "slack" }) }, token);
+  if (moved.status !== 200 || moved.json.draft.sendTo !== "slack") {
+    throw new Error(`could not change the destination: ${moved.status} ${JSON.stringify(moved.json)}`);
+  }
+  // Put it back: nothing is connected, so approving must not try to deliver.
+  await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ sendTo: "copy" }) }, token);
+  log("destination is per draft, refuses an unknown one, and survives the round trip");
 
   // Drafting the same task again replaces rather than duplicates.
   const again = await api(`/api/tasks/${tasks[1].id}/draft`, { method: "POST", body: "{}" }, token);

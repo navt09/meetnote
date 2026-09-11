@@ -30,7 +30,7 @@ export default function PrivacyPage() {
               action items, decisions and follow-up names taken from it.
             </>,
             <>
-              <strong className="text-fg">Drafts.</strong> Tickets and emails written for you, and whether you
+              <strong className="text-fg">Drafts.</strong> Follow-ups and emails written for you, and whether you
               approved, edited or dismissed them.
             </>,
             <>

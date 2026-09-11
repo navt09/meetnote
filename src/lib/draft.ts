@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { LlmUsage } from "./cost";
+import { isSendTo, type SendTo } from "./draft-destination";
 
 export type DraftKind = "ticket" | "email";
 export type DraftStatus = "pending" | "approved" | "dismissed";
@@ -16,6 +17,9 @@ export type DraftRow = {
   recipient: string | null;
   status: DraftStatus;
   approved_at: string | null;
+  /** The intent: where approving should send it. */
+  send_to: string | null;
+  /** The receipt: where an approved draft actually went. */
   destination: string | null;
   external_url: string | null;
   model: string | null;
@@ -37,6 +41,8 @@ export type PublicDraft = {
   recipient: string | null;
   status: DraftStatus;
   approvedAt: string | null;
+  /** Where approving would send it. Null on rows written before it was a choice. */
+  sendTo: SendTo | null;
   externalUrl: string | null;
   createdAt: string;
 };
@@ -66,6 +72,7 @@ export function toPublicDraft(row: DraftRow, meetingTitle: string): PublicDraft 
     recipient: row.recipient,
     status: row.status,
     approvedAt: row.approved_at,
+    sendTo: isSendTo(row.send_to) ? row.send_to : null,
     externalUrl: row.external_url,
     createdAt: row.created_at,
   };
@@ -107,6 +114,12 @@ export function draftToClipboard(d: Pick<PublicDraft, "kind" | "subject" | "body
   return `# ${d.subject}\n\n${d.body}\n`;
 }
 
+/**
+ * What a draft is called on screen. "Ticket" was wrong once a draft could go
+ * to Slack or be copied out: only two of its four destinations make a ticket.
+ * The database still says `ticket`, which is a stable identifier rather than
+ * a word anybody reads.
+ */
 export function kindLabel(kind: DraftKind): string {
-  return kind === "ticket" ? "Ticket" : "Email";
+  return kind === "ticket" ? "Follow-up" : "Email";
 }

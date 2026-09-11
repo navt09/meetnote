@@ -11,7 +11,6 @@ import type { QuoteContext } from "@/lib/quote-context";
 import type { ActionItem } from "@/lib/schema";
 import { PriorityFlag } from "@/components/priority";
 import { canConnect, canDraft, type Tier } from "@/lib/account";
-import { draftTicketLabel, type TicketDestination } from "@/lib/ticket-destination";
 import { isUpgradeError, upgradeMessage, UpgradeNote } from "@/components/upgrade";
 
 /**
@@ -163,14 +162,11 @@ export function ActionItems({
   fallback,
   people,
   tier,
-  ticketDestination,
 }: {
   meetingId: string;
   fallback: ActionItem[];
   people: ContactPerson[];
   tier: Tier;
-  /** Where a ticket would actually go, so the button can name it. */
-  ticketDestination: TicketDestination;
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -333,14 +329,14 @@ export function ActionItems({
                       </button>
                     ) : null
                   ) : drafted.has(task.id) ? (
-                    <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">ticket drafted</Link>
+                    <Link href="/approvals" className="font-medium text-accent transition-opacity hover:opacity-70">follow-up drafted</Link>
                   ) : mayDraft ? (
                     <button
                       onClick={() => draftTicket(task)}
                       disabled={busy === task.id}
                       className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                     >
-                      {busy === task.id ? "opening…" : draftTicketLabel(ticketDestination)}
+                      {busy === task.id ? "opening…" : "draft follow-up"}
                     </button>
                   ) : null}
                   {task.calendarEventUrl ? (

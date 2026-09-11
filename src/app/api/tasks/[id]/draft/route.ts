@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { isBlocked, requireDrafting } from "@/lib/guard";
 import { draftTicket } from "@/lib/agent";
 import { toPublicDraft, type DraftRow } from "@/lib/draft";
+import { destinationContextFor } from "@/lib/connector-store";
+import { suggestDestination } from "@/lib/draft-destination";
 import { publicErrorMessage } from "@/lib/public-error";
 import type { Meeting } from "@/lib/meeting";
 import type { TaskRow } from "@/lib/task";
@@ -46,6 +48,17 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: publicErrorMessage(err) }, { status: 502 });
   }
 
+  // Suggested from the task's own words, not the draft's: the meeting is what
+  // said "raise a Jira", and the model's rewrite may not have kept it. Plain
+  // string matching, no second request, and the person can change it before
+  // approving.
+  const destinations = await destinationContextFor(auth.user.id);
+  const suggested = suggestDestination(
+    "ticket",
+    [task.title, task.details, task.quote].filter(Boolean).join(" "),
+    destinations,
+  );
+
   // One live draft per task: upsert on the unique index.
   const { data, error } = await auth.db
     .from("drafts")
@@ -59,6 +72,7 @@ export async function POST(req: Request, ctx: Ctx) {
         body: result.draft.body,
         status: "pending",
         approved_at: null,
+        send_to: suggested.to,
         model: result.model,
         usage: result.usage,
         cost_usd: result.costUsd,

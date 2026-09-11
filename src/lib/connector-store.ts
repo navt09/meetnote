@@ -2,7 +2,7 @@ import "server-only";
 import { supabaseAdmin } from "./supabase-admin";
 import { decryptJson, encryptJson } from "./crypto";
 import type { ConnectorConfig, ConnectorRow, Credentials, Provider, TicketProvider } from "./connectors";
-import { isTicketProvider, type TicketDestination } from "./ticket-destination";
+import type { DestinationContext } from "./draft-destination";
 
 /**
  * Reading and writing connector credentials. Uses the service role because the
@@ -86,25 +86,23 @@ export async function getTicketProvider(userId: string): Promise<TicketProvider 
 }
 
 /**
- * Where this person's tickets would actually go: what they chose, and which
- * ticket providers are connected. The UI needs both, because choosing without
- * connecting and connecting without choosing both deliver nothing, and they
- * need different sentences to fix.
+ * Everything needed to work out where a draft could go: what is connected, and
+ * the account-wide preference that is now only a tie-breaker rather than the
+ * decision. Both, because connecting without choosing and choosing without
+ * connecting are different problems with different fixes.
  *
  * Two reads rather than a join: `user_settings` and `connectors` are separate
- * tables and this runs on pages that are already awaiting several things.
+ * tables and this runs on pages already awaiting several things.
  */
-export async function ticketDestinationFor(userId: string): Promise<TicketDestination> {
+export async function destinationContextFor(userId: string): Promise<DestinationContext> {
   const admin = supabaseAdmin();
   const [settings, rows] = await Promise.all([
     admin.from("user_settings").select("ticket_provider").eq("user_id", userId).maybeSingle(),
     admin.from("connectors").select("provider").eq("user_id", userId),
   ]);
-  const chosen = ((settings.data as { ticket_provider: TicketProvider | null } | null)?.ticket_provider) ?? null;
-  const connected = ((rows.data ?? []) as { provider: string }[])
-    .map((r) => r.provider)
-    .filter(isTicketProvider);
-  return { chosen, connected };
+  const preferred = ((settings.data as { ticket_provider: TicketProvider | null } | null)?.ticket_provider) ?? null;
+  const connected = ((rows.data ?? []) as { provider: string }[]).map((r) => r.provider) as Provider[];
+  return { connected, preferred };
 }
 
 export async function setTicketProvider(userId: string, provider: TicketProvider | null): Promise<void> {

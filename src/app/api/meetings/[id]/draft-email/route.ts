@@ -5,6 +5,8 @@ import { toPublicDraft, type DraftRow } from "@/lib/draft";
 import { publicErrorMessage } from "@/lib/public-error";
 import type { Meeting } from "@/lib/meeting";
 import { getDisplayName } from "@/lib/settings-store";
+import { destinationContextFor } from "@/lib/connector-store";
+import { suggestDestination } from "@/lib/draft-destination";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -115,6 +117,9 @@ export async function POST(req: Request, ctx: Ctx) {
         body: result.draft.body,
         recipient: person.name,
         status: "pending",
+        // An email has one machine that can send it, so there is nothing to
+        // infer: Gmail when Google is connected, otherwise copy it out.
+        send_to: suggestDestination("email", "", await destinationContextFor(auth.user.id)).to,
         model: result.model,
         usage: result.usage,
         cost_usd: result.costUsd,

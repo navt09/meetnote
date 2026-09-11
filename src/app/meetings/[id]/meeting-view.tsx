@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NotesView, TranscriptView } from "@/components/notes";
-import type { TicketDestination } from "@/lib/ticket-destination";
 import { NotesSkeleton, ProcessingStepper, StatusPill } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { isSettling, type PublicMeeting } from "@/lib/meeting";
@@ -24,7 +23,7 @@ const WORKING_COPY: Record<string, string> = {
   extracting: "Pulling out tasks, decisions and people",
 };
 
-export default function MeetingView({ tier, ticketDestination }: { tier: Tier; ticketDestination: TicketDestination }) {
+export default function MeetingView({ tier }: { tier: Tier }) {
   const { id } = useParams<{ id: string }>();
   const toast = useToast();
   const [meeting, setMeeting] = useState<PublicMeeting | null>(null);
@@ -207,7 +206,7 @@ export default function MeetingView({ tier, ticketDestination }: { tier: Tier; t
         </div>
       ) : null}
 
-      {meeting.notes ? <NotesView notes={meeting.notes} meetingId={id} tier={tier} ticketDestination={ticketDestination} /> : working ? <NotesSkeleton /> : null}
+      {meeting.notes ? <NotesView notes={meeting.notes} meetingId={id} tier={tier} /> : working ? <NotesSkeleton /> : null}
       {meeting.transcript?.length ? <TranscriptView segments={meeting.transcript} /> : null}
     </section>
   );
