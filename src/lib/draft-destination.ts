@@ -103,17 +103,23 @@ export function suggestDestination(kind: DraftKind, text: string, ctx: Destinati
   return { to: "copy", because: "none" };
 }
 
-/** One sentence on what approving will do. Read immediately before pressing it. */
-export function destinationNote(to: SendTo, kind: DraftKind): string {
+/**
+ * One sentence on what the next press will do. Read immediately before making
+ * it, so it has to name the press that is actually there: a draft already
+ * approved but never sent is waiting on Send, not on Approve, and telling it
+ * to approve again would describe a button that is not on the card.
+ */
+export function destinationNote(to: SendTo, kind: DraftKind, act: "approve" | "send" = "approve"): string {
+  const doing = act === "approve" ? "Approving" : "Sending";
   switch (to) {
     case "linear":
-      return "Approving creates this as an issue in Linear.";
+      return `${doing} creates this as an issue in Linear.`;
     case "jira":
-      return "Approving creates this as an issue in Jira.";
+      return `${doing} creates this as an issue in Jira.`;
     case "slack":
-      return "Approving posts this to your Slack channel. It will not be tracked or assigned to anyone.";
+      return `${doing} posts this to your Slack channel. It will not be tracked or assigned to anyone.`;
     case "gmail":
-      return "Approving sends this from your Gmail.";
+      return `${doing} sends this from your Gmail.`;
     default:
       return kind === "email"
         ? "Approving marks it done and keeps it here for you to copy. Nothing is sent."

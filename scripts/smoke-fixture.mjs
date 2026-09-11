@@ -240,6 +240,7 @@ export async function createFixture() {
   const { data: taskRows } = await admin.from("tasks").insert(rows).select("id,idx");
   const firstTask = (taskRows ?? []).find((t) => t.idx === 0);
   const secondTask = (taskRows ?? []).find((t) => t.idx === 1);
+  const thirdTask = (taskRows ?? []).find((t) => t.idx === 2);
 
   // One ticket already waiting on a decision, so Approvals has something to
   // render. Written straight into the table: the real route would call the
@@ -279,6 +280,27 @@ export async function createFixture() {
         // The receipt, written only because a send succeeded.
         destination: "linear",
         external_url: "https://linear.app/smoke/issue/ENG-42",
+      }),
+    );
+  }
+
+  // And one approved that never went anywhere, which is the state a person
+  // reaches by approving before connecting anything. It used to be a dead end:
+  // delivery only ran on the move into "approved", and that had been and gone.
+  if (thirdTask) {
+    await withRetry("could not create the smoke unsent draft", () =>
+      admin.from("drafts").insert({
+        user_id: userId,
+        meeting_id: meeting.id,
+        task_id: thirdTask.id,
+        kind: "ticket",
+        subject: "Write up the retention policy",
+        body: "Decide how long recordings are kept and write it down.",
+        status: "approved",
+        approved_at: new Date().toISOString(),
+        send_to: "linear",
+        destination: null,
+        external_url: null,
       }),
     );
   }

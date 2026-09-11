@@ -210,15 +210,21 @@ test.describe("every page renders what it was given", () => {
 
     const sent = page.locator("li.glass", { hasText: "Add a row limit to the export" });
     await expect(sent.getByText("Sent to Linear")).toBeVisible();
-    await expect(sent.getByRole("link", { name: "open it" })).toHaveAttribute(
+    await expect(sent.getByRole("link", { name: "Open in Linear" })).toHaveAttribute(
       "href",
       "https://linear.app/smoke/issue/ENG-42",
     );
     await page.screenshot({ path: "test-results/approvals-sent.png", fullPage: true });
 
-    // Past tense only: a draft still waiting says where it would go, never
-    // where it went.
-    await expect(sent.getByText("Send to")).toHaveCount(0);
+    // Past tense only, and nothing to send: it already went.
+    await expect(sent.getByRole("button", { name: /^Send to/ })).toHaveCount(0);
+
+    // Approved but never delivered is not a dead end. It keeps the control and
+    // gains a way to send it, which is the only route out of that state.
+    const unsent = page.locator("li.glass", { hasText: "Write up the retention policy" });
+    await expect(unsent.getByText("Not sent, kept to copy")).toHaveCount(0);
+    await expect(unsent.getByRole("button", { name: "Send to Linear" })).toBeVisible();
+    await expect(unsent.getByRole("button", { name: "Slack", exact: true })).toBeVisible();
   });
 
   test("the theme sticks across a reload", async ({ page }) => {

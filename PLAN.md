@@ -90,7 +90,7 @@ Bring-your-own-LLM was removed, not deferred: it asked customers for an API key,
 
 Also done since (2026-09-11): **a follow-up picks its own destination.** Approving shows where it is going — Linear, Jira, Slack, or copy it out — and it can be pointed somewhere else first. The starting point comes from plain rules: what the meeting named out loud, then the Settings preference, then the only thing connected. It used to be one hidden account-wide setting, which meant a button saying "draft ticket" while the answer to "which ticket system" lived on another page, and connecting a tracker without also choosing it delivered nothing at all, silently.
 
-**Not yet true of Phase 3:** no connector has ever delivered anything to a real Linear, Jira, Slack or Google account. The consent flows are proven; the send path is not.
+**Proven end to end (2026-09-11):** an approved follow-up became a real Linear issue in a real workspace, `NAV-5`. The send path works. Slack, Jira and Gmail have still never delivered to a real account.
 
 **Phase 4: money and polish.** Not started.
 Stripe plans, team workspaces, desktop recorder, consent notice and retention settings. Search across meetings is done (2026-09-09): a `search_meetings` function in Postgres, security invoker so row level security decides what is searchable, matching titles, notes and transcript text with a snippet showing where it matched.

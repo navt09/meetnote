@@ -283,6 +283,12 @@ try {
   await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ sendTo: "copy" }) }, token);
   log("destination is per draft, refuses an unknown one, and survives the round trip");
 
+  // Sending is not approving. A draft still waiting on a person cannot be sent
+  // by asking for it directly, or the approval gate would have a way round it.
+  const early = await api(`/api/drafts/${d.id}`, { method: "PATCH", body: JSON.stringify({ deliver: true }) }, token);
+  if (early.status !== 400) throw new Error(`sending an unapproved draft must be refused, got ${early.status}`);
+  log("an unapproved draft cannot be sent, even when asked directly");
+
   // Drafting the same task again replaces rather than duplicates.
   const again = await api(`/api/tasks/${tasks[1].id}/draft`, { method: "POST", body: "{}" }, token);
   if (again.status !== 201) throw new Error(`re-draft: ${again.status}`);

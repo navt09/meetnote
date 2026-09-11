@@ -103,6 +103,13 @@ describe("destinationNote", () => {
     expect(destinationNote("gmail", "email")).toBe("Approving sends this from your Gmail.");
   });
 
+  it("names the press that is actually on the card", () => {
+    // An approved draft that never went anywhere is waiting on Send, not on
+    // Approve, and the sentence has to say so.
+    expect(destinationNote("linear", "ticket", "send")).toBe("Sending creates this as an issue in Linear.");
+    expect(destinationNote("slack", "ticket", "send")).toContain("Sending posts this");
+  });
+
   it("is plain that copying sends nothing", () => {
     expect(destinationNote("copy", "ticket")).toContain("Nothing is created anywhere");
     expect(destinationNote("copy", "email")).toContain("Nothing is sent");

@@ -25,7 +25,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
-  let body: { status?: string; subject?: string; body?: string; sendTo?: string };
+  let body: { status?: string; subject?: string; body?: string; sendTo?: string; deliver?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -54,9 +54,18 @@ export async function PATCH(req: Request, ctx: Ctx) {
     if (!isSendTo(body.sendTo)) return NextResponse.json({ error: "Unknown destination" }, { status: 400 });
     patch.send_to = body.sendTo;
   }
-  if (Object.keys(patch).length === 0) return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
+  // Sending something already approved. A draft approved while nothing was
+  // connected had no way to reach anywhere afterwards, because delivery only
+  // ever ran on the move into "approved", which had already happened.
+  const wantsDeliver = body.deliver === true;
+  if (Object.keys(patch).length === 0 && !wantsDeliver) {
+    return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
+  }
 
-  const { data, error } = await auth.db.from("drafts").update(patch).eq("id", id).select(withMeeting).maybeSingle();
+  const changing = Object.keys(patch).length > 0;
+  const { data, error } = changing
+    ? await auth.db.from("drafts").update(patch).eq("id", id).select(withMeeting).maybeSingle()
+    : await auth.db.from("drafts").select(withMeeting).eq("id", id).maybeSingle();
   if (error) {
     console.error(JSON.stringify({ event: "draft_update_error", id, message: error.message }));
     return NextResponse.json({ error: "Could not update that draft." }, { status: 500 });
@@ -64,11 +73,18 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (!data) return NextResponse.json({ error: "Draft not found" }, { status: 404 });
   let row = data as Joined;
 
+  // The approval gate, stated once: asking to send is not the same as
+  // approving, and nothing may be sent that a person has not approved.
+  if (wantsDeliver && row.status !== "approved") {
+    return NextResponse.json({ error: "Approve it before sending it." }, { status: 400 });
+  }
+
   // Only an approval, and only once: a draft that already went somewhere is
   // never sent twice.
-  // Only an approval, and only once. Keyed on the receipt rather than the
-  // link, because a Slack post has no link to come back with.
-  if (patch.status === "approved" && !row.destination) {
+  // Only once, whether it is being approved now or sent after the fact. Keyed
+  // on the receipt rather than the link, because a Slack post has no link to
+  // come back with.
+  if ((patch.status === "approved" || wantsDeliver) && !row.destination) {
     try {
       const result = await deliverDraft(auth.user.id, row);
       if (result.delivered) {

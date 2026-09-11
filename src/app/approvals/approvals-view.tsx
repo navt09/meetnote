@@ -61,12 +61,15 @@ function Destination({
   chosen,
   busy,
   onChoose,
+  act,
 }: {
   draft: PublicDraft;
   options: SendTo[];
   chosen: SendTo;
   busy: boolean;
   onChoose: (to: SendTo) => void;
+  /** Which press the sentence should describe: the one on this card. */
+  act: "approve" | "send";
 }) {
   return (
     <div className="mt-4 flex flex-col gap-2">
@@ -90,7 +93,7 @@ function Destination({
           </div>
         </div>
       ) : null}
-      <p className="text-xs text-muted">{destinationNote(chosen, draft.kind)}</p>
+      <p className="text-xs text-muted">{destinationNote(chosen, draft.kind, act)}</p>
     </div>
   );
 }
@@ -184,12 +187,37 @@ export default function ApprovalsView({
     const previous = d.status;
     replace({ ...d, status: "approved" });
     try {
-      const { draft } = await patchJson<{ draft: PublicDraft }>(`/api/drafts/${d.id}`, { status: "approved" });
+      const { draft, warning } = await patchJson<{ draft: PublicDraft; warning?: string }>(`/api/drafts/${d.id}`, {
+        status: "approved",
+      });
       replace(draft);
-      toast("Approved", "ok");
+      // Say where it went, not just that the press registered. "Approved" on
+      // its own is what left somebody hunting through Linear for an issue that
+      // was never created.
+      if (warning) toast(warning, "error");
+      else toast(draft.deliveredTo ? `Approved · ${deliveredLabel(draft.deliveredTo).toLowerCase()}` : "Approved", "ok");
     } catch (err) {
       replace({ ...d, status: previous });
       toast(err instanceof Error ? err.message : "Could not update that draft", "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* Sending something already approved. The route refuses this on anything
+     not approved, so this cannot become a way round the approval gate. */
+  async function sendNow(d: PublicDraft) {
+    setBusy(d.id);
+    try {
+      const { draft, warning } = await patchJson<{ draft: PublicDraft; warning?: string }>(`/api/drafts/${d.id}`, {
+        deliver: true,
+      });
+      replace(draft);
+      if (warning) toast(warning, "error");
+      else if (draft.deliveredTo) toast(deliveredLabel(draft.deliveredTo), "ok");
+      else toast("Nothing is connected to send it to.", "info");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not send that", "error");
     } finally {
       setBusy(null);
     }
@@ -358,29 +386,24 @@ export default function ApprovalsView({
               ) : (
                 <>
                   <DraftBody markdown={d.body} />
-                  {d.status === "approved" ? (
-                    /* Past tense, and from the receipt rather than the intent:
-                       an approval whose send failed kept the intent and gained
-                       no receipt, and "Sent to Linear" would be a lie for it. */
-                    <p className="mt-4 text-xs text-muted">
-                      {deliveredLabel(d.deliveredTo)}
-                      {d.externalUrl ? (
-                        <>
-                          {" · "}
-                          <a href={d.externalUrl} target="_blank" rel="noreferrer" className="text-accent transition-opacity hover:opacity-70">
-                            open it
-                          </a>
-                        </>
-                      ) : null}
-                    </p>
+                  {/* Past tense, and from the receipt rather than the intent: an
+                      approval whose send failed kept the intent and gained no
+                      receipt, and "Sent to Linear" would be a lie for it. */}
+                  {d.status === "approved" && d.deliveredTo ? (
+                    <p className="mt-4 text-xs text-muted">{deliveredLabel(d.deliveredTo)}</p>
                   ) : null}
-                  {d.status === "pending" ? (
+
+                  {/* Still choosable when approved but never sent. Delivery used
+                      to run only on the move into "approved", so one approved
+                      before anything was connected could never leave. */}
+                  {d.status === "pending" || (d.status === "approved" && !d.deliveredTo) ? (
                     <Destination
                       draft={d}
                       options={destinationsFor(d.kind, destinations)}
                       chosen={chosenFor(d)}
                       busy={busy === d.id}
                       onChoose={(to) => chooseDestination(d, to)}
+                      act={d.status === "approved" ? "send" : "approve"}
                     />
                   ) : null}
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-panel-border pt-4">
@@ -388,6 +411,16 @@ export default function ApprovalsView({
                       <button className="btn btn-approve !py-1.5 text-xs" disabled={busy === d.id} onClick={() => approve(d)}>
                         Approve
                       </button>
+                    ) : null}
+                    {d.status === "approved" && !d.deliveredTo && chosenFor(d) !== "copy" ? (
+                      <button className="btn btn-approve !py-1.5 text-xs" disabled={busy === d.id} onClick={() => sendNow(d)}>
+                        {busy === d.id ? "Sending…" : `Send to ${destinationName(chosenFor(d))}`}
+                      </button>
+                    ) : null}
+                    {d.externalUrl ? (
+                      <a href={d.externalUrl} target="_blank" rel="noreferrer" className="btn btn-ghost !py-1.5 text-xs">
+                        Open in {destinationName(d.deliveredTo ?? "copy")}
+                      </a>
                     ) : null}
                     <button className="btn btn-ghost !py-1.5 text-xs" onClick={() => copy(d)}>
                       {d.kind === "ticket" ? "Copy follow-up" : "Copy email"}
