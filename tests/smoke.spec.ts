@@ -177,6 +177,16 @@ test.describe("every page renders what it was given", () => {
     await expect(page.getByText(/final dark mode icons are not ready/)).toBeVisible();
   });
 
+  test("Home's list is your work, not everybody's", async ({ page }) => {
+    // The fixture meeting has tasks owned by Alex and by Marcus. Home used to
+    // show both while the "All tasks" link beside it went to a page showing
+    // only Alex's, so the two disagreed about whose page it was.
+    await page.goto("/dashboard");
+    const list = page.locator("section", { hasText: "Top of the list" }).first();
+    await expect(list.getByText("Marcus")).toHaveCount(0);
+    await expect(list.getByText("Alex").first()).toBeVisible();
+  });
+
   test("a draft says where approving would send it, and lets you change it", async ({ page }) => {
     // The complaint this fixes: "draft ticket" said nothing about whether the
     // ticket was going to Linear, to Jira, to Slack or nowhere at all, and the

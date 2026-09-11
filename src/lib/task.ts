@@ -231,7 +231,7 @@ export function filterTasks(tasks: PublicTask[], filter: TaskFilter, owner: stri
  * With no name set, everything comes back: the alternative is an empty page
  * with no way of telling why.
  */
-export function tasksOwnedBy(tasks: PublicTask[], me: string | null): PublicTask[] {
+export function tasksOwnedBy<T extends { owner: string | null }>(tasks: T[], me: string | null): T[] {
   const name = (me ?? "").trim().toLowerCase();
   if (!name) return tasks;
   return tasks.filter((t) => {

@@ -3,7 +3,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { isOwnerEmail } from "@/lib/admin";
 import { formatUsd } from "@/lib/cost";
 import type { MeetingStatus } from "@/lib/meeting";
-import type { TaskPriority, TaskKind } from "@/lib/task";
+import { tasksOwnedBy, type TaskPriority, type TaskKind } from "@/lib/task";
+import { getDisplayName } from "@/lib/settings-store";
 import { countByWeek, delta, deltaLabel, humanDuration, sumByWeek, weekBuckets } from "@/lib/stats";
 import ActivityChart, { type ActivityWeek } from "@/components/activity-chart";
 import { HeroFigure, StatTile } from "@/components/stat-tile";
@@ -51,7 +52,7 @@ export default async function DashboardPage() {
   // Two queries over meetings rather than one, because only the newest handful
   // need their notes and that column holds the whole extraction. Fetching it
   // for three hundred rows moved megabytes to render a bar chart.
-  const [meetingsRes, notesRes, tasksRes] = await Promise.all([
+  const [meetingsRes, notesRes, tasksRes, displayName] = await Promise.all([
     db
       .from("meetings")
       .select("id,title,status,recorded_at,duration_seconds,transcription_cost_usd,llm_cost_usd")
@@ -66,6 +67,7 @@ export default async function DashboardPage() {
       .from("tasks")
       .select("id,title,status,priority,kind,owner,due,completed_at,created_at,meeting_id,meetings(title)")
       .limit(500),
+    userData.user ? getDisplayName(userData.user.id) : Promise.resolve(null),
   ]);
 
   const meetings = (meetingsRes.data ?? []) as MeetingRow[];
@@ -77,7 +79,13 @@ export default async function DashboardPage() {
   const now = new Date();
   const buckets = weekBuckets(WEEKS, now);
   const doneTasks = tasks.filter((t) => t.status === "done" && t.completed_at);
-  const openTasks = tasks.filter((t) => t.status === "open");
+  // Narrowed to the reader before anything is derived from it, the same way
+  // /tasks is, so the list and the line above it cannot disagree about whose
+  // page this is. The activity chart deliberately stays whole: it counts what
+  // you recorded and what you ticked off, which is yours either way.
+  const everyonesOpen = tasks.filter((t) => t.status === "open");
+  const openTasks = tasksOwnedBy(everyonesOpen, displayName);
+  const othersOpen = everyonesOpen.length - openTasks.length;
 
   const meetingsPerWeek = countByWeek(meetings, (m) => m.recorded_at, buckets);
   const secondsPerWeek = sumByWeek(meetings, (m) => m.recorded_at, (m) => Number(m.duration_seconds ?? 0), buckets);
@@ -122,7 +130,9 @@ export default async function DashboardPage() {
   const heroSub = firstRun
     ? "Record a meeting and the tasks people agree to will land here."
     : openTasks.length === 0
-      ? "Everything from your meetings is done."
+      ? othersOpen > 0
+        ? `Nothing outstanding for you. ${othersOpen} open on your meetings belong to other people.`
+        : "Everything from your meetings is done."
       : `${highPriorityOpen > 0 ? `${highPriorityOpen} high priority · ` : ""}across ${meetings.length} meeting${meetings.length === 1 ? "" : "s"}`;
 
   return (
@@ -236,7 +246,9 @@ export default async function DashboardPage() {
                 </Link>
               </li>
             ))}
-            {topTasks.length === 0 ? <li className="py-3 text-sm text-muted">Nothing outstanding.</li> : null}
+            {topTasks.length === 0 ? (
+              <li className="py-3 text-sm text-muted">{othersOpen > 0 ? "Nothing outstanding for you." : "Nothing outstanding."}</li>
+            ) : null}
           </ul>
         </section>
 

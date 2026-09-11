@@ -21,6 +21,8 @@ Set-up lives in `.env.example`: secret key, **price** id (not the product id), w
 - Every API route checks auth via `getAuth(req)` (cookie session or `Authorization: Bearer`). Row Level Security on `meetings` is the real boundary; the service role is only used for storage signing and the post-response pipeline, always scoped by `user_id`.
 
 ## Navigation
+**Home's "Top of the list" is your work too**, through the same `tasksOwnedBy()`, and the high-priority count above it is derived from the narrowed list rather than the whole one. It used to show everybody's while the "All tasks" link beside it went to a page showing only yours. The activity chart stays whole deliberately: it counts meetings you recorded and tasks you ticked off, both of which are yours whoever the task names.
+
 **`/tasks` opens on your own tasks**, matched against `user_settings.display_name`, and only when that name matches an owner and more than one owner exists: a filter that opens on an empty list, or that cannot be seen or lifted, reads as a broken page. A meeting's own notes deliberately keep showing everybody's.
 
 Tabs when signed in, in order: **Home** (`/dashboard`), **Notes** (`/notes`, the meeting list with summary previews), **Tasks** (`/tasks`, every action item across meetings), **Approvals** (`/approvals`), **Record** (`/record`), **Settings** (`/settings`), and **Owner** (`/owner`) for owner accounts only. Record sits before Settings because it is what people come to do. Signing in lands on `/dashboard`. `/meetings` redirects to `/notes`; `/meetings/[id]` is still the single-meeting page. Tab state lives in `src/components/sidebar.tsx`. The rail carries no keyboard-shortcut hints, because there is no key handler behind them.
