@@ -21,6 +21,7 @@ const task = (over: Partial<PublicTask> = {}): PublicTask => ({
   blockedBy: null,
   completedAt: null,
   calendarEventUrl: null,
+  onTodo: false,
   createdAt: "2026-09-01T00:00:00Z",
   ...over,
 });

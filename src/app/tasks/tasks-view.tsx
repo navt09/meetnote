@@ -91,6 +91,8 @@ export default function TasksView({
   const hasDraft = useMemo(() => new Set(drafted), [drafted]);
   const emailed = useMemo(() => new Set(emailedKeys), [emailedKeys]);
   const [drafting, setDrafting] = useState<string | null>(null);
+  // Hidden for the whole page once Microsoft turns out not to be there.
+  const [todoOff, setTodoOff] = useState(false);
   const [scheduling, setScheduling] = useState<string | null>(null);
   // The row to jump to. Carries a counter so picking the same deadline twice
   // in a row still moves and flashes.
@@ -108,6 +110,25 @@ export default function TasksView({
   const error = loadError;
 
   /** Blocks time out on the user's own calendar. Nobody else is invited or emailed. */
+  /* Straight onto the list, with no draft in between: a task on your own list
+     is the words the meeting already agreed, and a model would spend eight
+     seconds arriving back at them. One refusal hides it for the whole page
+     rather than leaving a standing complaint about Settings on every row. */
+  async function addToTodo(task: PublicTask) {
+    setScheduling(task.id);
+    try {
+      await postJson(`/api/tasks/${task.id}/todo`, {});
+      setTasks((list) => list.map((t) => (t.id === task.id ? { ...t, onTodo: true } : t)));
+      toast("Added to your Microsoft To Do list.", "ok");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not add that to To Do";
+      if (/connect microsoft|cannot reach your tasks/i.test(message)) setTodoOff(true);
+      else toast(isUpgradeError(err) ? upgradeMessage("connect", message) : message, "error");
+    } finally {
+      setScheduling(null);
+    }
+  }
+
   async function addToCalendar(task: PublicTask) {
     setScheduling(task.id);
     try {
@@ -369,6 +390,17 @@ export default function TasksView({
                             className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                           >
                             {scheduling === t.id ? "adding…" : "add to calendar"}
+                          </button>
+                        ) : null}
+                        {t.onTodo ? (
+                          <span className="text-faint">on your To Do list</span>
+                        ) : mayConnect && !todoOff ? (
+                          <button
+                            onClick={() => addToTodo(t)}
+                            disabled={scheduling === t.id}
+                            className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                          >
+                            add to To Do
                           </button>
                         ) : null}
                         {/* One line per row, not one per missing button: both

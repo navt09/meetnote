@@ -179,6 +179,8 @@ export function ActionItems({
   // tickets are, so "email drafted" survives leaving the page and coming back.
   const [emailed, setEmailed] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState<string | null>(null);
+  // Hidden for the whole page once Microsoft turns out not to be there.
+  const [todoOff, setTodoOff] = useState(false);
   const [open, setOpen] = useState<Set<string>>(new Set());
 
   function toggleOpen(key: string) {
@@ -240,6 +242,28 @@ export function ActionItems({
     } catch (err) {
       const fallbackMessage = err instanceof Error ? err.message : "Could not add that to your calendar";
       toast(isUpgradeError(err) ? upgradeMessage("connect", fallbackMessage) : fallbackMessage, "error");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  /* Straight onto the list, with no draft in between. A follow-up is drafted
+     because somebody else will read it; a task on your own list is the words
+     the meeting already agreed, so a model and an approval queue would spend
+     eight seconds arriving back at the text that was already there.
+
+     One refusal hides it for the rest of the page: a row of actions should not
+     carry a standing complaint about Settings on every task. */
+  async function addToTodo(task: PublicTask) {
+    setBusy(task.id);
+    try {
+      await postJson(`/api/tasks/${task.id}/todo`, {});
+      setTasks((list) => (list ?? []).map((t) => (t.id === task.id ? { ...t, onTodo: true } : t)));
+      toast("Added to your Microsoft To Do list.", "ok");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not add that to To Do";
+      if (/connect microsoft|cannot reach your tasks/i.test(message)) setTodoOff(true);
+      else toast(isUpgradeError(err) ? upgradeMessage("connect", message) : message, "error");
     } finally {
       setBusy(null);
     }
@@ -350,6 +374,17 @@ export function ActionItems({
                       className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
                     >
                       add to calendar
+                    </button>
+                  ) : null}
+                  {task.onTodo ? (
+                    <span className="text-faint">on your To Do list</span>
+                  ) : mayConnect && !todoOff ? (
+                    <button
+                      onClick={() => addToTodo(task)}
+                      disabled={busy === task.id}
+                      className="font-medium text-accent transition-opacity hover:opacity-70 disabled:opacity-50"
+                    >
+                      add to To Do
                     </button>
                   ) : null}
                   {/* One line per row, not one per missing button: both walls

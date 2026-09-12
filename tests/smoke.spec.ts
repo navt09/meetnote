@@ -274,6 +274,16 @@ test.describe("every page renders what it was given", () => {
     await page.screenshot({ path: "test-results/settings-connectors.png", fullPage: true });
   });
 
+  test("a task goes straight to To Do, without a draft in between", async ({ page }) => {
+    // A follow-up is drafted because somebody else reads it. A task on your
+    // own list is the words already agreed, so there is nothing to draft.
+    await page.goto("/tasks");
+    const row = page.locator(".band-row").first();
+    await expect(row.getByRole("button", { name: "add to To Do" })).toBeVisible();
+    await expect(row.getByRole("button", { name: "add to calendar" })).toBeVisible();
+    await page.screenshot({ path: "test-results/tasks-todo.png", fullPage: true });
+  });
+
   test("a meeting can be added to the Excel register", async ({ page }) => {
     await page.goto("/notes");
     await page.getByRole("link", { name: /Smoke Test/ }).first().click();

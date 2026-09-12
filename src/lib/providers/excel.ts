@@ -51,10 +51,15 @@ export async function listWorkbooks(
   config: MicrosoftConfig,
 ): Promise<Workbook[]> {
   const token = await accessTokenFor(userId, creds, config);
+  // Graph's search reads file *contents* as well as names, so asking for
+  // ".xlsx" also returns anything that mentions it — a real search here came
+  // back with an index.js. The name filter below is what makes the result
+  // correct; the generous $top is what stops that noise crowding out an actual
+  // workbook before the filter ever sees it.
   const found = await graph<{ value: { id: string; name: string; webUrl?: string; file?: { mimeType?: string } }[] }>(
     token,
     "/me/drive/search(q='.xlsx')",
-    { query: { $top: "50", $select: "id,name,webUrl,file" } },
+    { query: { $top: "200", $select: "id,name,webUrl,file" } },
   );
   return (found.value ?? [])
     .filter((f) => f.file && f.name.toLowerCase().endsWith(".xlsx"))
