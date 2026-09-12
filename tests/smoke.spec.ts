@@ -274,6 +274,23 @@ test.describe("every page renders what it was given", () => {
     await page.screenshot({ path: "test-results/settings-connectors.png", fullPage: true });
   });
 
+  test("a meeting can be added to the Excel register", async ({ page }) => {
+    await page.goto("/notes");
+    await page.getByRole("link", { name: /Smoke Test/ }).first().click();
+    await expect(page.getByRole("button", { name: "Add tasks to Excel" })).toBeVisible();
+    await expect(page.getByText("Appends every task to your workbook.")).toBeVisible();
+    await page.screenshot({ path: "test-results/meeting-excel.png", fullPage: true });
+  });
+
+  test("the workbook is chosen, not invented", async ({ page }) => {
+    // Graph refuses to treat an empty file as a workbook, so one has to exist
+    // already. The control says choose rather than create.
+    await page.goto("/settings");
+    const connections = page.locator("div.glass", { hasText: "Connections" }).first();
+    await expect(connections.getByRole("button", { name: "Choose a workbook" })).toBeVisible();
+    await expect(connections.getByText(/Where a meeting.s tasks get appended/)).toBeVisible();
+  });
+
   test("the theme sticks across a reload", async ({ page }) => {
     await page.goto("/settings");
 

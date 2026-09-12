@@ -154,7 +154,7 @@ export default function SettingsView({
         <JiraCard locked={!mayConnect} oauthReady={oauthReady.jira} connector={get("jira")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <SlackCard locked={!mayConnect} oauthReady={oauthReady.slack} connector={get("slack")} busy={busy} setBusy={setBusy} onChanged={refresh} disconnect={disconnect} />
         <GoogleCard locked={!mayConnect} connector={get("google")} googleReady={googleReady} busy={busy} disconnect={disconnect} />
-        <MicrosoftCard locked={!mayConnect} connector={get("microsoft")} microsoftReady={microsoftReady} busy={busy} disconnect={disconnect} />
+        <MicrosoftCard locked={!mayConnect} connector={get("microsoft")} microsoftReady={microsoftReady} busy={busy} disconnect={disconnect} onChanged={refresh} />
       </div>
 
       <DangerZone email={email} />
@@ -838,20 +838,98 @@ function SlackCard({ connector, busy, setBusy, onChanged, disconnect, oauthReady
  * approves them, so a half-working connection is a normal state that has to be
  * legible rather than an error.
  */
+/**
+ * Which workbook a meeting's tasks get appended to.
+ *
+ * Chosen from what is already in OneDrive rather than created: Graph's
+ * workbook APIs refuse an empty file, so making one would mean shipping a
+ * binary .xlsx and uploading it. Pressing New > Excel workbook once is a
+ * smaller ask than that, and the empty state says so.
+ */
+function WorkbookPicker({ current, onChanged }: { current: string | null; onChanged: () => void }) {
+  const toast = useToast();
+  const [list, setList] = useState<{ id: string; name: string }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    setBusy(true);
+    try {
+      const { workbooks } = await getJson<{ workbooks: { id: string; name: string }[] }>(
+        "/api/connectors/microsoft/workbook",
+      );
+      setList(workbooks);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not read your OneDrive", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function choose(id: string, name: string) {
+    setBusy(true);
+    try {
+      await putJson("/api/connectors/microsoft/workbook", { id, name });
+      setList(null);
+      onChanged();
+      toast(`Tasks will be added to ${name}.`, "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not save that", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (list) {
+    return list.length === 0 ? (
+      <p className="text-xs text-muted">
+        No spreadsheets found in your OneDrive. Make one first — in OneDrive, New &rarr; Excel workbook — then choose it
+        here.
+      </p>
+    ) : (
+      <div className="flex flex-wrap gap-2">
+        {list.slice(0, 12).map((w) => (
+          <button key={w.id} onClick={() => choose(w.id, w.name)} disabled={busy} className="btn btn-ghost !py-1.5 text-xs">
+            {w.name}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button onClick={load} disabled={busy} className="btn btn-ghost !py-1.5 text-xs">
+        {busy ? "Looking…" : current ? "Change workbook" : "Choose a workbook"}
+      </button>
+      <span className="text-xs text-faint">
+        {current ? `Tasks are added to ${current}.` : "Where a meeting's tasks get appended."}
+      </span>
+    </div>
+  );
+}
+
 function MicrosoftCard({
   connector,
   microsoftReady,
   busy,
   disconnect,
   locked,
+  onChanged,
 }: {
   connector: PublicConnector | null;
   microsoftReady: boolean;
   busy: string | null;
   disconnect: (p: Provider, label: string) => Promise<void>;
   locked: boolean;
+  onChanged: () => void;
 }) {
-  const config = (connector?.config ?? {}) as { scopes?: string[]; email?: string; name?: string; personal?: boolean };
+  const config = (connector?.config ?? {}) as {
+    scopes?: string[];
+    email?: string;
+    name?: string;
+    personal?: boolean;
+    workbookName?: string;
+  };
   const scopes = config.scopes ?? [];
   const personal = !!config.personal;
   const on = PRODUCTS.filter((p) => scopes.includes(p.scope));
@@ -890,6 +968,9 @@ function MicrosoftCard({
           This is a personal Microsoft account, so Teams and SharePoint are not available on it — those are Microsoft 365
           work and school products, and there are no channels or sites for them to reach.
         </p>
+      ) : null}
+      {connector && scopes.includes("Files.ReadWrite") ? (
+        <WorkbookPicker current={config.workbookName ?? null} onChanged={onChanged} />
       ) : null}
       {connector && canEnable.length > 0 ? (
         <div className="flex flex-col gap-2">

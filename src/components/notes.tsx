@@ -4,6 +4,7 @@ import { kindLabel, type TaskKind, type TaskPriority } from "@/lib/task";
 import { PeopleToContact } from "./people-actions";
 import { ActionItems } from "./action-items";
 import { ShareToSlack } from "./share-slack";
+import { AddToExcel } from "./add-to-excel";
 import Link from "next/link";
 import { PriorityFlag } from "./priority";
 import type { Tier } from "@/lib/account";
@@ -112,6 +113,7 @@ export function NotesView({ notes, meetingId, tier }: { notes: MeetingNotes; mee
           </ul>
         ) : null}
         {meetingId ? <ShareToSlack meetingId={meetingId} tier={tier} /> : null}
+        {meetingId ? <AddToExcel meetingId={meetingId} tier={tier} /> : null}
       </section>
 
       {/* ---- what was settled ---- */}
