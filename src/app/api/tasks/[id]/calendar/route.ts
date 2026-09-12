@@ -3,7 +3,9 @@ import { isBlocked, requireConnections } from "@/lib/guard";
 import { loadConnector, noteConnectorError } from "@/lib/connector-store";
 import { createEvent, GoogleReconnectError, hasScope, SCOPE_CALENDAR_WRITE } from "@/lib/providers/google";
 import { describeSlot, parseDue, slotFor, toIso } from "@/lib/schedule";
-import type { GoogleConfig, GoogleCredentials } from "@/lib/connectors";
+import { createEvent as createOutlookEvent } from "@/lib/providers/outlook";
+import { MicrosoftReconnectError } from "@/lib/providers/microsoft";
+import type { GoogleConfig, GoogleCredentials, MicrosoftConfig, MicrosoftCredentials } from "@/lib/connectors";
 import type { TaskRow } from "@/lib/task";
 
 export const runtime = "nodejs";
@@ -38,14 +40,24 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "That task is already on your calendar.", url: task.calendar_event_url }, { status: 409 });
   }
 
-  const stored = await loadConnector<GoogleCredentials, GoogleConfig>(auth.user.id, "google");
-  if (!stored) return NextResponse.json({ error: "Connect Google in Settings first." }, { status: 400 });
-  if (!hasScope(stored.config.scopes ?? [], SCOPE_CALENDAR_WRITE)) {
-    return NextResponse.json(
-      { error: "From the Call can read your calendar but not add to it. Reconnect Google in Settings to allow it." },
-      { status: 400 },
-    );
+  // Either calendar, whichever is connected. Google first only because it came
+  // first; a person with both gets one block, not two.
+  const google = await loadConnector<GoogleCredentials, GoogleConfig>(auth.user.id, "google");
+  const canGoogle = !!google && hasScope(google.config.scopes ?? [], SCOPE_CALENDAR_WRITE);
+  const ms = canGoogle ? null : await loadConnector<MicrosoftCredentials, MicrosoftConfig>(auth.user.id, "microsoft");
+  const canMicrosoft = !!ms && (ms.config.scopes ?? []).includes("Calendars.ReadWrite");
+
+  if (!canGoogle && !canMicrosoft) {
+    // Three different situations, three different fixes, so they get three
+    // different sentences rather than one that fits none of them.
+    const message = google
+      ? "From the Call can read your Google calendar but not add to it. Reconnect Google in Settings to allow it."
+      : ms
+        ? "That Microsoft connection cannot add calendar events. Reconnect Microsoft in Settings to allow it."
+        : "Connect Google or Microsoft in Settings first.";
+    return NextResponse.json({ error: message }, { status: 400 });
   }
+  const provider = canGoogle ? "google" : "microsoft";
 
   const now = new Date();
   // A stated due date wins; otherwise block time out tomorrow rather than guess.
@@ -57,14 +69,21 @@ export async function POST(req: Request, ctx: Ctx) {
     .join("\n");
 
   try {
-    const created = await createEvent(auth.user.id, stored.credentials, stored.config, {
-      title: task.title,
-      start: toIso(slot.start),
-      end: toIso(slot.end),
-      description,
-      notify: false,
-    });
-    await noteConnectorError(auth.user.id, "google", null);
+    const created = canGoogle
+      ? await createEvent(auth.user.id, google!.credentials, google!.config, {
+          title: task.title,
+          start: toIso(slot.start),
+          end: toIso(slot.end),
+          description,
+          notify: false,
+        })
+      : await createOutlookEvent(auth.user.id, ms!.credentials, ms!.config, {
+          title: task.title,
+          start: toIso(slot.start),
+          end: toIso(slot.end),
+          description,
+        });
+    await noteConnectorError(auth.user.id, provider, null);
     await auth.db
       .from("tasks")
       .update({ calendar_event_url: created.url, calendar_event_at: created.start })
@@ -73,8 +92,9 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ ok: true, url: created.url, when: describeSlot(slot) }, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Couldn't add that to your calendar.";
-    await noteConnectorError(auth.user.id, "google", message);
-    console.error(JSON.stringify({ event: "task_calendar_error", id, message }));
-    return NextResponse.json({ error: message, needsReconnect: err instanceof GoogleReconnectError }, { status: 502 });
+    await noteConnectorError(auth.user.id, provider, message);
+    console.error(JSON.stringify({ event: "task_calendar_error", id, provider, message }));
+    const needsReconnect = err instanceof GoogleReconnectError || err instanceof MicrosoftReconnectError;
+    return NextResponse.json({ error: message, needsReconnect }, { status: 502 });
   }
 }

@@ -6,8 +6,12 @@ import * as jira from "./providers/jira";
 import * as jiraOAuth from "./providers/jira-oauth";
 import * as google from "./providers/google";
 import * as slack from "./providers/slack";
+import * as outlook from "./providers/outlook";
+import * as microsoft from "./providers/microsoft";
 import { isSendTo, type SendTo } from "./draft-destination";
 import type {
+  MicrosoftConfig,
+  MicrosoftCredentials,
   SlackConfig,
   SlackCredentials,
   TicketProvider,
@@ -138,11 +142,51 @@ async function resolveSendTo(userId: string, draft: DraftRow): Promise<SendTo | 
   return await getTicketProvider(userId);
 }
 
+/** Everything Microsoft: one connection, three things it can be asked to do. */
+async function deliverMicrosoft(userId: string, draft: DraftRow, to: "outlook" | "todo"): Promise<Delivery> {
+  const stored = await loadConnector<MicrosoftCredentials, MicrosoftConfig>(userId, "microsoft");
+  if (!stored) return { delivered: false, reason: "not_configured" };
+
+  try {
+    if (to === "outlook") {
+      // The draft names a person, not an address, exactly as the Gmail path
+      // does. Guessing one would be worse than asking.
+      const address = (draft.recipient ?? "").trim();
+      if (!address.includes("@")) {
+        throw new DeliveryError(`No email address for ${address || "that person"}. Add one to the draft before sending.`);
+      }
+      await outlook.sendMail(userId, stored.credentials, stored.config, {
+        to: address,
+        subject: draft.subject,
+        body: draft.body,
+      });
+      await noteConnectorError(userId, "microsoft", null);
+      // sendMail answers with no body, so there is nothing to link to but the
+      // sender's own Sent folder.
+      return { delivered: true, destination: "outlook", url: null, label: "Sent" };
+    }
+
+    const task = await outlook.createTodo(userId, stored.credentials, stored.config, {
+      title: draft.subject,
+      body: draft.body,
+    });
+    await noteConnectorError(userId, "microsoft", null);
+    return { delivered: true, destination: "todo", url: task.url, label: task.title };
+  } catch (err) {
+    if (err instanceof DeliveryError) throw err;
+    const reconnect = err instanceof microsoft.MicrosoftReconnectError;
+    const message = err instanceof Error ? err.message : "Microsoft rejected that.";
+    await noteConnectorError(userId, "microsoft", message);
+    throw new DeliveryError(message, reconnect);
+  }
+}
+
 export async function deliverDraft(userId: string, draft: DraftRow): Promise<Delivery> {
   const to = await resolveSendTo(userId, draft);
   // Not a failure: somebody chose to copy it out, or never set anything up.
   if (!to || to === "copy") return { delivered: false, reason: to === "copy" ? "copy_only" : "not_configured" };
   if (to === "gmail") return deliverEmail(userId, draft);
   if (to === "slack") return deliverSlack(userId, draft);
+  if (to === "outlook" || to === "todo") return deliverMicrosoft(userId, draft, to);
   return deliverTicket(userId, draft, to);
 }

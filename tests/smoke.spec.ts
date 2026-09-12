@@ -209,6 +209,10 @@ test.describe("every page renders what it was given", () => {
     // Jira is not connected, so it is not on offer at all.
     await expect(card.getByRole("button", { name: "Jira", exact: true })).toHaveCount(0);
 
+    // Microsoft is connected with the permissions a personal account can
+    // grant, so To Do is a real destination for a follow-up.
+    await expect(card.getByRole("button", { name: "To Do", exact: true })).toBeVisible();
+
     // One press does both, and the button says both.
     await expect(card.getByRole("button", { name: "Approve and send" })).toBeVisible();
 
@@ -253,13 +257,20 @@ test.describe("every page renders what it was given", () => {
       await expect(connections.getByText(name).first()).toBeVisible();
     }
 
-    // One row and one sign-in covering five products, rather than five rows.
-    // Five would be five consents for one account, which is the thing people
-    // complain about with Microsoft integrations. Asserted by the row count,
-    // since whether the row offers Connect or says it needs a key on the
-    // server depends on the environment rather than the code.
-    await expect(connections.getByText(/Outlook, Teams, Planner, SharePoint and Excel/)).toBeVisible();
+    // One row and one sign-in covering several products, rather than one row
+    // each, which would be several consents for a single account. Asserted by
+    // the row count, since whether a row offers Connect or says it needs a key
+    // on the server depends on the environment rather than the code.
     await expect(connections.locator("svg")).toHaveCount(5);
+
+    // Connected, the Microsoft row says which products that consent actually
+    // reached rather than which ones exist.
+    await expect(connections.getByText(/Outlook mail, Calendar, To Do, Excel on OneDrive/)).toBeVisible();
+
+    // A personal account has no Teams channels or SharePoint sites, so it is
+    // told why rather than offered buttons that cannot work.
+    await expect(connections.getByText(/personal Microsoft account/)).toBeVisible();
+    await expect(connections.getByRole("link", { name: /^Enable/ })).toHaveCount(0);
     await page.screenshot({ path: "test-results/settings-connectors.png", fullPage: true });
   });
 

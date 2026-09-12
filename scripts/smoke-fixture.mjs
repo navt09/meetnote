@@ -309,10 +309,26 @@ export async function createFixture() {
   // choose between. The credentials are deliberate nonsense: nothing in the
   // smoke run decrypts them, because nothing in a smoke run calls a vendor.
   // What is read is the provider name, which is all the destination list needs.
-  for (const provider of ["linear", "slack"]) {
+  // Microsoft carries scopes rather than an empty config, because what it can
+  // do lives there: one sign-in covers several products and being connected
+  // says nothing about which of them are reachable. These are the ones a
+  // personal account can grant, which is the common case.
+  const CONNECTORS = [
+    { provider: "linear", config: {} },
+    { provider: "slack", config: {} },
+    {
+      provider: "microsoft",
+      config: {
+        email: "alex@example.com",
+        personal: true,
+        scopes: ["Mail.Send", "Calendars.ReadWrite", "Tasks.ReadWrite", "Files.ReadWrite", "User.Read"],
+      },
+    },
+  ];
+  for (const { provider, config } of CONNECTORS) {
     await withRetry(`could not connect smoke ${provider}`, () =>
       admin.from("connectors").upsert(
-        { user_id: userId, provider, credentials: "smoke-fixture-not-a-real-credential", config: {} },
+        { user_id: userId, provider, credentials: "smoke-fixture-not-a-real-credential", config },
         { onConflict: "user_id,provider" },
       ),
     );

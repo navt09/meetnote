@@ -11,10 +11,14 @@ import {
   type DestinationContext,
 } from "../draft-destination";
 
-const ctx = (connected: DestinationContext["connected"], preferred: DestinationContext["preferred"] = null) => ({
-  connected,
-  preferred,
-});
+const ctx = (
+  connected: DestinationContext["connected"],
+  preferred: DestinationContext["preferred"] = null,
+  microsoftScopes: string[] = [],
+) => ({ connected, preferred, microsoftScopes });
+
+/** A Microsoft connection with everything a personal account can grant. */
+const MS_BASE = ["Mail.Send", "Calendars.ReadWrite", "Tasks.ReadWrite", "Files.ReadWrite"];
 
 describe("destinationsFor", () => {
   it("offers the connected trackers, then Slack, then copying it out", () => {
@@ -35,6 +39,33 @@ describe("destinationsFor", () => {
   });
 });
 
+describe("Microsoft destinations", () => {
+  it("offers Outlook for an email and To Do for a follow-up", () => {
+    expect(destinationsFor("email", ctx(["microsoft"], null, MS_BASE))).toEqual(["outlook", "copy"]);
+    expect(destinationsFor("ticket", ctx(["microsoft"], null, MS_BASE))).toEqual(["todo", "copy"]);
+  });
+
+  it("offers both mailboxes when both are connected", () => {
+    expect(destinationsFor("email", ctx(["google", "microsoft"], null, MS_BASE))).toEqual(["gmail", "outlook", "copy"]);
+  });
+
+  it("checks the scope, not the connection", () => {
+    // One Microsoft sign-in covers several products, and a personal account or
+    // a strict tenant can withhold any of them, so being connected says
+    // nothing about what is reachable.
+    expect(destinationsFor("email", ctx(["microsoft"], null, ["Tasks.ReadWrite"]))).toEqual(["copy"]);
+    expect(destinationsFor("ticket", ctx(["microsoft"], null, ["Mail.Send"]))).toEqual(["copy"]);
+    expect(destinationsFor("email", ctx(["microsoft"]))).toEqual(["copy"]);
+  });
+
+  it("suggests the only place there is", () => {
+    expect(suggestDestination("ticket", "Fix the export", ctx(["microsoft"], null, MS_BASE))).toEqual({
+      to: "todo",
+      because: "only",
+    });
+  });
+});
+
 describe("namedDestination", () => {
   it("takes the meeting at its word", () => {
     expect(namedDestination("Raise a Jira for the export crash", ["linear", "jira", "copy"])).toBe("jira");
@@ -51,6 +82,14 @@ describe("namedDestination", () => {
     // instructions about where work goes.
     expect(namedDestination("the linearly interpolated figures", ["linear", "copy"])).toBeNull();
     expect(namedDestination("we have been slacking on this", ["slack", "copy"])).toBeNull();
+  });
+
+  it("never hears To Do or a mailbox in ordinary speech", () => {
+    // "we need to do this" is in every meeting, and an email's mailbox is a
+    // matter of the account rather than of anything that was said.
+    expect(namedDestination("we still need to do the migration", ["todo", "copy"])).toBeNull();
+    expect(namedDestination("send it from outlook", ["outlook", "copy"])).toBeNull();
+    expect(namedDestination("gmail it to her", ["gmail", "copy"])).toBeNull();
   });
 
   it("is null when nothing is named", () => {
@@ -111,6 +150,13 @@ describe("destinationNote", () => {
     expect(destinationNote("slack", "ticket", "send")).toContain("Sending posts this");
   });
 
+  it("names the Microsoft destinations too", () => {
+    expect(destinationNote("outlook", "email")).toBe("Approving sends this from your Outlook.");
+    expect(destinationNote("todo", "ticket")).toBe("Approving adds this to your Microsoft To Do list.");
+    expect(deliveredLabel("outlook")).toBe("Sent with Outlook");
+    expect(deliveredLabel("todo")).toBe("Added to To Do");
+  });
+
   it("is plain that copying sends nothing", () => {
     expect(destinationNote("copy", "ticket")).toContain("Nothing is created anywhere");
     expect(destinationNote("copy", "email")).toContain("Nothing is sent");
@@ -145,8 +191,8 @@ describe("approveLabel", () => {
 });
 
 describe("isSendTo", () => {
-  it("accepts the five real destinations and nothing else", () => {
-    for (const v of ["linear", "jira", "slack", "gmail", "copy"]) expect(isSendTo(v)).toBe(true);
+  it("accepts the real destinations and nothing else", () => {
+    for (const v of ["linear", "jira", "slack", "gmail", "outlook", "todo", "copy"]) expect(isSendTo(v)).toBe(true);
     expect(isSendTo("github")).toBe(false);
     expect(isSendTo(null)).toBe(false);
   });

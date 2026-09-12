@@ -22,7 +22,7 @@ import type { Provider, TicketProvider } from "./connectors";
  * propose, but the meeting did not decide this and neither does the product.
  */
 
-export type SendTo = "linear" | "jira" | "slack" | "gmail" | "copy";
+export type SendTo = "linear" | "jira" | "slack" | "gmail" | "outlook" | "todo" | "copy";
 
 /** Why a destination was suggested, so the UI can say it out loud. */
 export type SuggestionReason = "named" | "preference" | "only" | "none";
@@ -33,6 +33,13 @@ export type DestinationContext = {
   connected: Provider[];
   /** The account-wide ticket destination, from Settings. Null when unset. */
   preferred: TicketProvider | null;
+  /**
+   * What the Microsoft connection was actually granted. Connected is not
+   * enough there: one sign-in covers several products, and a personal account
+   * or a strict tenant can withhold any of them, so a Microsoft destination
+   * has to check the scope rather than the row.
+   */
+  microsoftScopes?: string[];
 };
 
 export const NO_DESTINATIONS: DestinationContext = { connected: [], preferred: null };
@@ -42,8 +49,15 @@ const NAMES: Record<SendTo, string> = {
   jira: "Jira",
   slack: "Slack",
   gmail: "Gmail",
+  outlook: "Outlook",
+  todo: "To Do",
   copy: "Copy only",
 };
+
+/** True when the Microsoft connection holds this Graph permission. */
+function msCan(ctx: DestinationContext, scope: string): boolean {
+  return ctx.connected.includes("microsoft") && (ctx.microsoftScopes ?? []).includes(scope);
+}
 
 export function destinationName(to: SendTo): string {
   return NAMES[to];
@@ -56,12 +70,20 @@ export function destinationName(to: SendTo): string {
  */
 export function destinationsFor(kind: DraftKind, ctx: DestinationContext): SendTo[] {
   if (kind === "email") {
-    // An email goes to a person, so the only machine that can send it is their
-    // mail. Slack would be a different message to a different audience.
-    return ctx.connected.includes("google") ? ["gmail", "copy"] : ["copy"];
+    // An email goes to a person, so the only machines that can send it are
+    // their mailboxes. A channel would be a different message to a different
+    // audience.
+    const boxes: SendTo[] = [];
+    if (ctx.connected.includes("google")) boxes.push("gmail");
+    if (msCan(ctx, "Mail.Send")) boxes.push("outlook");
+    return [...boxes, "copy"];
   }
-  const order: SendTo[] = ["linear", "jira", "slack"];
-  return [...order.filter((p) => ctx.connected.includes(p as Provider)), "copy"];
+  const out: SendTo[] = (["linear", "jira", "slack"] as const).filter((p) => ctx.connected.includes(p));
+  // To Do rather than Planner: a Planner board belongs to a Microsoft 365
+  // group and needs a work tenant, while To Do is on every account. One scope
+  // covers both, so the scope cannot tell them apart.
+  if (msCan(ctx, "Tasks.ReadWrite")) out.push("todo");
+  return [...out, "copy"];
 }
 
 /**
@@ -74,7 +96,11 @@ export function destinationsFor(kind: DraftKind, ctx: DestinationContext): SendT
 export function namedDestination(text: string, allowed: SendTo[]): SendTo | null {
   const haystack = (text ?? "").toLowerCase();
   for (const to of allowed) {
-    if (to === "copy") continue;
+    // "to do" is ordinary English — "we need to do this" is in every meeting —
+    // so there is no safe way to hear it as a destination. The mailboxes are
+    // skipped for a different reason: an email has one, and which one is a
+    // matter of the account rather than of anything that was said.
+    if (to === "copy" || to === "todo" || to === "gmail" || to === "outlook") continue;
     if (new RegExp(`\\b${to}\\b`).test(haystack)) return to;
   }
   return null;
@@ -120,6 +146,10 @@ export function destinationNote(to: SendTo, kind: DraftKind, act: "approve" | "s
       return `${doing} posts this to your Slack channel. It will not be tracked or assigned to anyone.`;
     case "gmail":
       return `${doing} sends this from your Gmail.`;
+    case "outlook":
+      return `${doing} sends this from your Outlook.`;
+    case "todo":
+      return `${doing} adds this to your Microsoft To Do list.`;
     default:
       return kind === "email"
         ? "Approving marks it done and keeps it here for you to copy. Nothing is sent."
@@ -146,6 +176,10 @@ export function deliveredLabel(to: SendTo | null): string {
       return "Posted to Slack";
     case "gmail":
       return "Sent with Gmail";
+    case "outlook":
+      return "Sent with Outlook";
+    case "todo":
+      return "Added to To Do";
     default:
       return "Not sent, kept to copy";
   }
@@ -164,6 +198,8 @@ export function approveLabel(to: SendTo): string {
   return to === "copy" ? "Approve" : "Approve and send";
 }
 
+const ALL: SendTo[] = ["linear", "jira", "slack", "gmail", "outlook", "todo", "copy"];
+
 export function isSendTo(v: string | null | undefined): v is SendTo {
-  return v === "linear" || v === "jira" || v === "slack" || v === "gmail" || v === "copy";
+  return ALL.includes(v as SendTo);
 }

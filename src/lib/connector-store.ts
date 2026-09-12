@@ -98,11 +98,16 @@ export async function destinationContextFor(userId: string): Promise<Destination
   const admin = supabaseAdmin();
   const [settings, rows] = await Promise.all([
     admin.from("user_settings").select("ticket_provider").eq("user_id", userId).maybeSingle(),
-    admin.from("connectors").select("provider").eq("user_id", userId),
+    admin.from("connectors").select("provider,config").eq("user_id", userId),
   ]);
   const preferred = ((settings.data as { ticket_provider: TicketProvider | null } | null)?.ticket_provider) ?? null;
-  const connected = ((rows.data ?? []) as { provider: string }[]).map((r) => r.provider) as Provider[];
-  return { connected, preferred };
+  const all = (rows.data ?? []) as { provider: string; config: { scopes?: string[] } | null }[];
+  const connected = all.map((r) => r.provider) as Provider[];
+  // Microsoft is one row covering several products, so what it can do is in
+  // the scopes rather than in the row existing. `config` holds no secrets;
+  // the credentials are a separate encrypted column.
+  const microsoftScopes = all.find((r) => r.provider === "microsoft")?.config?.scopes ?? [];
+  return { connected, preferred, microsoftScopes };
 }
 
 export async function setTicketProvider(userId: string, provider: TicketProvider | null): Promise<void> {
