@@ -32,8 +32,24 @@ export const BASE_SCOPES = [
   "Files.ReadWrite",
 ] as const;
 
-/** Asked for one at a time, and only on a work or school account. */
-export const OPTIONAL_SCOPES: Record<"teams" | "sharepoint", string> = {
+export type OptionalProduct = "teams" | "sharepoint";
+
+/**
+ * Asked for one at a time, and only on a work or school account.
+ *
+ * Teams needs three, not one. `ChannelMessage.Send` lets the app *post* to a
+ * channel but not see that any channel exists: listing teams needs
+ * `Team.ReadBasic.All` and listing their channels needs `Channel.ReadBasic.All`.
+ * Asking for the send alone produces a connection that can write to a channel
+ * nobody can choose, which is no connection at all.
+ */
+export const OPTIONAL_SCOPES: Record<OptionalProduct, string[]> = {
+  teams: ["ChannelMessage.Send", "Team.ReadBasic.All", "Channel.ReadBasic.All"],
+  sharepoint: ["Sites.ReadWrite.All"],
+};
+
+/** The one scope that says a product is usable, for reading state back. */
+export const PRIMARY_SCOPE: Record<OptionalProduct, string> = {
   teams: "ChannelMessage.Send",
   sharepoint: "Sites.ReadWrite.All",
 };
@@ -46,8 +62,8 @@ export const PRODUCTS: { key: MicrosoftProduct; label: string; scope: string; wo
   { key: "calendar", label: "Calendar", scope: "Calendars.ReadWrite", workOnly: false },
   { key: "tasks", label: "To Do", scope: "Tasks.ReadWrite", workOnly: false },
   { key: "files", label: "Excel on OneDrive", scope: "Files.ReadWrite", workOnly: false },
-  { key: "teams", label: "Teams", scope: OPTIONAL_SCOPES.teams, workOnly: true },
-  { key: "sharepoint", label: "SharePoint", scope: OPTIONAL_SCOPES.sharepoint, workOnly: true },
+  { key: "teams", label: "Teams", scope: PRIMARY_SCOPE.teams, workOnly: true },
+  { key: "sharepoint", label: "SharePoint", scope: PRIMARY_SCOPE.sharepoint, workOnly: true },
 ];
 
 /**
@@ -57,7 +73,7 @@ export const PRODUCTS: { key: MicrosoftProduct; label: string; scope: string; wo
  * new one.
  */
 export function scopesToRequest(add?: string | null): string[] {
-  const extra = add === "teams" || add === "sharepoint" ? [OPTIONAL_SCOPES[add]] : [];
+  const extra = add === "teams" || add === "sharepoint" ? OPTIONAL_SCOPES[add] : [];
   return [...BASE_SCOPES, ...extra];
 }
 
@@ -98,9 +114,18 @@ export function availableProducts(scopes: string[] | undefined): MicrosoftProduc
  * ones are not "not yet granted", they are "will never exist", so offering an
  * Enable button for them would be a button that cannot work.
  */
-export function enableableProducts(scopes: string[] | undefined, personal: boolean): ("teams" | "sharepoint")[] {
+export function enableableProducts(scopes: string[] | undefined, personal: boolean): OptionalProduct[] {
   if (personal) return [];
-  return (["teams", "sharepoint"] as const).filter((k) => !hasScope(scopes, OPTIONAL_SCOPES[k]));
+  return (["teams", "sharepoint"] as const).filter((k) => !hasScope(scopes, PRIMARY_SCOPE[k]));
+}
+
+/**
+ * Can this connection actually *choose* where a Teams message goes? Sending is
+ * one permission and listing is two others, and a tenant admin can approve
+ * some and not the rest, so the difference has to be visible.
+ */
+export function canPickTeamsChannel(scopes: string[] | undefined): boolean {
+  return hasScope(scopes, "Team.ReadBasic.All") && hasScope(scopes, "Channel.ReadBasic.All");
 }
 
 /**

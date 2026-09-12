@@ -268,9 +268,14 @@ test.describe("every page renders what it was given", () => {
     await expect(connections.getByText(/Outlook mail, Calendar, To Do, Excel on OneDrive/)).toBeVisible();
 
     // A personal account has no Teams channels or SharePoint sites, so it is
-    // told why rather than offered buttons that cannot work.
+    // told why rather than offered buttons that cannot work — and the pickers
+    // for them are absent rather than empty.
     await expect(connections.getByText(/personal Microsoft account/)).toBeVisible();
     await expect(connections.getByRole("link", { name: /^Enable/ })).toHaveCount(0);
+    await expect(connections.getByRole("button", { name: "Choose a channel" })).toHaveCount(0);
+    await expect(connections.getByRole("button", { name: "Choose a site" })).toHaveCount(0);
+    // The one it can reach is offered.
+    await expect(connections.getByRole("button", { name: "Choose a workbook" })).toBeVisible();
     await page.screenshot({ path: "test-results/settings-connectors.png", fullPage: true });
   });
 

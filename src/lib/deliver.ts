@@ -7,6 +7,7 @@ import * as jiraOAuth from "./providers/jira-oauth";
 import * as google from "./providers/google";
 import * as slack from "./providers/slack";
 import * as outlook from "./providers/outlook";
+import * as teams from "./providers/teams";
 import * as microsoft from "./providers/microsoft";
 import { isSendTo, type SendTo } from "./draft-destination";
 import type {
@@ -143,7 +144,7 @@ async function resolveSendTo(userId: string, draft: DraftRow): Promise<SendTo | 
 }
 
 /** Everything Microsoft: one connection, three things it can be asked to do. */
-async function deliverMicrosoft(userId: string, draft: DraftRow, to: "outlook" | "todo"): Promise<Delivery> {
+async function deliverMicrosoft(userId: string, draft: DraftRow, to: "outlook" | "todo" | "teams"): Promise<Delivery> {
   const stored = await loadConnector<MicrosoftCredentials, MicrosoftConfig>(userId, "microsoft");
   if (!stored) return { delivered: false, reason: "not_configured" };
 
@@ -164,6 +165,23 @@ async function deliverMicrosoft(userId: string, draft: DraftRow, to: "outlook" |
       // sendMail answers with no body, so there is nothing to link to but the
       // sender's own Sent folder.
       return { delivered: true, destination: "outlook", url: null, label: "Sent" };
+    }
+
+    if (to === "teams") {
+      // Sending is one permission and choosing a channel is two others, so a
+      // connection can hold the send and still have nowhere to send to.
+      const { teamId, channelId, channelName } = stored.config;
+      if (!teamId || !channelId) {
+        throw new DeliveryError("Choose a Teams channel in Settings before sending there.");
+      }
+      const posted = await teams.postToChannel(userId, stored.credentials, stored.config, {
+        teamId,
+        channelId,
+        subject: draft.subject,
+        body: draft.body,
+      });
+      await noteConnectorError(userId, "microsoft", null);
+      return { delivered: true, destination: "teams", url: posted.url, label: channelName ?? "Teams" };
     }
 
     const task = await outlook.createTodo(userId, stored.credentials, stored.config, {
@@ -187,6 +205,6 @@ export async function deliverDraft(userId: string, draft: DraftRow): Promise<Del
   if (!to || to === "copy") return { delivered: false, reason: to === "copy" ? "copy_only" : "not_configured" };
   if (to === "gmail") return deliverEmail(userId, draft);
   if (to === "slack") return deliverSlack(userId, draft);
-  if (to === "outlook" || to === "todo") return deliverMicrosoft(userId, draft, to);
+  if (to === "outlook" || to === "todo" || to === "teams") return deliverMicrosoft(userId, draft, to);
   return deliverTicket(userId, draft, to);
 }

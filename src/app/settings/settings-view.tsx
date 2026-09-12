@@ -7,7 +7,7 @@ import { useToast } from "@/components/toast";
 import { PROVIDER_PURPOSE, type PublicConnector, type Provider, type TicketProvider } from "@/lib/connectors";
 import { BrandMark } from "@/components/brand-marks";
 import { canConnect, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
-import { enableableProducts, PRODUCTS } from "@/lib/microsoft-scopes";
+import { canPickTeamsChannel, enableableProducts, PRODUCTS } from "@/lib/microsoft-scopes";
 import { ManageBillingButton, UpgradeButton, UpgradePanel } from "@/components/upgrade";
 import { PLANS } from "@/lib/site";
 import { settingsFlash } from "@/lib/flash";
@@ -908,6 +908,169 @@ function WorkbookPicker({ current, onChanged }: { current: string | null; onChan
   );
 }
 
+/**
+ * Choosing the Teams channel a follow-up is posted to.
+ *
+ * Two steps, because Graph has two: the teams somebody belongs to, then that
+ * team's channels. Both are only readable with permissions separate from the
+ * one that sends, so this can be unavailable while posting is not — the route
+ * says which.
+ */
+function TeamsPicker({ current, onChanged }: { current: string | null; onChanged: () => void }) {
+  const toast = useToast();
+  const [teams, setTeams] = useState<{ id: string; name: string }[] | null>(null);
+  const [team, setTeam] = useState<{ id: string; name: string } | null>(null);
+  const [channels, setChannels] = useState<{ id: string; name: string }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function loadTeams() {
+    setBusy(true);
+    try {
+      const { teams: list } = await getJson<{ teams: { id: string; name: string }[] }>("/api/connectors/microsoft/teams");
+      setTeams(list);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not read your teams", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function loadChannels(t: { id: string; name: string }) {
+    setBusy(true);
+    try {
+      const { channels: list } = await getJson<{ channels: { id: string; name: string }[] }>(
+        `/api/connectors/microsoft/teams?team=${encodeURIComponent(t.id)}`,
+      );
+      setTeam(t);
+      setChannels(list);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not read that team's channels", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function choose(channel: { id: string; name: string }) {
+    if (!team) return;
+    setBusy(true);
+    try {
+      await putJson("/api/connectors/microsoft/teams", {
+        teamId: team.id,
+        teamName: team.name,
+        channelId: channel.id,
+        channelName: channel.name,
+      });
+      setTeams(null);
+      setChannels(null);
+      setTeam(null);
+      onChanged();
+      toast(`Follow-ups can go to ${channel.name}.`, "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not save that", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (channels) {
+    return channels.length === 0 ? (
+      <p className="text-xs text-muted">{team?.name} has no channels this connection can see.</p>
+    ) : (
+      <div className="flex flex-wrap gap-2">
+        {channels.slice(0, 12).map((c) => (
+          <button key={c.id} onClick={() => choose(c)} disabled={busy} className="btn btn-ghost !py-1.5 text-xs">
+            {c.name}
+          </button>
+        ))}
+      </div>
+    );
+  }
+  if (teams) {
+    return teams.length === 0 ? (
+      <p className="text-xs text-muted">This account is not in any teams.</p>
+    ) : (
+      <div className="flex flex-wrap gap-2">
+        {teams.slice(0, 12).map((t) => (
+          <button key={t.id} onClick={() => loadChannels(t)} disabled={busy} className="btn btn-ghost !py-1.5 text-xs">
+            {t.name}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button onClick={loadTeams} disabled={busy} className="btn btn-ghost !py-1.5 text-xs">
+        {busy ? "Looking…" : current ? "Change channel" : "Choose a channel"}
+      </button>
+      <span className="text-xs text-faint">
+        {current ? `Follow-ups can go to ${current}.` : "Where a follow-up posted to Teams goes."}
+      </span>
+    </div>
+  );
+}
+
+/** Which SharePoint site a meeting's notes are saved into. */
+function SitePicker({ current, onChanged }: { current: string | null; onChanged: () => void }) {
+  const toast = useToast();
+  const [list, setList] = useState<{ id: string; name: string; url?: string }[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function load() {
+    setBusy(true);
+    try {
+      const { sites } = await getJson<{ sites: { id: string; name: string; url?: string }[] }>(
+        "/api/connectors/microsoft/site",
+      );
+      setList(sites);
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not read your sites", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function choose(site: { id: string; name: string; url?: string }) {
+    setBusy(true);
+    try {
+      await putJson("/api/connectors/microsoft/site", { id: site.id, name: site.name, url: site.url });
+      setList(null);
+      onChanged();
+      toast(`Notes will be saved to ${site.name}.`, "ok");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not save that", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (list) {
+    return list.length === 0 ? (
+      <p className="text-xs text-muted">No SharePoint sites this connection can see.</p>
+    ) : (
+      <div className="flex flex-wrap gap-2">
+        {list.slice(0, 12).map((site) => (
+          <button key={site.id} onClick={() => choose(site)} disabled={busy} className="btn btn-ghost !py-1.5 text-xs">
+            {site.name}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <button onClick={load} disabled={busy} className="btn btn-ghost !py-1.5 text-xs">
+        {busy ? "Looking…" : current ? "Change site" : "Choose a site"}
+      </button>
+      <span className="text-xs text-faint">
+        {current ? `Notes are saved to ${current}.` : "Where a meeting's notes are saved."}
+      </span>
+    </div>
+  );
+}
+
 function MicrosoftCard({
   connector,
   microsoftReady,
@@ -929,6 +1092,8 @@ function MicrosoftCard({
     name?: string;
     personal?: boolean;
     workbookName?: string;
+    channelName?: string;
+    siteName?: string;
   };
   const scopes = config.scopes ?? [];
   const personal = !!config.personal;
@@ -971,6 +1136,22 @@ function MicrosoftCard({
       ) : null}
       {connector && scopes.includes("Files.ReadWrite") ? (
         <WorkbookPicker current={config.workbookName ?? null} onChanged={onChanged} />
+      ) : null}
+      {connector && scopes.includes("ChannelMessage.Send") ? (
+        canPickTeamsChannel(scopes) ? (
+          <TeamsPicker current={config.channelName ?? null} onChanged={onChanged} />
+        ) : (
+          /* Posting was approved and listing was not, which is a real state a
+             tenant admin can leave you in, and an empty picker would read as
+             "you have no teams". */
+          <p className="text-xs text-warn">
+            This connection can post to Teams but cannot list your teams, so there is no way to choose a channel.
+            Reconnect and enable Teams again; your IT admin may need to approve the extra permissions.
+          </p>
+        )
+      ) : null}
+      {connector && scopes.includes("Sites.ReadWrite.All") ? (
+        <SitePicker current={config.siteName ?? null} onChanged={onChanged} />
       ) : null}
       {connector && canEnable.length > 0 ? (
         <div className="flex flex-col gap-2">

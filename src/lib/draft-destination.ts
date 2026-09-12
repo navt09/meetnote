@@ -22,7 +22,7 @@ import type { Provider, TicketProvider } from "./connectors";
  * propose, but the meeting did not decide this and neither does the product.
  */
 
-export type SendTo = "linear" | "jira" | "slack" | "gmail" | "outlook" | "todo" | "copy";
+export type SendTo = "linear" | "jira" | "slack" | "gmail" | "outlook" | "todo" | "teams" | "copy";
 
 /** Why a destination was suggested, so the UI can say it out loud. */
 export type SuggestionReason = "named" | "preference" | "only" | "none";
@@ -40,6 +40,12 @@ export type DestinationContext = {
    * has to check the scope rather than the row.
    */
   microsoftScopes?: string[];
+  /**
+   * Whether a Teams channel has actually been chosen. Sending is one
+   * permission and choosing is two others, so a connection can hold the send
+   * and still have nowhere to send to.
+   */
+  teamsChannelChosen?: boolean;
 };
 
 export const NO_DESTINATIONS: DestinationContext = { connected: [], preferred: null };
@@ -51,6 +57,7 @@ const NAMES: Record<SendTo, string> = {
   gmail: "Gmail",
   outlook: "Outlook",
   todo: "To Do",
+  teams: "Teams",
   copy: "Copy only",
 };
 
@@ -83,6 +90,9 @@ export function destinationsFor(kind: DraftKind, ctx: DestinationContext): SendT
   // group and needs a work tenant, while To Do is on every account. One scope
   // covers both, so the scope cannot tell them apart.
   if (msCan(ctx, "Tasks.ReadWrite")) out.push("todo");
+  // Posting needs the send permission and a chosen channel: a connection that
+  // can write to a channel nobody picked has nowhere to write to.
+  if (msCan(ctx, "ChannelMessage.Send") && ctx.teamsChannelChosen) out.push("teams");
   return [...out, "copy"];
 }
 
@@ -150,6 +160,8 @@ export function destinationNote(to: SendTo, kind: DraftKind, act: "approve" | "s
       return `${doing} sends this from your Outlook.`;
     case "todo":
       return `${doing} adds this to your Microsoft To Do list.`;
+    case "teams":
+      return `${doing} posts this to your Teams channel. It will not be tracked or assigned to anyone.`;
     default:
       return kind === "email"
         ? "Approving marks it done and keeps it here for you to copy. Nothing is sent."
@@ -180,6 +192,8 @@ export function deliveredLabel(to: SendTo | null): string {
       return "Sent with Outlook";
     case "todo":
       return "Added to To Do";
+    case "teams":
+      return "Posted to Teams";
     default:
       return "Not sent, kept to copy";
   }
@@ -198,7 +212,7 @@ export function approveLabel(to: SendTo): string {
   return to === "copy" ? "Approve" : "Approve and send";
 }
 
-const ALL: SendTo[] = ["linear", "jira", "slack", "gmail", "outlook", "todo", "copy"];
+const ALL: SendTo[] = ["linear", "jira", "slack", "gmail", "outlook", "todo", "teams", "copy"];
 
 export function isSendTo(v: string | null | undefined): v is SendTo {
   return ALL.includes(v as SendTo);

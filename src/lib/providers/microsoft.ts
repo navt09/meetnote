@@ -197,7 +197,14 @@ export async function accessTokenFor(
 export async function graph<T>(
   token: string,
   path: string,
-  init: { method?: string; body?: unknown; query?: Record<string, string> } = {},
+  init: {
+    method?: string;
+    body?: unknown;
+    query?: Record<string, string>;
+    /** A file's own bytes, for upload endpoints that take content rather than JSON. */
+    raw?: string;
+    contentType?: string;
+  } = {},
 ): Promise<T> {
   const url = new URL(`${GRAPH}${path}`);
   for (const [k, v] of Object.entries(init.query ?? {})) url.searchParams.set(k, v);
@@ -208,9 +215,13 @@ export async function graph<T>(
       method: init.method ?? "GET",
       headers: {
         Authorization: `Bearer ${token}`,
-        ...(init.body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...(init.raw !== undefined
+          ? { "Content-Type": init.contentType ?? "text/plain; charset=utf-8" }
+          : init.body === undefined
+            ? {}
+            : { "Content-Type": "application/json" }),
       },
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body: init.raw !== undefined ? init.raw : init.body === undefined ? undefined : JSON.stringify(init.body),
       signal: AbortSignal.timeout(30_000),
     });
   } catch {

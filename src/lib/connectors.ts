@@ -72,6 +72,8 @@ export type MicrosoftConfig = {
   teamName?: string;
   channelId?: string;
   channelName?: string;
+  /** Chosen SharePoint site for saved notes. */
+  siteUrl?: string;
   planId?: string;
   planName?: string;
   bucketId?: string;

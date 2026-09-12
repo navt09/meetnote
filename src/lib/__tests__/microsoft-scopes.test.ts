@@ -7,6 +7,8 @@ import {
   MSA_TENANT_ID,
   normaliseScope,
   OPTIONAL_SCOPES,
+  PRIMARY_SCOPE,
+  canPickTeamsChannel,
   personalAccount,
   scopesToRequest,
 } from "../microsoft-scopes";
@@ -19,14 +21,23 @@ describe("scopesToRequest", () => {
   it("asks only for what any account can grant by default", () => {
     const asked = scopesToRequest();
     expect(asked).toEqual([...BASE_SCOPES]);
-    expect(asked).not.toContain(OPTIONAL_SCOPES.teams);
-    expect(asked).not.toContain(OPTIONAL_SCOPES.sharepoint);
+    for (const s of [...OPTIONAL_SCOPES.teams, ...OPTIONAL_SCOPES.sharepoint]) expect(asked).not.toContain(s);
   });
 
-  it("adds one organisation-wide permission when asked for it", () => {
-    expect(scopesToRequest("teams")).toContain(OPTIONAL_SCOPES.teams);
-    expect(scopesToRequest("teams")).not.toContain(OPTIONAL_SCOPES.sharepoint);
-    expect(scopesToRequest("sharepoint")).toContain(OPTIONAL_SCOPES.sharepoint);
+  it("adds one organisation-wide product when asked for it", () => {
+    const teams = scopesToRequest("teams");
+    expect(teams).toEqual(expect.arrayContaining(OPTIONAL_SCOPES.teams));
+    expect(teams).not.toContain(PRIMARY_SCOPE.sharepoint);
+    expect(scopesToRequest("sharepoint")).toContain(PRIMARY_SCOPE.sharepoint);
+  });
+
+  it("asks for the two Teams read permissions, not only the send", () => {
+    // ChannelMessage.Send posts to a channel but cannot see that any channel
+    // exists. Without the read pair you get a connection that can write to a
+    // channel nobody is able to choose.
+    const teams = scopesToRequest("teams");
+    expect(teams).toContain("Team.ReadBasic.All");
+    expect(teams).toContain("Channel.ReadBasic.All");
   });
 
   it("always carries the base along", () => {
@@ -83,8 +94,8 @@ describe("availableProducts", () => {
 describe("enableableProducts", () => {
   it("offers the two that were not granted yet", () => {
     expect(enableableProducts(["Mail.Send"], false)).toEqual(["teams", "sharepoint"]);
-    expect(enableableProducts(["Mail.Send", OPTIONAL_SCOPES.teams], false)).toEqual(["sharepoint"]);
-    expect(enableableProducts(Object.values(OPTIONAL_SCOPES), false)).toEqual([]);
+    expect(enableableProducts(["Mail.Send", PRIMARY_SCOPE.teams], false)).toEqual(["sharepoint"]);
+    expect(enableableProducts(Object.values(PRIMARY_SCOPE), false)).toEqual([]);
   });
 
   it("offers neither on a personal account", () => {
@@ -92,6 +103,16 @@ describe("enableableProducts", () => {
     // SharePoint sites are not part of a personal Microsoft account, so an
     // Enable button would be a button that cannot work.
     expect(enableableProducts(["Mail.Send"], true)).toEqual([]);
+  });
+});
+
+describe("canPickTeamsChannel", () => {
+  it("needs both read permissions, not just the send", () => {
+    // A tenant admin can approve some and not the rest, so "can post" and
+    // "can choose where" are different states and have to look different.
+    expect(canPickTeamsChannel(["ChannelMessage.Send"])).toBe(false);
+    expect(canPickTeamsChannel(["ChannelMessage.Send", "Team.ReadBasic.All"])).toBe(false);
+    expect(canPickTeamsChannel(OPTIONAL_SCOPES.teams)).toBe(true);
   });
 });
 

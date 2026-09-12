@@ -106,8 +106,8 @@ export async function destinationContextFor(userId: string): Promise<Destination
   // Microsoft is one row covering several products, so what it can do is in
   // the scopes rather than in the row existing. `config` holds no secrets;
   // the credentials are a separate encrypted column.
-  const microsoftScopes = all.find((r) => r.provider === "microsoft")?.config?.scopes ?? [];
-  return { connected, preferred, microsoftScopes };
+  const ms = all.find((r) => r.provider === "microsoft")?.config as { scopes?: string[]; channelId?: string } | undefined;
+  return { connected, preferred, microsoftScopes: ms?.scopes ?? [], teamsChannelChosen: !!ms?.channelId };
 }
 
 export async function setTicketProvider(userId: string, provider: TicketProvider | null): Promise<void> {

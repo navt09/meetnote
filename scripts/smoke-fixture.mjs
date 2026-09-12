@@ -322,6 +322,9 @@ export async function createFixture() {
         email: "alex@example.com",
         personal: true,
         scopes: ["Mail.Send", "Calendars.ReadWrite", "Tasks.ReadWrite", "Files.ReadWrite", "User.Read"],
+        // Deliberately no Teams or SharePoint scopes: this is a personal
+        // account, which is the common case and the one where those two do
+        // not exist at all.
       },
     },
   ];
