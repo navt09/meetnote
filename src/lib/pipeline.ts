@@ -4,7 +4,7 @@ import { normalizeUtterances, type DeepgramUtterance } from "./transcript";
 import { transcriptionCostUsd } from "./cost";
 import { HttpError, withRetry } from "./retry";
 import { extractNotes } from "./extract";
-import { nextStep, type Meeting } from "./meeting";
+import { nextStep, processingAllowed, type Meeting } from "./meeting";
 import { toPublicFailure } from "./public-error";
 import { actionItemsToRows } from "./task";
 import { tagSelf, type Window } from "./self-speech";
@@ -109,6 +109,16 @@ export async function runPipeline(meetingId: string, userId: string): Promise<vo
     return;
   }
   const m = row as Meeting;
+
+  // The same backstop the route applies, applied again where the money is
+  // actually spent. The route can be bypassed — an old tab, a retry, a second
+  // deployment — and this is the last thing between a loop and the vendors.
+  const allowed = processingAllowed(m.process_attempts ?? 0);
+  if (!allowed.ok) {
+    console.error(JSON.stringify({ event: "pipeline_attempts_exceeded", meetingId, attempts: m.process_attempts }));
+    await admin.from("meetings").update({ status: "error", error: allowed.reason }).eq("id", meetingId).eq("user_id", userId);
+    return;
+  }
 
   // Don't start a second worker on a row another one is actively processing.
   if ((m.status === "transcribing" || m.status === "extracting") && Date.now() - new Date(m.updated_at).getTime() < STALE_MS) {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { defaultTitle, isInProgress, nextStep, statusLabel } from "../meeting";
+import { defaultTitle, isInProgress, nextStep, statusLabel, MAX_PROCESS_ATTEMPTS, processingAllowed } from "../meeting";
 
 const seg = [{ speaker: "Speaker 0", text: "hi", start: 0, end: 1 }];
 const notes = {
@@ -38,5 +38,29 @@ describe("status helpers", () => {
   });
   it("builds a readable default title", () => {
     expect(defaultTitle(new Date("2026-09-08T16:30:00"))).toMatch(/^Meeting · /);
+  });
+});
+
+describe("processingAllowed", () => {
+  it("lets an honest retry through", () => {
+    // A transcription that failed twice and was retried by hand a couple of
+    // times has used four. Nothing about normal use comes near the limit.
+    for (const n of [0, 1, 4, MAX_PROCESS_ATTEMPTS - 1]) expect(processingAllowed(n).ok).toBe(true);
+  });
+
+  it("stops a loop, and says what to do instead of naming a counter", () => {
+    const blocked = processingAllowed(MAX_PROCESS_ATTEMPTS);
+    expect(blocked.ok).toBe(false);
+    if (!blocked.ok) {
+      expect(blocked.reason).toContain("get in touch");
+      expect(blocked.reason).not.toMatch(/[0-9]/);
+    }
+  });
+
+  it("does not limit how much anybody records", () => {
+    // The guard counts attempts at one meeting, never meetings or minutes: a
+    // paying account is unlimited, and a usage cap would punish the person
+    // using the product most, who is the person paying for it.
+    expect(processingAllowed(0).ok).toBe(true);
   });
 });

@@ -2,7 +2,7 @@ import { NextResponse, after } from "next/server";
 import { isBlocked, requireSignedIn } from "@/lib/guard";
 import { storedObjectSize } from "@/lib/storage";
 import { runPipeline } from "@/lib/pipeline";
-import { isInProgress, nextStep, type Meeting } from "@/lib/meeting";
+import { isInProgress, nextStep, processingAllowed, type Meeting } from "@/lib/meeting";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -34,6 +34,15 @@ export async function POST(req: Request, ctx: Ctx) {
     return NextResponse.json({ status: m.status }, { status: 202 });
   }
   if (nextStep(m) === "none" && m.notes) return NextResponse.json({ status: "done" }, { status: 200 });
+
+  // Checked here so the browser is told, and again in the pipeline because
+  // that is what actually spends the money. Not a usage limit: it counts
+  // attempts at one meeting, which only repeat because of a bug or an attack.
+  const allowed = processingAllowed(m.process_attempts ?? 0);
+  if (!allowed.ok) {
+    console.error(JSON.stringify({ event: "process_attempts_exceeded", id, attempts: m.process_attempts }));
+    return NextResponse.json({ error: allowed.reason }, { status: 429 });
+  }
   if (!m.storage_path) return NextResponse.json({ error: "This meeting has no audio." }, { status: 409 });
 
   // Make sure the upload actually landed before we spend money on it.
@@ -48,7 +57,14 @@ export async function POST(req: Request, ctx: Ctx) {
 
   await auth.db
     .from("meetings")
-    .update({ status: m.transcript?.length ? "transcribed" : "uploaded", error: null, ...(size ? { bytes: size } : {}) })
+    .update({
+      status: m.transcript?.length ? "transcribed" : "uploaded",
+      error: null,
+      // Counted before the work starts, not after it succeeds: a loop that
+      // crashes every time would never reach an increment written at the end.
+      process_attempts: (m.process_attempts ?? 0) + 1,
+      ...(size ? { bytes: size } : {}),
+    })
     .eq("id", id);
 
   after(async () => {

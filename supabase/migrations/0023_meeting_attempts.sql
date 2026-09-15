@@ -1,0 +1,14 @@
+-- How many times processing has been started for a meeting.
+--
+-- A backstop against a loop, not against a customer. Nothing here limits how
+-- much anybody may record: a paying account is unlimited, and a cap on usage
+-- would punish the person using the product most, which is the person paying
+-- for it. What this catches is one meeting being transcribed over and over,
+-- which is only ever a bug or an attack, never somebody working.
+--
+-- Counted rather than timed, because the failure mode is repetition: a retry
+-- storm is many attempts in a short window, and a spend figure would not
+-- notice until the money had already gone.
+--
+-- Safe to run more than once.
+alter table public.meetings add column if not exists process_attempts integer not null default 0;

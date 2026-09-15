@@ -104,14 +104,14 @@ These are ordered by what unblocks what, not by size.
 3. ~~**Set `OWNER_EMAILS` in Vercel.**~~ Done 2026-09-11, alongside `NEXT_PUBLIC_SITE_URL`. Environment variables only reach a new deployment, so both needed a redeploy.
 4. ~~**Publish the Google app to production.**~~ Done 2026-09-11. It sat in Testing, where Google expires every refresh token after seven days, so Gmail and Calendar connections died weekly. The scopes are *sensitive*, not *restricted*: verification is needed past 100 users, the annual security assessment is not. Do not widen them.
 5. **Make `hello@fromthecall.com` receive mail.** It is on the landing page and both legal pages today, and it bounces.
-6. **Usage cap and Resend, in the same change.** Custom SMTP is what actually opens signup to the world. Shipping it without a cap means strangers can spend money without limit. Either is safe alone in the other order; the combination to avoid is Resend first.
+6. **Resend.** Custom SMTP is what actually opens signup to the world: Supabase's own mailer only delivers to your project team. The code side is done — `node scripts/supabase-auth-config.mjs --apply` configures it from `RESEND_API_KEY`. What is left is yours: verify `fromthecall.com` at resend.com, create a sending key, and put it in `.env.local` **and** Vercel. The "usage cap" this item used to demand was dropped deliberately (2026-09-14): a cap punishes the customer paying you. A loop guard was built instead, and the real spend backstop belongs in the Anthropic and Deepgram consoles.
 7. **Stripe.** Both pricing buttons currently create a free account, so the shopfront quotes a price nothing can charge.
 
 ### Known gaps worth naming
 
 - ~~No account deletion.~~ Done 2026-09-09: Settings has a delete-account section guarded by typing your own email, checked on the server too. It clears `<user_id>/` from the bucket first and only then deletes the account, because the cascade does not reach storage. Verified against a real uploaded recording.
 - **No usage cap, deliberately.** Decided 2026-09-09: a cap punishes the customer who uses the product most, and the exposure was never long meetings - it was recordings with nothing in them, since transcription is billed by length rather than content. The recorder already measures loudness, so it now says so at the time: a banner after 45 seconds of silence from both sources while recording, a refusal to save a recording with no audio in it at all, and a warning when a recording was almost entirely silence. That removes the waste without limiting anyone. A spend ceiling is still worth having before strangers can sign up, as a backstop rather than a cap.
-- **Delivery untested end to end.** See Phase 3.
+- **Delivery half proven.** Linear has created a real issue in a real workspace (`NAV-5`). Slack, Jira, Gmail and every Microsoft product have never delivered to a real account; Teams and SharePoint cannot be until a work tenant exists.
 
 ## Decisions and deferred work
 

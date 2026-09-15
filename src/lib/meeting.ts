@@ -24,6 +24,8 @@ export type Meeting = {
   usage: LlmUsage | null;
   transcription_cost_usd: number;
   llm_cost_usd: number;
+  /** How many times processing has been started. A loop guard, not a usage cap. */
+  process_attempts: number;
   created_at: string;
   updated_at: string;
 };
@@ -151,4 +153,35 @@ export function defaultTitle(recordedAt: Date): string {
   const d = recordedAt.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
   const t = recordedAt.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
   return `Meeting · ${d}, ${t}`;
+}
+
+/**
+ * How many times one meeting may be put through the pipeline.
+ *
+ * A backstop against a loop, deliberately not a limit on anybody's usage. A
+ * paying account records as much as it likes; what this catches is the same
+ * meeting being transcribed over and over, which is a retry storm or an
+ * attack and never somebody working. Six is well clear of honest use: a
+ * transcription that fails twice and is retried by hand a couple of times has
+ * used four.
+ *
+ * Counted rather than costed. The failure mode is repetition, and a spend
+ * figure only notices once the money has gone.
+ */
+export const MAX_PROCESS_ATTEMPTS = 6;
+
+/**
+ * Whether this meeting may be processed again, and why not when it may not.
+ *
+ * Pure so the rule can be tested without a database, and so the route and the
+ * pipeline cannot disagree about it — they both run it, because the route is
+ * what answers the browser and the pipeline is what actually spends money.
+ */
+export function processingAllowed(attempts: number): { ok: true } | { ok: false; reason: string } {
+  if (attempts < MAX_PROCESS_ATTEMPTS) return { ok: true };
+  return {
+    ok: false,
+    // Said to the person, so it names the way out rather than the counter.
+    reason: "This recording has been through processing too many times. Something is wrong with it; get in touch rather than retrying.",
+  };
 }
