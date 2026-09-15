@@ -77,7 +77,8 @@ const SMTP_SENDER = "hello@fromthecall.com";
 if (RESEND_KEY) {
   Object.assign(wanted, {
     smtp_host: "smtp.resend.com",
-    smtp_port: 587,
+    // A string, not a number: the config API rejects 587 with "expected string".
+    smtp_port: "587",
     smtp_user: "resend",
     smtp_pass: RESEND_KEY,
     smtp_sender_name: "From the Call",
