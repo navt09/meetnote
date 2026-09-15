@@ -6,14 +6,23 @@ import { supabaseBrowser } from "@/lib/supabase/client";
 import { friendlyAuthError, isValidEmail, passwordProblem, PASSWORD_MIN_LENGTH } from "@/lib/auth-errors";
 import { loginFlash } from "@/lib/flash";
 
-type Mode = "signin" | "signup" | "forgot" | "magic";
-type Sent = null | "confirm" | "reset" | "magic";
+/**
+ * Three ways in, and deliberately not a fourth.
+ *
+ * There is no sign-in-by-email-link. It reads as a convenience and is really a
+ * second credential: anybody holding the inbox is signed in, with no password
+ * to know, and a forwarded or cached link is a live key for as long as it
+ * lasts. A password reset is the same mechanism but it announces itself — it
+ * ends at a form that says a password is being changed, so an unexpected one
+ * is read as an alarm rather than a shortcut.
+ */
+type Mode = "signin" | "signup" | "forgot";
+type Sent = null | "confirm" | "reset";
 
 const TITLES: Record<Mode, string> = {
   signin: "Sign in",
   signup: "Create your account",
   forgot: "Reset your password",
-  magic: "Sign in with an email link",
 };
 
 export default function LoginForm() {
@@ -85,16 +94,9 @@ export default function LoginForm() {
         return;
       }
 
-      if (mode === "forgot") {
-        const { error } = await supabase.auth.resetPasswordForEmail(value, { redirectTo: callbackUrl("/reset-password") });
-        if (error) throw error;
-        setSent("reset");
-        return;
-      }
-
-      const { error } = await supabase.auth.signInWithOtp({ email: value, options: { emailRedirectTo: callbackUrl() } });
+      const { error } = await supabase.auth.resetPasswordForEmail(value, { redirectTo: callbackUrl("/reset-password") });
       if (error) throw error;
-      setSent("magic");
+      setSent("reset");
     } catch (err) {
       setError(friendlyAuthError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -106,9 +108,7 @@ export default function LoginForm() {
     const body =
       sent === "confirm"
         ? "Click the link in that email to confirm your address, and you'll be signed in."
-        : sent === "reset"
-          ? "Click the link in that email to choose a new password."
-          : "Click the link in that email and you'll be signed in on this device.";
+        : "Click the link in that email to choose a new password.";
     return (
       <div className="mt-6">
         <p className="font-medium">Check your inbox</p>
@@ -121,7 +121,7 @@ export default function LoginForm() {
   }
 
   const needsPassword = mode === "signin" || mode === "signup";
-  const action = mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : mode === "forgot" ? "Send reset link" : "Send sign-in link";
+  const action = mode === "signin" ? "Sign in" : mode === "signup" ? "Create account" : "Send reset link";
 
   return (
     <>
@@ -130,7 +130,6 @@ export default function LoginForm() {
         {mode === "signin" && "Use the email and password you signed up with."}
         {mode === "signup" && "Your meetings and notes are private to your account."}
         {mode === "forgot" && "We'll email you a link to set a new password."}
-        {mode === "magic" && "No password needed. We email you a link that signs you in."}
       </p>
 
       <form onSubmit={submit} className="mt-6 flex flex-col gap-3">
@@ -191,8 +190,6 @@ export default function LoginForm() {
             </span>
             <span>
               <button className="text-accent hover:underline" onClick={() => switchMode("forgot")}>Forgot your password?</button>
-              {" · "}
-              <button className="text-accent hover:underline" onClick={() => switchMode("magic")}>Email me a link instead</button>
             </span>
           </>
         ) : (
