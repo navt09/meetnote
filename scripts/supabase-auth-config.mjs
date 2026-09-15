@@ -11,9 +11,28 @@ import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
+
+/** This project's own .env.local, kept apart from the ambient environment. */
+const local = {};
 for (const line of existsSync(join(root, ".env.local")) ? readFileSync(join(root, ".env.local"), "utf8").split(/\r?\n/) : []) {
   const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-  if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+  if (m) local[m[1]] = m[2].trim().replace(/^["']|["']$/g, "");
+}
+for (const [k, v] of Object.entries(local)) if (!process.env[k]) process.env[k] = v;
+
+/**
+ * The mail key is read from this project's file ONLY, never from the shell.
+ *
+ * Machines carry other products' keys in their environment, and an ambient one
+ * wins over this project's file: that would point From the Call's sign-in mail
+ * at somebody else's Resend account, on their verified domain and their
+ * reputation. It was sitting in the shell of the machine this was written on.
+ *
+ * A key that is not in this project's file is not this project's key.
+ */
+const RESEND_KEY = local.RESEND_API_KEY || "";
+if (!RESEND_KEY && process.env.RESEND_API_KEY) {
+  console.log("Ignoring a RESEND_API_KEY from the shell: it is not in this project's .env.local, so it is not this project's key." + "\n");
 }
 
 // The apex is canonical: Vercel 308s www to it, and the four OAuth callback
@@ -55,12 +74,12 @@ const wanted = {
  * TLS from the first byte, so it hangs rather than failing usefully.
  */
 const SMTP_SENDER = "hello@fromthecall.com";
-if (process.env.RESEND_API_KEY) {
+if (RESEND_KEY) {
   Object.assign(wanted, {
     smtp_host: "smtp.resend.com",
     smtp_port: 587,
     smtp_user: "resend",
-    smtp_pass: process.env.RESEND_API_KEY,
+    smtp_pass: RESEND_KEY,
     smtp_sender_name: "From the Call",
     smtp_admin_email: SMTP_SENDER,
     // Both default to 1 with custom SMTP, which is about a quarter of what a
@@ -92,7 +111,7 @@ console.log("current:");
 for (const k of Object.keys(wanted)) console.log(`  ${k}: ${shown(k, before[k])}`);
 console.log("wanted:");
 for (const [k, v] of Object.entries(wanted)) console.log(`  ${k}: ${shown(k, v)}`);
-if (!process.env.RESEND_API_KEY) {
+if (!RESEND_KEY) {
   console.log("\n(no RESEND_API_KEY, so SMTP is left alone. Supabase\'s own mailer only delivers to your project team.)");
 }
 
