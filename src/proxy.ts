@@ -88,7 +88,11 @@ export async function proxy(request: NextRequest) {
     login.searchParams.set("next", path);
     return NextResponse.redirect(login);
   }
-  if (user && path === "/login") {
+  // Signed in, the shopfront is not for you. It is also not *survivable* by
+  // you: the layout picks the app palette and rail from the session rather
+  // than from the route, so the marketing bands would paint themselves on the
+  // wrong ground and pitch a sign-up to somebody who already signed up.
+  if (user && (path === "/" || path === "/login")) {
     const home = request.nextUrl.clone();
     home.pathname = "/dashboard";
     home.search = "";
