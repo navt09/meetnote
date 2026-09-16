@@ -46,7 +46,8 @@ export default async function WelcomePage() {
             <p className="font-display text-lg font-semibold">{pro?.name}</p>
             <p className="text-sm text-muted">
               <span className="figure text-fg">{pro?.price}</span>
-              {pro?.cadence} {pro?.note}
+              {pro?.cadence}
+              {pro?.note ? ` ${pro.note}` : ""}
             </p>
           </div>
           <p className="mt-1.5 text-sm leading-relaxed text-muted">{pro?.tagline}</p>

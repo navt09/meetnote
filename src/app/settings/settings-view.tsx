@@ -267,7 +267,7 @@ function Billing({
         <>
           <p className="mt-2 text-xs leading-relaxed text-muted">
             You are on Free. Pro is {pro?.price}
-            {pro?.cadence} per person, and adds:
+            {pro?.cadence}, and adds:
           </p>
           <ul className="mt-2 flex flex-col gap-1 text-xs text-muted">
             {perks.map((perk) => (

@@ -185,7 +185,8 @@ export function UpgradePanel({
           <p className="text-sm text-muted">
             {/* Mono, because it is a figure. Fraunces is for words. */}
             <span className="figure text-fg">{PRO.price}</span>
-            {PRO.cadence} {PRO.note}
+            {PRO.cadence}
+            {PRO.note ? ` ${PRO.note}` : ""}
           </p>
         ) : null}
       </div>

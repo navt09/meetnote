@@ -39,7 +39,9 @@ export const PLANS = [
     name: "Pro",
     price: "$20.99",
     cadence: "/month",
-    note: "per person",
+    // Empty on purpose. Everywhere a note is shown guards against it, because
+    // the price line reads better with nothing after it than with filler.
+    note: "",
     tagline: "The follow-up done, not just written down.",
     lead: "Everything in Free, plus",
     // Ordered by what free does not get, because that is the reason to pay.

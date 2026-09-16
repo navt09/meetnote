@@ -262,7 +262,10 @@ export default function Home() {
                       <span className={`display ${pro ? "text-6xl" : "text-5xl"}`}>{plan.price}</span>
                       {plan.cadence ? <span className="text-lg text-muted">{plan.cadence}</span> : null}
                     </p>
-                    <p className="mt-1 text-sm text-faint">{plan.note}</p>
+                    {/* The line is kept even when a plan has no note, so the two
+                        cards' rows stay level with each other. Dropping the
+                        element instead pulls one column up out of step. */}
+                    <p className="mt-1 text-sm text-faint">{plan.note || " "}</p>
 
                     <p className={`mt-7 text-sm ${pro ? "font-medium text-fg" : "text-muted"}`}>{plan.lead}</p>
                     <ul className="mt-3 flex flex-1 flex-col gap-2.5">
