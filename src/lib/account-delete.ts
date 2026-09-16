@@ -17,19 +17,36 @@ import { RECORDINGS_BUCKET, supabaseAdmin } from "./supabase-admin";
 
 export type DeletionResult = { audioFilesRemoved: number };
 
+/**
+ * One folder, every entry, paged.
+ *
+ * A single list call is capped, and it does not say that it was capped: it
+ * just returns a full page. Asking once would quietly leave everything past
+ * the cap in the bucket while the account was deleted around it, which is the
+ * one failure this file exists to prevent and the one it could not see. So the
+ * pages are walked until one comes back short.
+ */
+const PAGE = 1000;
+
+async function listFolder(prefix: string): Promise<string[]> {
+  const admin = supabaseAdmin();
+  const names: string[] = [];
+
+  for (let offset = 0; ; offset += PAGE) {
+    const { data, error } = await admin.storage.from(RECORDINGS_BUCKET).list(prefix, { limit: PAGE, offset });
+    if (error) throw new Error(`Could not list stored audio: ${error.message}`);
+    const page = data ?? [];
+    for (const entry of page) names.push(entry.name);
+    if (page.length < PAGE) return names;
+  }
+}
+
 /** Every object under `<user_id>/`, walking the month folders the paths are built from. */
 async function listUserObjects(userId: string): Promise<string[]> {
-  const admin = supabaseAdmin();
   const paths: string[] = [];
-
-  const { data: months, error } = await admin.storage.from(RECORDINGS_BUCKET).list(userId, { limit: 1000 });
-  if (error) throw new Error(`Could not list stored audio: ${error.message}`);
-
-  for (const month of months ?? []) {
-    const folder = `${userId}/${month.name}`;
-    const { data: files, error: fileError } = await admin.storage.from(RECORDINGS_BUCKET).list(folder, { limit: 1000 });
-    if (fileError) throw new Error(`Could not list stored audio: ${fileError.message}`);
-    for (const f of files ?? []) paths.push(`${folder}/${f.name}`);
+  for (const month of await listFolder(userId)) {
+    const folder = `${userId}/${month}`;
+    for (const name of await listFolder(folder)) paths.push(`${folder}/${name}`);
   }
   return paths;
 }
@@ -45,9 +62,12 @@ async function listUserObjects(userId: string): Promise<string[]> {
 export async function deleteAccount(userId: string): Promise<DeletionResult> {
   const admin = supabaseAdmin();
 
+  // Removed a page at a time for the same reason they are listed a page at a
+  // time: one very long request is the shape that gets truncated or refused,
+  // and the failure would look like a deletion that worked.
   const paths = await listUserObjects(userId);
-  if (paths.length > 0) {
-    const { error } = await admin.storage.from(RECORDINGS_BUCKET).remove(paths);
+  for (let i = 0; i < paths.length; i += PAGE) {
+    const { error } = await admin.storage.from(RECORDINGS_BUCKET).remove(paths.slice(i, i + PAGE));
     if (error) throw new Error(`Could not delete stored audio: ${error.message}`);
   }
 

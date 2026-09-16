@@ -28,7 +28,11 @@ for (const m of meetings ?? []) {
   const items = m.notes?.action_items;
   if (!Array.isArray(items) || items.length === 0) continue;
 
-  const { data: tasks } = await admin.from("tasks").select("id,idx,title,due,due_at").eq("meeting_id", m.id);
+  // user_id is selected so every write below can name it. This holds the
+  // service role, which bypasses Row Level Security, so an update scoped only
+  // by the row it means to touch has no second line of defence if the id is
+  // ever wrong. That is how a fixture script once overwrote every account.
+  const { data: tasks } = await admin.from("tasks").select("id,user_id,idx,title,due,due_at").eq("meeting_id", m.id);
   const at = new Date(m.recorded_at);
 
   for (const t of tasks ?? []) {
@@ -46,7 +50,11 @@ for (const m of meetings ?? []) {
         `  |  ${t.due_at ? new Date(t.due_at).toDateString() : "null"} -> ${dueAt ? new Date(dueAt).toDateString() : "null"}`,
     );
     if (apply) {
-      const { error: upErr } = await admin.from("tasks").update({ due, due_at: dueAt }).eq("id", t.id);
+      const { error: upErr } = await admin
+        .from("tasks")
+        .update({ due, due_at: dueAt })
+        .eq("id", t.id)
+        .eq("user_id", t.user_id);
       if (upErr) console.error("  failed:", upErr.message);
     }
   }
