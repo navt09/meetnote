@@ -9,6 +9,7 @@ import { BrandMark } from "@/components/brand-marks";
 import { canConnect, TIER_BLURB, TIER_LABEL, type Tier } from "@/lib/account";
 import { canPickTeamsChannel, enableableProducts, PRODUCTS } from "@/lib/microsoft-scopes";
 import { ManageBillingButton, UpgradeButton, UpgradePanel } from "@/components/upgrade";
+import { COMPETITORS_MAX } from "@/lib/signals";
 import { PLANS } from "@/lib/site";
 import { settingsFlash } from "@/lib/flash";
 import type { Theme } from "@/lib/settings-store";
@@ -34,6 +35,7 @@ export default function SettingsView({
   checkout,
   email,
   displayName,
+  competitors,
   theme,
 }: {
   initial: PublicConnector[];
@@ -50,6 +52,7 @@ export default function SettingsView({
   checkout: CheckoutOutcome;
   email: string | null;
   displayName: string | null;
+  competitors: string[];
 }) {
   const toast = useToast();
   const router = useRouter();
@@ -126,6 +129,8 @@ export default function SettingsView({
         <DisplayNameField initial={displayName} />
         <ThemeField initial={theme} />
       </div>
+
+      <CompetitorsField initial={competitors} />
 
       <Billing
         tier={tier}
@@ -397,6 +402,69 @@ function DisplayNameField({ initial }: { initial: string | null }) {
           {busy ? "Saving…" : "Save"}
         </button>
       </div>
+    </div>
+  );
+}
+
+/** The competitor box holds one name per line. */
+const NEWLINE = "\n";
+
+/**
+ * The competitors to spot in calls.
+ *
+ * One box, one name per line or separated by commas, because that is how a
+ * list gets pasted from wherever it already lives. The server cleans it and
+ * sends back what it kept, and that is what the box then shows, so a dropped
+ * duplicate or a too-long list is visible rather than silently different.
+ */
+function CompetitorsField({ initial }: { initial: string[] }) {
+  const toast = useToast();
+  const [text, setText] = useState(initial.join(NEWLINE));
+  const [saved, setSaved] = useState(initial.join(NEWLINE));
+  const [busy, setBusy] = useState(false);
+
+  async function save() {
+    setBusy(true);
+    try {
+      const res = await putJson<{ competitors: string[] }>("/api/settings/competitors", { competitors: text });
+      const kept = res.competitors.join(NEWLINE);
+      setText(kept);
+      setSaved(kept);
+      toast(
+        res.competitors.length === 0
+          ? "No competitors tracked."
+          : `Tracking ${res.competitors.length} ${res.competitors.length === 1 ? "competitor" : "competitors"} in every call.`,
+        "ok",
+      );
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Could not save your competitors", "error");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div id="competitors" className="glass scroll-mt-14 p-5">
+      <label className="text-sm font-medium" htmlFor="competitors-list">
+        Competitors to spot
+      </label>
+      <p className="mt-1 text-xs leading-relaxed text-muted">
+        Every call is searched for exactly these names, and a meeting that mentions one shows where. Nothing is
+        guessed: a name that is not on this list is never reported, and one that is on it is never missed. It
+        applies to meetings you have already recorded, too.
+      </p>
+      <textarea
+        id="competitors-list"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder={["Gong", "Chorus", "Fireflies"].join(NEWLINE)}
+        rows={4}
+        className="field mt-3 w-full text-sm sm:max-w-sm"
+      />
+      <p className="mt-1 text-xs text-faint">One per line, or separated by commas. Up to {COMPETITORS_MAX}.</p>
+      <button className="btn btn-primary mt-3" disabled={busy || text.trim() === saved.trim()} onClick={save}>
+        {busy ? "Saving…" : "Save"}
+      </button>
     </div>
   );
 }

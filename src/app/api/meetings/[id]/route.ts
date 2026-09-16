@@ -4,6 +4,8 @@ import { RECORDINGS_BUCKET, supabaseAdmin } from "@/lib/supabase-admin";
 import { pathBelongsTo } from "@/lib/paths";
 import { isOwnerEmail } from "@/lib/admin";
 import { toPublicMeeting, type Meeting } from "@/lib/meeting";
+import { findSignals } from "@/lib/signals";
+import { getCompetitors } from "@/lib/settings-store";
 
 export const runtime = "nodejs";
 
@@ -22,7 +24,17 @@ export async function GET(req: Request, ctx: Ctx) {
     return NextResponse.json({ error: "Could not load this meeting." }, { status: 500 });
   }
   if (!data) return NextResponse.json({ error: "Meeting not found" }, { status: 404 });
-  return NextResponse.json({ meeting: toPublicMeeting(data as Meeting, isOwnerEmail(auth.user.email)) });
+
+  const m = data as Meeting;
+  const meeting = toPublicMeeting(m, isOwnerEmail(auth.user.email));
+  // Found on read, not stored: the competitor list is edited after meetings
+  // happen, and a name added today should be found in last month's calls.
+  // The page polls this route while a meeting processes, so the list is only
+  // fetched once there is a transcript to search.
+  meeting.signals = m.transcript?.length
+    ? findSignals(m.transcript, await getCompetitors(auth.db, auth.user.id), new Date(m.recorded_at))
+    : null;
+  return NextResponse.json({ meeting });
 }
 
 /** Rename. Only the title is editable by hand; everything else is produced by the pipeline. */

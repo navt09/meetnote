@@ -1,4 +1,5 @@
 import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabaseAdmin } from "./supabase-admin";
 
 /**
@@ -72,4 +73,28 @@ export async function setTheme(userId: string, theme: Theme): Promise<void> {
   const admin = supabaseAdmin();
   const { error } = await admin.from("user_settings").upsert({ user_id: userId, theme }, { onConflict: "user_id" });
   if (error) throw new Error(`Could not save the theme: ${error.message}`);
+}
+
+/* ---------- competitors to spot in calls ---------- */
+
+/**
+ * Read with the caller's own client where there is one, so row level security
+ * decides. An error, including the column not existing yet on a database that
+ * has not been migrated, reads as "tracks nothing": the page loses a panel,
+ * not the meeting.
+ */
+export async function getCompetitors(db: SupabaseClient, userId: string): Promise<string[]> {
+  const { data, error } = await db.from("user_settings").select("competitors").eq("user_id", userId).maybeSingle();
+  if (error) {
+    console.error(JSON.stringify({ event: "competitors_read_error", message: error.message }));
+    return [];
+  }
+  const list = (data as { competitors: unknown } | null)?.competitors;
+  return Array.isArray(list) ? list.filter((n): n is string => typeof n === "string") : [];
+}
+
+export async function setCompetitors(userId: string, names: string[]): Promise<void> {
+  const admin = supabaseAdmin();
+  const { error } = await admin.from("user_settings").upsert({ user_id: userId, competitors: names }, { onConflict: "user_id" });
+  if (error) throw new Error(`Could not save the competitors: ${error.message}`);
 }

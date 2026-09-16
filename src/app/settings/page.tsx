@@ -10,6 +10,7 @@ import { toPublicConnector, type ConnectorRow, type TicketProvider } from "@/lib
 import { cleanTheme } from "@/lib/settings-store";
 import { stripeConfigured } from "@/lib/billing";
 import { billingFor } from "@/lib/billing-store";
+import { getCompetitors } from "@/lib/settings-store";
 import SettingsView, { type CheckoutOutcome } from "./settings-view";
 
 export const dynamic = "force-dynamic";
@@ -28,12 +29,15 @@ export default async function SettingsPage({
   const db = await supabaseServer();
   const { data: userData } = await db.auth.getUser();
 
-  const [connectorsRes, settingsRes, tier, billing, query] = await Promise.all([
+  const [connectorsRes, settingsRes, tier, billing, query, competitors] = await Promise.all([
     db.from("connectors").select("provider,config,last_error,created_at"),
     db.from("user_settings").select("ticket_provider,display_name,theme").maybeSingle(),
     userData.user ? tierFor(userData.user.id, userData.user.email) : Promise.resolve("free" as const),
     userData.user ? billingFor(userData.user.id) : Promise.resolve(null),
     searchParams,
+    // Its own read, and a forgiving one: folded into the query above, a
+    // database not yet migrated would lose the name and theme along with it.
+    userData.user ? getCompetitors(db, userData.user.id) : Promise.resolve([] as string[]),
   ]);
 
   const connectors = ((connectorsRes.data ?? []) as ConnectorRow[]).map(toPublicConnector);
@@ -60,6 +64,7 @@ export default async function SettingsPage({
       checkout={checkoutOutcome(query.checkout)}
       email={userData.user?.email ?? null}
       displayName={displayName}
+      competitors={competitors}
       theme={theme}
     />
   );

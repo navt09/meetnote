@@ -361,6 +361,25 @@ test.describe("every page renders what it was given", () => {
     expect(problems, `console problems:\n${problems.join("\n")}`).toEqual([]);
   });
 
+  test("a meeting shows what plain code found in it, and nothing it did not", async ({ page }) => {
+    const problems = watchConsole(page);
+    await page.goto(`/meetings/${fixture.meetingId}`);
+
+    // The page itself is a section too, so take the innermost one holding the heading.
+    const panel = page.locator("section", { has: page.getByRole("heading", { name: "From the transcript" }) }).last();
+    await expect(panel).toBeVisible();
+    await expect(panel.getByText("Next meeting")).toBeVisible();
+    // Resolved against when the meeting was recorded; the fixture's said Thursday.
+    await expect(panel.getByText(/^Thursday, /)).toBeVisible();
+    await expect(panel.getByText("mentioned once")).toBeVisible();
+    await expect(panel.locator("mark", { hasText: "Asana" })).toBeVisible();
+    await expect(panel.locator("mark", { hasText: "$12k a year" })).toBeVisible();
+    // Tracked, never said.
+    await expect(panel.getByText("Trello")).toHaveCount(0);
+
+    expect(problems, `console problems:\n${problems.join("\n")}`).toEqual([]);
+  });
+
   test("recording is not offered until there is a name to put on it", async ({ page }) => {
     // Clear the name the fixture arrives with, which is the state a brand new
     // account is in. Done through the API rather than the Settings form, so the

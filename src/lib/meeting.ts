@@ -1,4 +1,5 @@
 import type { MeetingNotes, TranscriptSegment } from "./schema";
+import type { Signals } from "./signals";
 import type { LlmUsage } from "./cost";
 
 export type MeetingStatus = "recorded" | "uploaded" | "transcribing" | "transcribed" | "extracting" | "done" | "error";
@@ -41,6 +42,11 @@ export type PublicMeeting = {
   recordedAt: string;
   transcript: TranscriptSegment[] | null;
   notes: MeetingNotes | null;
+  /**
+   * Competitors, money and the next meeting, found by plain code. Null until
+   * there is a transcript, and absent from anything that did not ask for it.
+   */
+  signals?: Signals | null;
   /** Present only for owner accounts. */
   internal?: { costUsd: number; inputTokens: number; outputTokens: number };
 };
@@ -183,5 +189,46 @@ export function processingAllowed(attempts: number): { ok: true } | { ok: false;
     ok: false,
     // Said to the person, so it names the way out rather than the counter.
     reason: "This recording has been through processing too many times. Something is wrong with it; get in touch rather than retrying.",
+  };
+}
+
+/* ---------- recordings with nothing in them ---------- */
+
+/**
+ * Below this many words, notes are not written at all.
+ *
+ * Extraction costs roughly the same whatever it is given: the instructions and
+ * the shape of the notes are sent every time, and a full set of notes is
+ * written back. On "can you hear me? … let's reschedule" that is the whole
+ * price of a meeting spent learning nothing.
+ *
+ * Set by words said, not by length, and deliberately low. Ninety seconds of
+ * real talk is about two hundred words and can hold a real task; a threshold
+ * set by the clock would throw that away to save a few cents. Forty words is
+ * a sign-in, a sound check and a goodbye.
+ */
+export const EXTRACT_MIN_WORDS = 40;
+
+export function worthExtracting(words: number): boolean {
+  return words >= EXTRACT_MIN_WORDS;
+}
+
+/**
+ * The notes a recording gets when there was too little said to write any.
+ *
+ * Real notes rather than an error, because nothing went wrong: the recording
+ * worked and the transcript is there to read. The summary says what happened
+ * so an empty page does not read as a failure.
+ */
+export function tooShortNotes(title: string): MeetingNotes {
+  return {
+    title,
+    summary: "Too little was said in this recording to write notes from, so none were written. The transcript is below.",
+    key_points: [],
+    action_items: [],
+    decisions: [],
+    people_to_contact: [],
+    open_questions: [],
+    for_you: { committed: [], asked_of_you: [], heads_up: [], mentioned: [] },
   };
 }

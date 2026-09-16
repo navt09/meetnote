@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NotesView, TranscriptView } from "@/components/notes";
+import { SignalsView } from "@/components/signals";
 import { NotesSkeleton, ProcessingStepper, StatusPill } from "@/components/ui";
 import { useToast } from "@/components/toast";
 import { isSettling, type PublicMeeting } from "@/lib/meeting";
@@ -207,6 +208,7 @@ export default function MeetingView({ tier }: { tier: Tier }) {
       ) : null}
 
       {meeting.notes ? <NotesView notes={meeting.notes} meetingId={id} tier={tier} /> : working ? <NotesSkeleton /> : null}
+      {meeting.signals ? <SignalsView signals={meeting.signals} /> : null}
       {meeting.transcript?.length ? <TranscriptView segments={meeting.transcript} /> : null}
     </section>
   );

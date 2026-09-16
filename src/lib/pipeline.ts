@@ -1,10 +1,10 @@
 import "server-only";
 import { RECORDINGS_BUCKET, supabaseAdmin } from "./supabase-admin";
-import { normalizeUtterances, type DeepgramUtterance } from "./transcript";
+import { normalizeUtterances, wordCount, type DeepgramUtterance } from "./transcript";
 import { transcriptionCostUsd } from "./cost";
 import { HttpError, withRetry } from "./retry";
 import { extractNotes } from "./extract";
-import { nextStep, processingAllowed, type Meeting } from "./meeting";
+import { nextStep, processingAllowed, tooShortNotes, worthExtracting, type Meeting } from "./meeting";
 import { toPublicFailure } from "./public-error";
 import { actionItemsToRows } from "./task";
 import { tagSelf, type Window } from "./self-speech";
@@ -162,6 +162,19 @@ export async function runPipeline(meetingId: string, userId: string): Promise<vo
     }
 
     if (step === "extract") {
+      // Too little said to be worth a model call. Checked here, where the
+      // money is spent, rather than before transcription: the transcript is
+      // the only honest measure of what was said, and it is shown either way.
+      const words = wordCount(transcript ?? []);
+      if (!worthExtracting(words)) {
+        const title = !m.title.startsWith("Meeting · ") ? m.title : "Short recording";
+        await patch({ notes: tooShortNotes(title), usage: null, llm_cost_usd: 0, title, status: "done", error: null });
+        // Clears any tasks an earlier, longer extraction left on this meeting.
+        await syncTasks(meetingId, userId, [], transcript ?? []);
+        console.log(JSON.stringify({ event: "extract_skipped", meetingId, words }));
+        return;
+      }
+
       await patch({ status: "extracting", error: null });
       const e = await extractNotes(transcript!, { name: await getDisplayName(userId) });
       const keepTitle = !m.title.startsWith("Meeting · ") ? m.title : e.notes.title;

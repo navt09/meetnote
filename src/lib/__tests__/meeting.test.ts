@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { defaultTitle, isInProgress, nextStep, statusLabel, MAX_PROCESS_ATTEMPTS, processingAllowed } from "../meeting";
+import {
+  defaultTitle,
+  EXTRACT_MIN_WORDS,
+  isInProgress,
+  nextStep,
+  statusLabel,
+  MAX_PROCESS_ATTEMPTS,
+  processingAllowed,
+  tooShortNotes,
+  worthExtracting,
+} from "../meeting";
+import { MeetingNotes } from "../schema";
 
 const seg = [{ speaker: "Speaker 0", text: "hi", start: 0, end: 1 }];
 const notes = {
@@ -62,5 +73,24 @@ describe("processingAllowed", () => {
     // paying account is unlimited, and a usage cap would punish the person
     // using the product most, who is the person paying for it.
     expect(processingAllowed(0).ok).toBe(true);
+  });
+});
+
+describe("recordings with too little said", () => {
+  it("skips a sound check but not a short real conversation", () => {
+    expect(worthExtracting(0)).toBe(false);
+    expect(worthExtracting(EXTRACT_MIN_WORDS - 1)).toBe(false);
+    expect(worthExtracting(EXTRACT_MIN_WORDS)).toBe(true);
+    // Ninety seconds of real talk is about two hundred words, and can hold a task.
+    expect(worthExtracting(200)).toBe(true);
+  });
+
+  it("gives a skipped recording notes the rest of the app can read", () => {
+    const notes = tooShortNotes("Short recording");
+    // The same schema extraction output is validated against, so the pages,
+    // the markdown export and the task sync all accept it unchanged.
+    expect(MeetingNotes.safeParse(notes).success).toBe(true);
+    expect(notes.action_items).toEqual([]);
+    expect(notes.summary).toMatch(/too little was said/i);
   });
 });

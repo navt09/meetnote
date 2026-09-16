@@ -157,6 +157,10 @@ const TRANSCRIPT = [
   { start: 6, end: 13, speaker: FIXTURE_NAME, text: "I found a crash in the export on anything over ten thousand rows. I will have a fix by Friday." },
   { start: 13, end: 17, speaker: "Priya", text: "Then dark mode waits. We still have no icons." },
   { start: 17, end: 22, speaker: FIXTURE_NAME, text: "Agreed. I will chase design on Monday." },
+  // For the panel found by plain code: a tracked competitor, an amount, and a
+  // plan to meet again. Kept off the names of the delivery destinations, which
+  // a meeting that says them out loud would start choosing for its drafts.
+  { start: 22, end: 29, speaker: "Priya", text: "Asana quoted us about $12k a year for that. Let's catch up on Thursday." },
 ];
 
 /**
@@ -195,7 +199,11 @@ export async function createFixture() {
   // page asks for it instead of offering the recorder.
   await admin
     .from("user_settings")
-    .upsert({ user_id: userId, display_name: FIXTURE_NAME, ticket_provider: "linear" }, { onConflict: "user_id" });
+    .upsert(
+      // Trello is tracked and never said, so the panel has to leave it out.
+      { user_id: userId, display_name: FIXTURE_NAME, ticket_provider: "linear", competitors: ["Asana", "Trello"] },
+      { onConflict: "user_id" },
+    );
 
   const body = notes(2);
   const dueAt = body._due_at;
