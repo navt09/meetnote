@@ -1,6 +1,6 @@
 import { chromium, type FullConfig } from "@playwright/test";
 import { writeFileSync } from "node:fs";
-import { createFixture } from "../scripts/smoke-fixture.mjs";
+import { createFixture, createFreeAccount } from "../scripts/smoke-fixture.mjs";
 import { AUTH_FILE, FIXTURE_FILE, ROUTES } from "./paths";
 
 /**
@@ -18,7 +18,10 @@ export default async function globalSetup(config: FullConfig) {
   const baseURL = config.projects[0]?.use?.baseURL ?? "http://localhost:3000";
 
   const fixture = await createFixture();
-  writeFileSync(FIXTURE_FILE, JSON.stringify(fixture, null, 2));
+  // Signed in by the one test that needs it, in its own browser context, so
+  // the saved cookies below stay the paying account's.
+  const free = await createFreeAccount();
+  writeFileSync(FIXTURE_FILE, JSON.stringify({ ...fixture, free }, null, 2));
 
   const browser = await chromium.launch();
   const page = await browser.newPage({ baseURL });
@@ -32,7 +35,7 @@ export default async function globalSetup(config: FullConfig) {
     // Warming is an optimisation, not an assertion. A machine that suspends
     // its network mid-loop should cost the run a slow first navigation, not
     // the whole run.
-    for (const route of [...ROUTES, `/meetings/${fixture.meetingId}`]) {
+    for (const route of [...ROUTES, `/meetings/${fixture.meetingId}`, "/welcome"]) {
       try {
         await page.goto(route, { timeout: 120_000 });
       } catch (err) {

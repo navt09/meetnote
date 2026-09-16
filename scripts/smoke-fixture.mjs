@@ -340,6 +340,27 @@ export async function createFixture() {
   return { email, password: SMOKE_PASSWORD, userId, name: FIXTURE_NAME, meetingId: meeting.id, meetingTitle: MEETING_TITLE };
 }
 
+/**
+ * A second account, on Free, with nothing in it.
+ *
+ * The main fixture pays, because most of the app is only worth checking with
+ * drafting and connectors switched on. But the offer made to a new account is
+ * only shown to a free one; a paying account is sent straight past it, so the
+ * page cannot be tested with the fixture above at all. Same pattern, so
+ * cleanFixtures removes it with the rest.
+ */
+export async function createFreeAccount() {
+  const email = `${PREFIX}free-${Date.now()}${DOMAIN}`;
+  const { data: created } = await withRetry("could not create the free smoke user", () =>
+    admin.auth.admin.createUser({ email, password: SMOKE_PASSWORD, email_confirm: true }),
+  );
+  const userId = created.user.id;
+  await withRetry("could not set the free smoke tier", () =>
+    admin.from("accounts").upsert({ user_id: userId, tier: "free", note: "smoke fixture (free)" }, { onConflict: "user_id" }),
+  );
+  return { email, password: SMOKE_PASSWORD, userId };
+}
+
 /** Removes one account. Refuses anything that is not a smoke account. */
 export async function destroyFixture(userId) {
   const { data } = await admin.auth.admin.getUserById(userId);

@@ -23,6 +23,7 @@ const fixture: {
   name: string;
   meetingId: string;
   meetingTitle: string;
+  free: { email: string; password: string };
 } = JSON.parse(readFileSync(FIXTURE_FILE, "utf8"));
 
 /** Noise from the dev server that says nothing about the page. */
@@ -376,5 +377,56 @@ test.describe("every page renders what it was given", () => {
     // The recorder appears in place, without a trip to Settings and back.
     await expect(page.getByRole("button", { name: /Choose a window/ })).toBeVisible();
     await expect(page.getByText("What should the notes call you?")).toHaveCount(0);
+  });
+});
+
+test.describe("the offer made to a new account", () => {
+  test("a paying account is sent straight past it", async ({ page }) => {
+    await page.goto("/welcome");
+    await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  test.describe("signed in on Free", () => {
+    // A context of its own. The saved cookies belong to the paying account,
+    // and the whole point of this page is who it is not shown to.
+    test.use({ storageState: { cookies: [], origins: [] } });
+
+    test("offers Pro beside Free, and lets them carry on free", async ({ page }) => {
+      // Compiling this at phone width in both themes is slow in development.
+      test.setTimeout(180_000);
+      const problems = watchConsole(page);
+
+      await page.goto("/login");
+      await page.getByLabel("Email").fill(fixture.free.email);
+      await page.getByLabel("Password", { exact: true }).fill(fixture.free.password);
+      await page.getByRole("button", { name: "Sign in", exact: true }).click();
+      await page.waitForURL("**/dashboard", { timeout: 60_000 });
+
+      await page.goto("/welcome");
+      await expect(page.getByRole("heading", { name: "Your account is ready" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Start with Pro" })).toBeVisible();
+      await expect(page.getByText("$20.99").first()).toBeVisible();
+      // The price is a price, not a seat count.
+      await expect(page.getByText(/per person/)).toHaveCount(0);
+
+      // Holds together on a phone in both themes. Set through the API rather
+      // than the Settings form, so this test stays about this page.
+      await page.setViewportSize({ width: 375, height: 812 });
+      for (const theme of ["light", "dark"] as const) {
+        await page.request.put("/api/settings/theme", { data: { theme } });
+        await page.goto("/welcome");
+        await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+        const overflow = await page.evaluate(
+          () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        );
+        expect(overflow, `/welcome scrolls sideways in ${theme}`).toBeLessThanOrEqual(0);
+      }
+
+      // The way past goes somewhere useful, not back to the offer.
+      await page.getByRole("link", { name: "Continue on Free" }).click();
+      await expect(page).toHaveURL(/\/record$/);
+
+      expect(problems, `console problems:\n${problems.join("\n")}`).toEqual([]);
+    });
   });
 });
