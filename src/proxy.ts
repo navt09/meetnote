@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PROTECTED = ["/record", "/meetings", "/notes", "/tasks", "/dashboard", "/approvals", "/settings", "/owner"];
+const PROTECTED = ["/record", "/meetings", "/notes", "/tasks", "/dashboard", "/approvals", "/settings", "/owner", "/welcome"];
 
 /**
  * The Content-Security-Policy for pages. It lives here rather than in

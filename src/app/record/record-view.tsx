@@ -345,7 +345,7 @@ export default function RecordView({ meetingsLeft }: { meetingsLeft?: number }) 
         <p className="rise text-sm text-muted">
           <span className="font-mono">{meetingsLeft}</span>{" "}
           {meetingsLeft === 1 ? "free meeting" : "free meetings"} left this month.{" "}
-          <Link href="/#pricing" className="font-medium text-accent transition-opacity hover:opacity-70">
+          <Link href="/settings#plan" className="font-medium text-accent transition-opacity hover:opacity-70">
             Pro records as many as you like
           </Link>
           .

@@ -220,7 +220,8 @@ function Billing({
   const oddStatus = subscriptionStatus && subscriptionStatus !== "active" ? subscriptionStatus : null;
 
   return (
-    <div className="glass p-5">
+    // The anchor every "what does Pro include" link inside the app points at.
+    <div id="plan" className="glass scroll-mt-14 p-5">
       <p className="text-sm font-medium">Billing</p>
 
       {checkout === "done" ? (

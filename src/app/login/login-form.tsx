@@ -83,10 +83,19 @@ export default function LoginForm() {
       }
 
       if (mode === "signup") {
-        const { data, error } = await supabase.auth.signUp({ email: value, password, options: { emailRedirectTo: callbackUrl() } });
+        // A brand new account lands on /welcome, which offers Pro once and
+        // lets them carry on free. Only when nothing else was asked for: a
+        // person sent to /login from a page they wanted still gets that page,
+        // because interrupting them with an offer is how you lose them.
+        const target = next === "/dashboard" ? "/welcome" : next;
+        const { data, error } = await supabase.auth.signUp({
+          email: value,
+          password,
+          options: { emailRedirectTo: callbackUrl(target) },
+        });
         if (error) throw error;
         if (data.session) {
-          router.push(next);
+          router.push(target);
           router.refresh();
           return;
         }
